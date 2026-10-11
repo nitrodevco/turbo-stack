@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { api, errorMessage, type ServerSettings } from '../api';
 import { usePermissions } from '../auth';
+import { PanelAddressCard } from '../components/PanelAddressCard';
 import { Button, Card, ErrorNote, Field, Notice, PageHeader } from '../components/ui';
 
 export function SettingsPage() {
@@ -26,6 +27,7 @@ export function SettingsPage() {
     return (
         <div className="space-y-6">
             <PageHeader title="Settings" />
+            <PanelAddressCard />
             <Card className="space-y-4 p-5">
                 <div>
                     <h2 className="font-medium">Public address</h2>

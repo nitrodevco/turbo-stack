@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using TurboManager.Contracts.Agent;
 using TurboManager.Panel.AgentClient;
+using TurboManager.Panel.Cloudflare;
 using TurboManager.Panel.Data;
 
 namespace TurboManager.Panel.Sites;
@@ -19,6 +20,8 @@ public sealed class CertificateService(
     AgentChannelFactory agent,
     IDataProtectionProvider dataProtection,
     IHttpClientFactory httpClients,
+    CloudflareService cloudflare,
+    CloudflareClient cloudflareApi,
     IOptions<PanelOptions> options,
     TimeProvider time,
     ILogger<CertificateService> logger)
@@ -98,6 +101,7 @@ public sealed class CertificateService(
             {
                 CertificateKind.SelfSigned => CreateSelfSigned(certificate.Domains),
                 CertificateKind.LetsEncrypt => await IssueAcmeAsync(certificate.Domains, log, cancellationToken),
+                CertificateKind.CloudflareOrigin => await IssueCloudflareOriginAsync(certificate.Domains, log, cancellationToken),
                 _ => throw new InvalidOperationException($"{certificate.Kind} certificates can't be issued yet."),
             };
 
@@ -123,6 +127,27 @@ public sealed class CertificateService(
 
             return false;
         }
+    }
+
+    /// <summary>Cloudflare Origin CA: trusted by Cloudflare's edge only (Full (strict) mode), valid for 15 years.</summary>
+    private async Task<(string Chain, string Key)> IssueCloudflareOriginAsync(IReadOnlyList<string> domains, Action<string> log,
+        CancellationToken cancellationToken)
+    {
+        var (_, token) = await cloudflare.RequireAsync();
+        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var request = new CertificateRequest($"CN={domains[0]}", key, HashAlgorithmName.SHA256);
+        var san = new SubjectAlternativeNameBuilder();
+
+        foreach (var domain in domains)
+        {
+            san.AddDnsName(domain);
+        }
+
+        request.CertificateExtensions.Add(san.Build());
+        log("Requesting a Cloudflare Origin certificate…");
+        var issued = await cloudflareApi.CreateOriginCertificateAsync(token, request.CreateSigningRequestPem(), domains, cancellationToken);
+
+        return (issued.Certificate.Trim() + "\n", key.ExportPkcs8PrivateKeyPem());
     }
 
     public static (string Chain, string Key) CreateSelfSigned(IReadOnlyList<string> domains)

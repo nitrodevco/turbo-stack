@@ -45,6 +45,9 @@ public sealed class NginxAgentService(NginxManager nginx) : NginxAgent.NginxAgen
         return Task.FromResult(new Empty());
     }
 
+    public override Task<NginxApplyResult> CloseSetupAddress(Empty request, ServerCallContext context) =>
+        nginx.CloseSetupAddressAsync(context.CancellationToken);
+
     public override Task<WebRootResult> EnsureWebRoot(WebRootRequest request, ServerCallContext context) =>
         Task.FromResult(nginx.EnsureWebRoot(request));
 }

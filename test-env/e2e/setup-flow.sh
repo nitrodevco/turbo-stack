@@ -160,4 +160,64 @@ response="$(call POST /api/sites '{"name":"e2e-evil","domains":["evil.hotel.test
 pass "unsafe custom config refused by the agent's policy"
 
 echo "Sites passed."
+echo
+echo "Cloudflare (fake API)"
+
+SERVER_IP="$(getent hosts server | awk '{print $1}')"
+FAKE="http://fake-cloudflare:8080"
+
+wait_for_job() {
+    for _ in $(seq 1 60); do
+        [[ "$(body_of "$(call GET "/api/jobs/$1")" | jq -r .status)" != "running" ]] && break
+        sleep 1
+    done
+    [[ "$(body_of "$(call GET "/api/jobs/$1")" | jq -r .status)" == "succeeded" ]] || fail "job $1 failed: $(call GET "/api/jobs/$1")"
+}
+
+call PUT /api/settings/server '{"publicIPv4":"203.0.113.10"}' >/dev/null
+response="$(call PUT /api/cloudflare/token '{"token":"test-token"}')"
+[[ "$(body_of "$response" | jq '[.checks[] | select(.status != "ok")] | length')" == "0" ]] || fail "all permission checks should pass: $response"
+[[ "$(curl -s "$FAKE/__fake/state" | jq '.records | length')" == "0" ]] || fail "the DNS permission probe should clean up after itself"
+pass "token connected, permissions probed, probe record removed"
+
+response="$(call POST /api/sites '{"name":"e2e-cf","domains":["cf.hotel.test"],"tlsMode":"CloudflareOrigin","cloudflareDns":true,"routes":[{"path":"/","kind":"Spa","target":"/var/www/e2e-cf"}]}')"
+[[ "$(body_of "$response" | jq -r .applied)" == "true" ]] || fail "Cloudflare site should apply: $response"
+wait_for_job "$(body_of "$response" | jq -r .certificateJobId)"
+[[ "$(curl -s "$FAKE/__fake/state" | jq -r '.records[] | select(.name == "cf.hotel.test") | "\(.type) \(.content) \(.proxied)"')" == "A 203.0.113.10 true" ]] \
+    || fail "proxied A record should exist: $(curl -s "$FAKE/__fake/state")"
+curl -sfk --resolve cf.hotel.test:443:"$SERVER_IP" https://cf.hotel.test/ | grep -q "It works" || fail "site should serve HTTPS with the Origin certificate"
+pass "DNS record created, Origin certificate issued, HTTPS served"
+
+response="$(call POST /api/cloudflare/zones/zone-hotel/preset)"
+[[ "$(curl -s "$FAKE/__fake/state" | jq -r .settings.ssl)" == "strict" ]] || fail "preset should set SSL to strict: $response"
+pass "recommended zone settings applied"
+
+response="$(call PUT /api/panel-address '{"domain":"panel.hotel.test"}')"
+[[ "$(body_of "$response" | jq -r .applied)" == "true" ]] || fail "panel site should apply: $response"
+JOB="$(body_of "$response" | jq -r .certificateJobId)"
+[[ "$JOB" == "null" ]] || wait_for_job "$JOB"
+CODE="$(body_of "$(call GET /api/panel-address)" | jq -r .verifyUrl | sed 's/.*code=//')"
+PANEL=(--resolve panel.hotel.test:443:"$SERVER_IP" -k -H 'X-TM-Request: 1' -H 'Content-Type: application/json')
+[[ "$(curl -s -o /dev/null -w '%{http_code}' "${PANEL[@]}" -X POST https://panel.hotel.test/api/panel-address/verify --data "{\"code\":\"$CODE\"}")" == "204" ]] \
+    || fail "address check through nginx on the new domain failed"
+pass "panel reachable on panel.hotel.test and verified"
+
+TOKEN_URL="$(body_of "$(call POST /api/panel-address/handover)" | jq -r .url)"
+NEW_JAR="$(mktemp)"
+[[ "$(curl -s -o /dev/null -w '%{http_code}' "${PANEL[@]}" -c "$NEW_JAR" -b "$NEW_JAR" -X POST https://panel.hotel.test/api/auth/handover \
+    --data "{\"token\":\"${TOKEN_URL##*token=}\"}")" == "204" ]] || fail "handover sign-in failed"
+[[ "$(curl -s -o /dev/null -w '%{http_code}' "${PANEL[@]}" -b "$NEW_JAR" https://panel.hotel.test/api/auth/me)" == "200" ]] || fail "should be signed in on the new address"
+pass "signed in on the new address with a one-time link"
+
+response="$(curl -s "${PANEL[@]}" -c "$NEW_JAR" -b "$NEW_JAR" -X POST https://panel.hotel.test/api/panel-address/close-setup)"
+PENDING="$(jq -r .pending.id <<<"$response")"
+[[ "$PENDING" != "null" ]] || fail "closing the setup port should need confirmation: $response"
+[[ "$(curl -s "${PANEL[@]}" -b "$NEW_JAR" -X POST "https://panel.hotel.test/api/firewall/changes/$PENDING/confirm" | jq -r .status)" == "confirmed" ]] \
+    || fail "confirming from the new address failed"
+if curl -sk --max-time 5 -o /dev/null https://server:8443/api/health; then
+    fail "the setup address should be closed"
+fi
+pass "setup address closed (nginx + firewall), confirmed from the new address"
+
+echo "Cloudflare passed."
 

@@ -9,6 +9,7 @@ using TurboManager.Core;
 using TurboManager.Panel;
 using TurboManager.Panel.AgentClient;
 using TurboManager.Panel.Audit;
+using TurboManager.Panel.Cloudflare;
 using TurboManager.Panel.Auth;
 using TurboManager.Panel.Data;
 using TurboManager.Panel.Endpoints;
@@ -48,6 +49,11 @@ builder.Services.AddHostedService<FirewallReconciler>();
 builder.Services.AddScoped<CertificateService>();
 builder.Services.AddScoped<SiteService>();
 builder.Services.AddHostedService<CertificateRenewalService>();
+builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient<CloudflareClient>(client => client.Timeout = TimeSpan.FromSeconds(30));
+builder.Services.AddScoped<CloudflareService>();
+builder.Services.AddScoped<PanelAddressService>();
+builder.Services.AddHostedService<CloudflareMaintenanceService>();
 builder.Services.AddHttpClient("detect-ip", client => client.Timeout = TimeSpan.FromSeconds(5));
 builder.Services.AddHttpClient(CertificateService.AcmeHttpClientName)
     .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
@@ -103,6 +109,7 @@ app.MapAccessEndpoints();
 app.MapPackagesEndpoints();
 app.MapActivityEndpoints();
 app.MapSitesEndpoints();
+app.MapCloudflareEndpoints();
 app.MapFallback("/api/{**path}", () => Results.NotFound());
 app.MapFallbackToFile("index.html");
 

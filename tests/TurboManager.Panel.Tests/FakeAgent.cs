@@ -181,6 +181,15 @@ public sealed class FakeNginxAgent : NginxAgent.NginxAgentBase
         return Task.FromResult(new NginxApplyResult { Applied = true });
     }
 
+    public bool SetupClosed { get; private set; }
+
+    public override Task<NginxApplyResult> CloseSetupAddress(Google.Protobuf.WellKnownTypes.Empty request, ServerCallContext context)
+    {
+        SetupClosed = true;
+
+        return Task.FromResult(new NginxApplyResult { Applied = true });
+    }
+
     public override Task<WebRootResult> EnsureWebRoot(WebRootRequest request, ServerCallContext context) =>
         Task.FromResult(new WebRootResult { Path = request.Path, Created = true });
 

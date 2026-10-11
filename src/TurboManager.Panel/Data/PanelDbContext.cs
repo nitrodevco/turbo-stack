@@ -32,6 +32,10 @@ public sealed class PanelDbContext(DbContextOptions<PanelDbContext> options) : D
 
     public DbSet<ServerSettings> ServerSettings => Set<ServerSettings>();
 
+    public DbSet<CloudflareAccount> CloudflareAccounts => Set<CloudflareAccount>();
+
+    public DbSet<PanelAddress> PanelAddresses => Set<PanelAddress>();
+
     protected override void OnModelCreating(ModelBuilder model)
     {
         model.Entity<PanelUser>(user =>

@@ -224,6 +224,8 @@ export type SiteModel = {
     serverSnippet: string | null;
     customConfig: string | null;
     enabled: boolean;
+    cloudflareDns: boolean;
+    cloudflareProxied: boolean;
 };
 
 export type SiteSummary = {
@@ -249,7 +251,7 @@ export type SiteDetail = {
     revisions: { number: number; applied: boolean; error: string | null; createdBy: string | null; createdAt: string }[];
 };
 
-export type SiteApplyResponse = { id: number; applied: boolean; error: string | null; revision: number; certificateJobId: number | null };
+export type SiteApplyResponse = { id: number; applied: boolean; error: string | null; revision: number; certificateJobId: number | null; dnsError: string | null; dnsConflicts: number };
 
 export type DnsCheck = { domain: string; addresses: string[]; pointsHere: boolean | null };
 
@@ -266,3 +268,25 @@ export type CertificateView = {
 };
 
 export type ServerSettings = { publicIPv4: string | null; publicIPv6: string | null };
+
+export type PermissionCheck = { key: string; label: string; usedFor: string; required: boolean; status: 'ok' | 'missing' | 'error' | 'unknown'; error: string | null };
+
+export type CloudflareZone = { id: string; name: string; status: string; plan: string | null };
+
+export type CloudflareOverview =
+    | { connected: false }
+    | {
+          connected: true;
+          token: { status: string; expiresOn: string | null; verifiedAt: string };
+          checks: PermissionCheck[];
+          zones: CloudflareZone[];
+          realIpEnabled: boolean;
+          ipRangesUpdatedAt: string | null;
+          cloudflareOnlyWeb: boolean;
+      };
+
+export type ZoneSetting = { setting: string; label: string; current: string | null; recommended: string; ok: boolean; error: string | null };
+
+export type DnsActionView = { kind: 'ok' | 'create' | 'update' | 'conflict' | 'delete'; type: string; name: string; content: string | null; proxied: boolean; existing: string | null; reason: string | null };
+
+export type PanelAddressView = { domain: string | null; siteId: number | null; verified: boolean; verifyUrl: string | null; setupClosed: boolean; onPanelDomain: boolean };

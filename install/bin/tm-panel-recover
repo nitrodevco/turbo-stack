@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Reopens the panel's direct setup address (https://<server-ip>:8443) after it was closed,
+# e.g. when the panel's domain or Cloudflare is broken. Sign in with the owner account there.
+# Usage: sudo tm-panel-recover
+set -euo pipefail
+
+SLUG="turbo-manager"
+CONFIG_ROOT="/etc/$SLUG"
+
+[[ $EUID -eq 0 ]] || { echo "Run as root: sudo tm-panel-recover" >&2; exit 1; }
+[[ -f "$CONFIG_ROOT/setup-site.conf" ]] || { echo "Missing $CONFIG_ROOT/setup-site.conf; re-run the installer instead." >&2; exit 1; }
+
+# shellcheck disable=SC1091
+. "$CONFIG_ROOT/install.env"
+
+cp "$CONFIG_ROOT/setup-site.conf" /etc/nginx/sites-available/tm-setup.conf
+ln -sf /etc/nginx/sites-available/tm-setup.conf /etc/nginx/sites-enabled/tm-setup.conf
+nginx -t -q && systemctl reload nginx
+
+# Not tagged "tm:", so the panel treats it as a manual rule and won't remove it on its own.
+ufw allow "$TM_SETUP_PORT/tcp" comment "recovery" >/dev/null 2>&1 || true
+rm -f "$CONFIG_ROOT/setup-closed"
+
+printf '\nThe setup address is open again:\n\n  https://%s:%s\n\n' "$TM_PUBLIC_HOST" "$TM_SETUP_PORT"
+printf 'Sign in with the owner account, fix the panel address, then close the setup address again from Settings.\n'
+printf 'Remove the "recovery" firewall rule (port %s) afterwards.\n\n' "$TM_SETUP_PORT"

@@ -2,15 +2,16 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using TurboManager.Contracts.Agent;
 using TurboManager.Panel.AgentClient;
+using TurboManager.Panel.Cloudflare;
 using TurboManager.Panel.Data;
 using TurboManager.Panel.Jobs;
 
 namespace TurboManager.Panel.Sites;
 
-public sealed record SiteApplyResult(bool Applied, string? Error, int Revision, long? CertificateJobId);
+public sealed record SiteApplyResult(bool Applied, string? Error, int Revision, long? CertificateJobId, string? DnsError = null, int DnsConflicts = 0);
 
 /// <summary>Renders sites, applies them through the agent and keeps their revision history.</summary>
-public sealed class SiteService(PanelDbContext db, AgentChannelFactory agent, CertificateService certificates, JobRunner jobs)
+public sealed class SiteService(PanelDbContext db, AgentChannelFactory agent, CertificateService certificates, JobRunner jobs, CloudflareService cloudflare)
 {
     public static readonly string[] AutoCreatedWebRoots = ["/var/www/", "/srv/"];
 
@@ -80,13 +81,45 @@ public sealed class SiteService(PanelDbContext db, AgentChannelFactory agent, Ce
 
         long? jobId = null;
 
-        if (result.Applied && site.Enabled && requestCertificate && certificate is null && CertificateService.KindFor(site.TlsMode) is { } kind
-            && kind != CertificateKind.CloudflareOrigin)
+        if (result.Applied && site.Enabled && requestCertificate && certificate is null && CertificateService.KindFor(site.TlsMode) is { } kind)
         {
-            jobId = (await StartCertificateJobAsync(site.Domains, kind, user)).Id;
+            jobId = (await StartCertificateJobAsync(await CertificateDomainsAsync(site, kind), kind, user)).Id;
         }
 
-        return new SiteApplyResult(result.Applied, result.Error, number, jobId);
+        string? dnsError = null;
+        var dnsConflicts = 0;
+
+        if (result.Applied && site.Enabled && site.CloudflareDns && requestCertificate)
+        {
+            try
+            {
+                dnsConflicts = (await cloudflare.SyncDnsAsync(site, replaceConflicts: false, dryRun: false, cancellationToken))
+                    .Count(a => a.Kind == DnsActionKind.Conflict);
+            }
+            catch (Exception e) when (e is CloudflareApiException or InvalidOperationException)
+            {
+                dnsError = e.Message;
+            }
+        }
+
+        return new SiteApplyResult(result.Applied, result.Error, number, jobId, dnsError, dnsConflicts);
+    }
+
+    /// <summary>
+    /// Origin certificates cover the whole zone (zone + *.zone) so one certificate serves every hotel
+    /// subdomain; anything deeper is added explicitly. Other kinds cover exactly the site's domains.
+    /// </summary>
+    public async Task<List<string>> CertificateDomainsAsync(Site site, CertificateKind kind)
+    {
+        if (kind != CertificateKind.CloudflareOrigin || await cloudflare.ZoneForAsync(site.Domains[0]) is not { } zone)
+        {
+            return [.. site.Domains];
+        }
+
+        List<string> domains = [zone.Name, $"*.{zone.Name}"];
+        domains.AddRange(site.Domains.Where(d => !CertificateService.Covers(domains, d)));
+
+        return domains;
     }
 
     public async Task RemoveAsync(Site site, CancellationToken cancellationToken)

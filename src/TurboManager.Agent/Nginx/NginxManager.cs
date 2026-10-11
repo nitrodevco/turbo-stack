@@ -135,6 +135,21 @@ public sealed partial class NginxManager(ICommandRunner commands, IOptions<Agent
         }
     }
 
+    /// <summary>Closes the installer's https://&lt;ip&gt;:8443 entry point; tm-panel-recover reopens it.</summary>
+    public async Task<NginxApplyResult> CloseSetupAddressAsync(CancellationToken cancellationToken)
+    {
+        var result = await RemoveAsync(new NginxConfigRef { Name = "setup", Kind = NginxConfigKind.Site }, cancellationToken);
+
+        if (result.Applied)
+        {
+            var marker = HostPath($"/etc/{Branding.Slug}/setup-closed");
+            Directory.CreateDirectory(Path.GetDirectoryName(marker)!);
+            await File.WriteAllTextAsync(marker, $"Closed from the panel at {DateTimeOffset.UtcNow:u}. Reopen with: sudo tm-panel-recover\n", cancellationToken);
+        }
+
+        return result;
+    }
+
     public NginxConfigs List()
     {
         var reply = new NginxConfigs();

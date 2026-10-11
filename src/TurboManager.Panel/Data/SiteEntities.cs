@@ -63,6 +63,12 @@ public sealed class Site
 
     public bool Enabled { get; set; } = true;
 
+    /// <summary>Keep this site's DNS records (A/AAAA to this server) in sync through Cloudflare.</summary>
+    public bool CloudflareDns { get; set; }
+
+    /// <summary>Records are proxied through Cloudflare (orange cloud) rather than DNS-only.</summary>
+    public bool CloudflareProxied { get; set; } = true;
+
     /// <summary>Created by the panel itself (e.g. its own address); can't be deleted from the UI.</summary>
     public bool System { get; set; }
 

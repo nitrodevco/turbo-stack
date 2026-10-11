@@ -33,4 +33,11 @@ nginx -t 2>/dev/null || fail "nginx config should still be valid"
 [[ "$(stat -c '%a' /etc/turbo-manager/certs/secure.hotel.test/privkey.pem)" == "600" ]] || fail "private key must be 0600"
 pass "nginx valid, sites enabled, refused config absent, key private"
 
+grep -q "real_ip_header CF-Connecting-IP;" /etc/nginx/conf.d/tm-cloudflare-realip.conf || fail "Cloudflare real-IP config should be installed"
+[[ -f /etc/turbo-manager/setup-closed && ! -e /etc/nginx/sites-enabled/tm-setup.conf ]] || fail "setup address should be closed"
+if ufw status | grep -qE "^8443/tcp"; then
+    fail "the setup port rule should be gone"
+fi
+pass "real-IP config installed; setup site and port closed"
+
 echo "Server post-checks passed."

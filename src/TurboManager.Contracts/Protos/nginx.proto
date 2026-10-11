@@ -22,6 +22,9 @@ service NginxAgent {
   rpc RemoveAcmeChallenge (AcmeChallenge) returns (google.protobuf.Empty);
 
   rpc EnsureWebRoot (WebRootRequest) returns (WebRootResult);
+
+  // Removes the installer's IP:8443 setup site and records that it was closed (so upgrades keep it closed).
+  rpc CloseSetupAddress (google.protobuf.Empty) returns (NginxApplyResult);
 }
 
 enum NginxConfigKind {

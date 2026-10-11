@@ -46,7 +46,7 @@ for arch in "${ARCHES[@]}"; do
 
     cp -r "$ROOT/web/dist" "$stage/panel/wwwroot"
     mkdir -p "$stage/bin" "$stage/systemd"
-    cp "$ROOT/install/bin/tm-setup-token" "$stage/bin/"
+    cp "$ROOT/install/bin/"* "$stage/bin/"
     cp "$ROOT/install/systemd/"*.service "$stage/systemd/"
     echo "$VERSION" > "$stage/VERSION"
 

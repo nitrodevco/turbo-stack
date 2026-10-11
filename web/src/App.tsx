@@ -5,10 +5,12 @@ import { AppShell } from './components/AppShell';
 import { CenteredPage, ErrorNote } from './components/ui';
 import { ActivityPage } from './pages/ActivityPage';
 import { CertificatesPage } from './pages/CertificatesPage';
+import { CloudflarePage } from './pages/CloudflarePage';
 import { DashboardPage } from './pages/DashboardPage';
 import { FirewallPage } from './pages/FirewallPage';
 import { LoginPage } from './pages/LoginPage';
 import { LogsPage } from './pages/LogsPage';
+import { AddressCheckPage, HandoverPage } from './pages/PublicPages';
 import { ServicesPage } from './pages/ServicesPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { SetupPage } from './pages/SetupPage';
@@ -26,6 +28,10 @@ export function App() {
         enabled: status.data?.claimed === true,
         retry: (count, error) => !(error instanceof ApiError && error.status === 401) && count < 2,
     });
+
+    // Reached on the panel's new domain before the user is signed in there.
+    if (location.pathname === '/address-check') return <AddressCheckPage />;
+    if (location.pathname === '/handover') return <HandoverPage />;
 
     if (status.isError) {
         return (
@@ -61,6 +67,7 @@ export function App() {
                 <Route path="sites/:id" element={<SiteEditorPage />} />
                 <Route path="certificates" element={<CertificatesPage />} />
                 <Route path="settings" element={<SettingsPage />} />
+                <Route path="cloudflare" element={<CloudflarePage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
         </Routes>

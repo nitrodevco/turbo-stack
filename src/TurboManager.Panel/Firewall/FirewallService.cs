@@ -84,8 +84,9 @@ public sealed class FirewallService(PanelDbContext db, AgentChannelFactory agent
     /// Saves pending entity changes, then applies the difference to ufw. Risky changes get a
     /// confirmation window; if the agent reports a failure the database is restored from <paramref name="snapshot"/>.
     /// </summary>
-    public async Task<FirewallApplyResult> CommitAsync(string snapshot, string summary, PanelUser user, IPAddress? requester,
-        bool acknowledgeLockout, CancellationToken cancellationToken)
+    /// <param name="systemChange">Routine changes made by the panel itself (e.g. Cloudflare range updates): no confirmation window.</param>
+    public async Task<FirewallApplyResult> CommitAsync(string snapshot, string summary, PanelUser? user, IPAddress? requester,
+        bool acknowledgeLockout, CancellationToken cancellationToken, bool systemChange = false)
     {
         if (await GetPendingAsync() is not null)
         {
@@ -115,7 +116,7 @@ public sealed class FirewallService(PanelDbContext db, AgentChannelFactory agent
 
             var change = new FirewallChange
             {
-                ConfirmWithinSeconds = risk.RequiresConfirmation ? options.Value.FirewallConfirmSeconds : 0,
+                ConfirmWithinSeconds = risk.RequiresConfirmation && !systemChange ? options.Value.FirewallConfirmSeconds : 0,
                 SetDefaultIncoming = plan.SetDefaultIncoming ?? "",
             };
             change.Add.AddRange(plan.Add.Select(t => t.ToSpec()));
@@ -138,7 +139,7 @@ public sealed class FirewallService(PanelDbContext db, AgentChannelFactory agent
                     RevertAt = revertAt,
                     PreviousStateJson = snapshot,
                     Summary = summary,
-                    UserId = user.Id,
+                    UserId = user?.Id,
                 });
                 pending = new PendingFirewallChange(result.TransactionId, revertAt, summary);
             }

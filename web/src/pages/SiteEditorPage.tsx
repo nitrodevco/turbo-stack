@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { api, errorMessage, type DnsCheck, type RouteKind, type SiteApplyResponse, type SiteDetail, type SiteModel, type SiteRouteModel } from '../api';
+import { api, errorMessage, type CloudflareOverview, type DnsActionView, type DnsCheck, type RouteKind, type SiteApplyResponse, type SiteDetail, type SiteModel, type SiteRouteModel } from '../api';
 import { usePermissions } from '../auth';
 import { JobOutput } from '../components/JobOutput';
 import { Badge, Button, Card, ErrorNote, Field, Input, Modal, Notice, PageHeader, Select, SelectField, Spinner, Tabs } from '../components/ui';
@@ -29,6 +29,8 @@ const newModel = (): SiteModel => ({
     serverSnippet: null,
     customConfig: null,
     enabled: true,
+    cloudflareDns: false,
+    cloudflareProxied: true,
 });
 
 function slugify(domain: string) {
@@ -56,9 +58,13 @@ function SiteEditor({ siteId, detail }: { siteId: number | null; detail: SiteDet
     const [domainsText, setDomainsText] = useState((detail?.model.domains ?? []).join('\n'));
     const [tab, setTab] = useState<'preview' | 'dns' | 'history'>('preview');
     const [result, setResult] = useState<SiteApplyResponse | null>(null);
+    const cloudflare = useQuery({ queryKey: ['cloudflare'], queryFn: () => api.get<CloudflareOverview>('/api/cloudflare') });
 
     const domains = domainsText.split(/[\s,]+/).map((d) => d.trim().toLowerCase()).filter(Boolean);
-    const current: SiteModel = { ...model, domains, name: siteId ? model.name : model.name || slugify(domains[0] ?? '') };
+    const connected = cloudflare.data?.connected ? cloudflare.data : null;
+    const zone = connected?.zones.filter((z) => domains[0] === z.name || domains[0]?.endsWith('.' + z.name)).sort((a, b) => b.name.length - a.name.length)[0] ?? null;
+    const canIssueOrigin = connected?.checks.some((c) => c.key === 'ssl.edit' && c.status === 'ok') ?? false;
+    const current: SiteModel ={ ...model, domains, name: siteId ? model.name : model.name || slugify(domains[0] ?? '') };
     const set = <K extends keyof SiteModel>(key: K, value: SiteModel[K]) => setModel({ ...model, [key]: value });
     const setRoute = (index: number, route: Partial<SiteRouteModel>) =>
         set('routes', model.routes.map((r, i) => (i === index ? { ...r, ...route } : r)));
@@ -100,7 +106,7 @@ function SiteEditor({ siteId, detail }: { siteId: number | null; detail: SiteDet
                     <pre className="mt-2 text-xs whitespace-pre-wrap">{detail.lastError}</pre>
                 </Notice>
             )}
-            {result && <ApplyResult result={result} />}
+            {result && <ApplyResult result={result} siteId={siteId ?? result.id} />}
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
                 <form
                     className="space-y-6"
@@ -135,11 +141,20 @@ function SiteEditor({ siteId, detail }: { siteId: number | null; detail: SiteDet
                             <SelectField label="HTTPS" value={model.tlsMode} onChange={(e) => set('tlsMode', e.target.value as SiteModel['tlsMode'])}>
                                 <option value="LetsEncrypt">Let's Encrypt (free, automatic renewal)</option>
                                 <option value="SelfSigned">Self-signed (testing, or behind a proxy)</option>
-                                <option value="CloudflareOrigin" disabled>
-                                    Cloudflare Origin certificate (connect Cloudflare first)
+                                <option value="CloudflareOrigin" disabled={!zone || !canIssueOrigin}>
+                                    Cloudflare Origin certificate{!zone ? ' (domain not in a connected Cloudflare zone)' : !canIssueOrigin ? ' (token lacks SSL permission)' : ' (for proxied sites)'}
                                 </option>
                                 <option value="None">None (HTTP only)</option>
                             </SelectField>
+                            {zone && (
+                                <div className="space-y-2 rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-800">
+                                    <p className="font-medium">Cloudflare · {zone.name}</p>
+                                    <Toggle label="Create and update DNS records for these domains" checked={model.cloudflareDns} onChange={(v) => set('cloudflareDns', v)} />
+                                    {model.cloudflareDns && (
+                                        <Toggle label="Proxy through Cloudflare (orange cloud: hides this server, caches files)" checked={model.cloudflareProxied} onChange={(v) => set('cloudflareProxied', v)} />
+                                    )}
+                                </div>
+                            )}
                         </Card>
 
                         {model.customConfig === null ? (
@@ -286,8 +301,9 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
     );
 }
 
-function ApplyResult({ result }: { result: SiteApplyResponse }) {
+function ApplyResult({ result, siteId }: { result: SiteApplyResponse; siteId: number }) {
     const queryClient = useQueryClient();
+    const fixDns = useMutation({ mutationFn: () => api.post<DnsActionView[]>(`/api/sites/${siteId}/cloudflare-dns`, { replaceConflicts: true }) });
 
     if (!result.applied) {
         return (
@@ -301,6 +317,19 @@ function ApplyResult({ result }: { result: SiteApplyResponse }) {
     return (
         <div className="space-y-3">
             <Notice tone="success">✓ Applied (revision {result.revision}).</Notice>
+            {result.dnsError && <Notice tone="warning">⚠ DNS records were not updated: {result.dnsError}</Notice>}
+            {result.dnsConflicts > 0 && !fixDns.isSuccess && (
+                <Notice tone="warning">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <span>⚠ {result.dnsConflicts} existing DNS record(s) point somewhere else and were left alone.</span>
+                        <Button size="sm" variant="secondary" disabled={fixDns.isPending} onClick={() => confirm('Replace those records so the domains point to this server?') && fixDns.mutate()}>
+                            Point them here
+                        </Button>
+                    </div>
+                    {fixDns.error && <p className="mt-2">{errorMessage(fixDns.error)}</p>}
+                </Notice>
+            )}
+            {fixDns.isSuccess && <Notice tone="success">✓ DNS records now point to this server.</Notice>}
             {result.certificateJobId && (
                 <Card className="space-y-2 p-5">
                     <p className="font-medium">Getting a certificate…</p>

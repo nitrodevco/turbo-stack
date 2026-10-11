@@ -694,6 +694,25 @@ an unconfirmed change reverting) but has still not been run. Deferred from M1: c
 (needs the firewall + sshd change as one revertible transaction), cron/timers UI, files, terminal
 (M7). Logs/jobs stream over SSE rather than SignalR.
 
+**Status (2026-10-11):** M2 implemented.
+- *Sites:* domains + ordered routes (static, SPA, proxy, WebSocket, redirect) rendered to nginx,
+  optional hand-written config, revision history with restore, DNS check. The agent refuses
+  configs that escape allowed paths or load code, runs `nginx -t`, and rolls back on failure.
+- *TLS:* Let's Encrypt (HTTP-01 via the agent's webroot), self-signed and Cloudflare Origin
+  (zone-wide `zone` + `*.zone`); sites go live over HTTP first and switch to HTTPS when the
+  certificate job finishes; hourly renewal checks.
+- *Cloudflare:* guided token creation, permission probes (harmless writes, undone), DNS sync
+  with conflict reporting/replacement, zone presets, cache purge, real-IP config and a system
+  "Cloudflare" IP list refreshed daily, "only Cloudflare may reach 80/443" firewall mode.
+- *Panel address:* system site for `panel.<domain>`, browser check from the new address,
+  one-time sign-in handover, closing the setup address (nginx + firewall, confirmed from the
+  new address), `sudo tm-panel-recover` to reopen it.
+- *Tests:* 179 unit/API tests (fake agent + fake Cloudflare in-process); the Docker E2E gains a
+  fake Cloudflare service and covers the whole flow, still not run (no Docker here).
+- *Deviations / later:* ACME DNS-01 (wildcards without Cloudflare Origin) and Pebble in the
+  Docker env are not done yet; fail2ban still bans in UFW even for proxied traffic (banning via
+  the Cloudflare API, plan 6.8, comes with the WAF work); Authenticated Origin Pulls not yet.
+
 Each milestone ends with its E2E scenario passing in the Docker test env (section 8). The
 fakes grow with the milestones: fake-cloudflare and edge in M2, fake-github in M4.
 

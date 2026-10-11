@@ -24,6 +24,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\TurboManager.Panel\TurboManager.Panel.csproj" />
     <ProjectReference Include="..\..\src\TurboManager.Core\TurboManager.Core.csproj" />
+    <ProjectReference Include="..\..\test-env\fake-cloudflare\TurboManager.FakeCloudflare.csproj" />
   </ItemGroup>
 
 </Project>

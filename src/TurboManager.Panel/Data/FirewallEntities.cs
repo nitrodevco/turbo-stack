@@ -48,6 +48,9 @@ public sealed class IpList
 
     public string? Description { get; set; }
 
+    /// <summary>Maintained by the panel (e.g. Cloudflare's ranges); read-only in the UI.</summary>
+    public bool System { get; set; }
+
     public List<IpListEntry> Entries { get; set; } = [];
 }
 

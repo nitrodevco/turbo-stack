@@ -17,7 +17,7 @@ const navigation: { label: string; to?: string; permission?: string }[] = [
     { label: 'Firewall', to: '/firewall', permission: 'firewall.view' },
     { label: 'SSH access', to: '/ssh', permission: 'ssh.view' },
     { label: 'Updates', to: '/updates', permission: 'packages.view' },
-    { label: 'Cloudflare' },
+    { label: 'Cloudflare', to: '/cloudflare', permission: 'sites.view' },
     { label: 'Activity', to: '/activity', permission: 'audit.view' },
     { label: 'Settings', to: '/settings', permission: 'sites.view' },
 ];

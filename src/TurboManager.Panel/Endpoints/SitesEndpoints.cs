@@ -105,7 +105,7 @@ public static class SitesEndpoints
 
             var result = await sites.ApplyAsync(site, user, requestCertificate: true, cancellationToken);
 
-            return Results.Ok(new { site.Id, result.Applied, result.Error, result.Revision, result.CertificateJobId });
+            return Results.Ok(new { site.Id, result.Applied, result.Error, result.Revision, result.CertificateJobId, result.DnsError, result.DnsConflicts });
         });
 
         manage.MapPut("/sites/{id:int}", async (int id, SiteModel model, HttpContext http, PanelDbContext db, SiteService sites, AuditLog audit,
@@ -142,7 +142,7 @@ public static class SitesEndpoints
 
             var result = await sites.ApplyAsync(site, user, requestCertificate: true, cancellationToken);
 
-            return Results.Ok(new { site.Id, result.Applied, result.Error, result.Revision, result.CertificateJobId });
+            return Results.Ok(new { site.Id, result.Applied, result.Error, result.Revision, result.CertificateJobId, result.DnsError, result.DnsConflicts });
         });
 
         manage.MapPost("/sites/{id:int}/apply", async (int id, HttpContext http, PanelDbContext db, SiteService sites, CancellationToken cancellationToken) =>
@@ -156,7 +156,7 @@ public static class SitesEndpoints
 
             var result = await sites.ApplyAsync(site, await CurrentUser.GetAsync(http, db), requestCertificate: true, cancellationToken);
 
-            return Results.Ok(new { site.Id, result.Applied, result.Error, result.Revision, result.CertificateJobId });
+            return Results.Ok(new { site.Id, result.Applied, result.Error, result.Revision, result.CertificateJobId, result.DnsError, result.DnsConflicts });
         });
 
         manage.MapPost("/sites/{id:int}/revisions/{number:int}/restore", async (int id, int number, HttpContext http, PanelDbContext db,
@@ -184,7 +184,7 @@ public static class SitesEndpoints
 
             var result = await sites.ApplyAsync(site, user, requestCertificate: true, cancellationToken);
 
-            return Results.Ok(new { site.Id, result.Applied, result.Error, result.Revision, result.CertificateJobId });
+            return Results.Ok(new { site.Id, result.Applied, result.Error, result.Revision, result.CertificateJobId, result.DnsError, result.DnsConflicts });
         });
 
         manage.MapDelete("/sites/{id:int}", async (int id, HttpContext http, PanelDbContext db, SiteService sites, AuditLog audit,
@@ -269,11 +269,6 @@ public static class SitesEndpoints
             if (domains.Count == 0)
             {
                 return Invalid("Add at least one domain.");
-            }
-
-            if (request.Kind == CertificateKind.CloudflareOrigin)
-            {
-                return Invalid("Cloudflare Origin certificates are issued from the Cloudflare page.");
             }
 
             var user = await CurrentUser.GetAsync(http, db);

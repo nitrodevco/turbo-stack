@@ -28,6 +28,9 @@ public sealed class PanelOptions
     /// <summary>Test environments only: accept the ACME server's self-signed TLS certificate (Pebble).</summary>
     public bool AcmeSkipTlsVerify { get; set; }
 
+    /// <summary>Cloudflare API base URL (overridden in tests to point at a fake).</summary>
+    public string CloudflareApiBase { get; set; } = "https://api.cloudflare.com/client/v4";
+
     /// <summary>Cookies are marked Secure. Disable only for plain-http local development.</summary>
     public bool SecureCookies { get; set; } = true;
 }

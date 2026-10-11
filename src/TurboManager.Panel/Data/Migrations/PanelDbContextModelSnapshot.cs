@@ -74,6 +74,47 @@ namespace TurboManager.Panel.Data.Migrations
                     b.ToTable("AuditLog");
                 });
 
+            modelBuilder.Entity("TurboManager.Panel.Data.CloudflareAccount", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ChecksJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("IpRangesUpdatedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("RealIpEnabled")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("TokenExpiresOn")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("TokenId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TokenProtected")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TokenStatus")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("VerifiedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ZonesJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("CloudflareAccounts");
+                });
+
             modelBuilder.Entity("TurboManager.Panel.Data.FirewallChangeRecord", b =>
                 {
                     b.Property<string>("Id")
@@ -138,6 +179,9 @@ namespace TurboManager.Panel.Data.Migrations
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("System")
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
@@ -357,6 +401,34 @@ namespace TurboManager.Panel.Data.Migrations
                     b.ToTable("MetricSamples");
                 });
 
+            modelBuilder.Entity("TurboManager.Panel.Data.PanelAddress", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Domain")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("SetupClosedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("SiteId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("VerificationCode")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("VerifiedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("PanelAddresses");
+                });
+
             modelBuilder.Entity("TurboManager.Panel.Data.PanelUser", b =>
                 {
                     b.Property<int>("Id")
@@ -457,6 +529,12 @@ namespace TurboManager.Panel.Data.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<int>("ClientMaxBodyMb")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("CloudflareDns")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("CloudflareProxied")
                         .HasColumnType("INTEGER");
 
                     b.Property<long>("CreatedAt")

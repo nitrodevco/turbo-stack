@@ -8,6 +8,13 @@ services:
       - ../dist:/usr/share/nginx/html:ro
     networks: [hotel]
 
+  # Fake Cloudflare API (DNS, zone settings, purges, Origin CA) — see fake-cloudflare/.
+  fake-cloudflare:
+    build:
+      context: ..
+      dockerfile: test-env/fake-cloudflare/Dockerfile
+    networks: [hotel]
+
   # The fresh Ubuntu server under test.
   server:
     build:
@@ -28,7 +35,7 @@ services:
     networks:
       hotel:
         aliases: [server]
-    depends_on: [install-host]
+    depends_on: [install-host, fake-cloudflare]
 
   # Runs the e2e scripts against the server over the network.
   tester:

@@ -25,8 +25,16 @@ public sealed class PanelFactory : WebApplicationFactory<PanelEntryPoint>
 
     public string DataDirectory => _dataDirectory;
 
+    /// <summary>Extra configuration (e.g. Panel:CloudflareApiBase) applied before the host starts.</summary>
+    public Dictionary<string, string> Settings { get; } = [];
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        foreach (var (key, value) in Settings)
+        {
+            builder.UseSetting(key, value);
+        }
+
         builder.UseEnvironment("Testing");
         builder.UseSetting("Panel:DataDirectory", _dataDirectory);
         builder.UseSetting("Panel:SetupTokenHashFile", TokenFile);
@@ -46,9 +54,9 @@ public sealed class PanelFactory : WebApplicationFactory<PanelEntryPoint>
         return token;
     }
 
-    public HttpClient CreateApiClient()
+    public HttpClient CreateApiClient(string baseAddress = "http://localhost")
     {
-        var client = CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = true });
+        var client = CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = true, BaseAddress = new Uri(baseAddress) });
         client.DefaultRequestHeaders.Add(SecurityMiddleware.CsrfHeader, "1");
 
         return client;

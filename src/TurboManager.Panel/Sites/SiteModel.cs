@@ -16,7 +16,9 @@ public sealed record SiteModel(
     int ClientMaxBodyMb = 10,
     string? ServerSnippet = null,
     string? CustomConfig = null,
-    bool Enabled = true)
+    bool Enabled = true,
+    bool CloudflareDns = false,
+    bool CloudflareProxied = true)
 {
     public static SiteModel From(Site site) => new(
         site.Name,
@@ -29,7 +31,9 @@ public sealed record SiteModel(
         site.ClientMaxBodyMb,
         site.ServerSnippet,
         site.CustomConfig,
-        site.Enabled);
+        site.Enabled,
+        site.CloudflareDns,
+        site.CloudflareProxied);
 
     /// <summary>Copies the model onto an entity (routes are replaced), normalising input.</summary>
     public void ApplyTo(Site site)
@@ -44,6 +48,8 @@ public sealed record SiteModel(
         site.ServerSnippet = string.IsNullOrWhiteSpace(ServerSnippet) ? null : ServerSnippet.Trim();
         site.CustomConfig = string.IsNullOrWhiteSpace(CustomConfig) ? null : CustomConfig;
         site.Enabled = Enabled;
+        site.CloudflareDns = CloudflareDns;
+        site.CloudflareProxied = CloudflareProxied;
         site.Routes.Clear();
         site.Routes.AddRange(Routes.Select((r, i) => new SiteRoute
         {

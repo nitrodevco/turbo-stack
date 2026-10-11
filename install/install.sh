@@ -162,7 +162,7 @@ chown -R root:root "$INSTALL_ROOT"
 chmod 0755 "$INSTALL_ROOT/panel/tm-panel" "$INSTALL_ROOT/agent/tm-agent"
 echo "$VERSION" > "$INSTALL_ROOT/VERSION"
 
-install -m 0755 "$WORK_DIR/bundle/bin/tm-setup-token" /usr/local/sbin/tm-setup-token
+install -m 0755 "$WORK_DIR/bundle/bin/"* /usr/local/sbin/
 install -m 0644 "$WORK_DIR/bundle/systemd/$SHORT-agent.service" /etc/systemd/system/
 install -m 0644 "$WORK_DIR/bundle/systemd/$SHORT-panel.service" /etc/systemd/system/
 
@@ -216,9 +216,8 @@ EOF
 # Webroot for ACME (Let's Encrypt) HTTP-01 challenges, written by tm-agent.
 install -d -m 0755 /var/lib/turbo-manager-acme
 
-# The setup address is closed once the panel has moved to its own domain; upgrades keep it closed.
-if [[ ! -f "$CONFIG_ROOT/setup-closed" ]]; then
-cat > "/etc/nginx/sites-available/$SHORT-setup.conf" <<EOF
+# The setup site is kept as a template so tm-panel-recover can reopen it later.
+cat > "$CONFIG_ROOT/setup-site.conf" <<EOF
 # Managed by $PRODUCT_NAME — temporary setup entry point.
 server {
     listen $SETUP_PORT ssl;
@@ -244,7 +243,11 @@ server {
     }
 }
 EOF
-ln -sf "/etc/nginx/sites-available/$SHORT-setup.conf" "/etc/nginx/sites-enabled/$SHORT-setup.conf"
+
+# The setup address is closed once the panel has moved to its own domain; upgrades keep it closed.
+if [[ ! -f "$CONFIG_ROOT/setup-closed" ]]; then
+    cp "$CONFIG_ROOT/setup-site.conf" "/etc/nginx/sites-available/$SHORT-setup.conf"
+    ln -sf "/etc/nginx/sites-available/$SHORT-setup.conf" "/etc/nginx/sites-enabled/$SHORT-setup.conf"
 fi
 nginx -t -q || die "nginx configuration test failed."
 systemctl enable --now nginx >/dev/null 2>&1

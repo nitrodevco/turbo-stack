@@ -5,6 +5,10 @@
     <Project Path="src/TurboManager.Core/TurboManager.Core.csproj" />
     <Project Path="src/TurboManager.Panel/TurboManager.Panel.csproj" />
   </Folder>
+  <Folder Name="/test-env/" />
+  <Folder Name="/test-env/fake-cloudflare/">
+    <Project Path="test-env/fake-cloudflare/TurboManager.FakeCloudflare.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/TurboManager.Agent.Tests/TurboManager.Agent.Tests.csproj" />
     <Project Path="tests/TurboManager.Panel.Tests/TurboManager.Panel.Tests.csproj" />

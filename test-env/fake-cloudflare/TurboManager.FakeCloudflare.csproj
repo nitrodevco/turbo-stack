@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <RootNamespace>TurboManager.FakeCloudflare</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+</Project>
