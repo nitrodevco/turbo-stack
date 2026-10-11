@@ -683,6 +683,17 @@ the Docker E2E has not been run yet (no Docker on the dev machine) — first run
 after installing Docker Desktop. Deviation: the UI ships as `wwwroot/` next to the single-file
 panel binary rather than embedded in it.
 
+**Status (2026-10-11):** M1 implemented — agent services for systemd, journal, metrics, ufw,
+fail2ban, SSH keys/sshd and apt/reboots (typed, validated, no shell); panel permissions model,
+background jobs with SSE output, metrics history (7 days, downsampled), firewall desired state
+with planner/diff, risk assessment, own-IP lockout acknowledgement, 60 s confirm-or-revert (also
+reverted if the agent restarts), IP lists, exposure audit, fail2ban (incl. a panel sign-in jail),
+audit log; UI pages for dashboard charts, services, logs (live tail), firewall, SSH, updates,
+activity. 97 unit/API tests pass locally; the Docker E2E now also exercises real ufw (including
+an unconfirmed change reverting) but has still not been run. Deferred from M1: custom SSH port
+(needs the firewall + sshd change as one revertible transaction), cron/timers UI, files, terminal
+(M7). Logs/jobs stream over SSE rather than SignalR.
+
 Each milestone ends with its E2E scenario passing in the Docker test env (section 8). The
 fakes grow with the milestones: fake-cloudflare and edge in M2, fake-github in M4.
 

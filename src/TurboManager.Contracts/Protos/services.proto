@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+option csharp_namespace = "TurboManager.Contracts.Agent";
+
+package turbomanager.agent.v1;
+
+// systemd services.
+service ServicesAgent {
+  rpc ListServices (ListServicesRequest) returns (ListServicesReply);
+  rpc ControlService (ControlServiceRequest) returns (ServiceUnit);
+}
+
+message ListServicesRequest {}
+
+message ListServicesReply {
+  repeated ServiceUnit services = 1;
+}
+
+message ServiceUnit {
+  string name = 1;
+  string description = 2;
+  string load_state = 3;        // loaded, not-found, masked...
+  string active_state = 4;      // active, inactive, failed, activating...
+  string sub_state = 5;         // running, exited, dead...
+  string unit_file_state = 6;   // enabled, disabled, static, masked...
+  int32 main_pid = 7;
+  int64 memory_bytes = 8;       // -1 when unknown (no memory accounting)
+  int64 cpu_usage_nsec = 9;     // -1 when unknown
+  int64 active_since_unix_ms = 10;
+  int32 restarts = 11;
+}
+
+enum ServiceAction {
+  SERVICE_ACTION_UNSPECIFIED = 0;
+  SERVICE_ACTION_START = 1;
+  SERVICE_ACTION_STOP = 2;
+  SERVICE_ACTION_RESTART = 3;
+  SERVICE_ACTION_RELOAD = 4;
+  SERVICE_ACTION_ENABLE = 5;
+  SERVICE_ACTION_DISABLE = 6;
+}
+
+message ControlServiceRequest {
+  string name = 1;
+  ServiceAction action = 2;
+}

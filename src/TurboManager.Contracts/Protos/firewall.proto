@@ -1,0 +1,116 @@
+syntax = "proto3";
+
+option csharp_namespace = "TurboManager.Contracts.Agent";
+
+package turbomanager.agent.v1;
+
+import "google/protobuf/empty.proto";
+
+// UFW + fail2ban. The panel owns the desired rule set; the agent applies diffs and can
+// automatically revert a change that isn't confirmed in time (lockout protection).
+service FirewallAgent {
+  rpc GetFirewallState (google.protobuf.Empty) returns (FirewallState);
+  rpc ApplyFirewallChange (FirewallChange) returns (FirewallChangeResult);
+  rpc ConfirmFirewallChange (FirewallTransactionRef) returns (FirewallTransactionStatus);
+  rpc GetFirewallTransaction (FirewallTransactionRef) returns (FirewallTransactionStatus);
+  rpc ListListeningSockets (google.protobuf.Empty) returns (ListeningSockets);
+
+  rpc GetFail2banStatus (google.protobuf.Empty) returns (Fail2banStatus);
+  rpc Fail2banBan (Fail2banBanRequest) returns (Fail2banStatus);
+  rpc UpdateFail2banJail (Fail2banJailSettings) returns (Fail2banStatus);
+}
+
+message FirewallState {
+  bool available = 1;               // ufw installed
+  bool enabled = 2;
+  string default_incoming = 3;      // allow | deny | reject
+  string default_outgoing = 4;
+  repeated FirewallRule rules = 5;  // one per address family as stored by ufw
+  string error = 6;
+}
+
+message FirewallRule {
+  string action = 1;     // allow | deny | reject | limit
+  string protocol = 2;   // tcp | udp | any
+  string ports = 3;      // "22", "6000:6010", "80,443" or "any"
+  string source = 4;     // "any" or address/CIDR
+  bool ipv6 = 5;
+  string comment = 6;    // "tm:<key>" for panel-managed rules
+  string direction = 7;  // in | out
+}
+
+message FirewallRuleSpec {
+  string action = 1;
+  string protocol = 2;
+  string ports = 3;
+  string source = 4;
+  string comment = 5;
+}
+
+message FirewallChange {
+  repeated FirewallRuleSpec add = 1;
+  repeated FirewallRuleSpec delete = 2;
+  optional bool set_enabled = 3;
+  string set_default_incoming = 4;   // "" = unchanged
+  int32 confirm_within_seconds = 5;  // 0 = apply permanently; >0 = revert unless confirmed in time
+}
+
+message FirewallChangeResult {
+  string transaction_id = 1;         // empty when no confirmation is required
+  int64 revert_at_unix_ms = 2;
+  FirewallState state = 3;
+}
+
+message FirewallTransactionRef {
+  string transaction_id = 1;
+}
+
+message FirewallTransactionStatus {
+  string transaction_id = 1;
+  string status = 2;                 // pending | confirmed | reverted | unknown
+  int64 revert_at_unix_ms = 3;
+}
+
+message ListeningSockets {
+  repeated ListeningSocket sockets = 1;
+}
+
+message ListeningSocket {
+  string protocol = 1;   // tcp | udp
+  string address = 2;    // "0.0.0.0", "::", "127.0.0.1"...
+  int32 port = 3;
+  string process = 4;
+  int32 pid = 5;
+}
+
+message Fail2banStatus {
+  bool available = 1;
+  repeated Fail2banJail jails = 2;
+  string error = 3;
+}
+
+message Fail2banJail {
+  string name = 1;
+  repeated string banned_ips = 2;
+  int32 currently_failed = 3;
+  int32 total_failed = 4;
+  int32 total_banned = 5;
+  int32 ban_time_seconds = 6;
+  int32 find_time_seconds = 7;
+  int32 max_retry = 8;
+  repeated string ignore_ips = 9;
+}
+
+message Fail2banBanRequest {
+  string jail = 1;
+  string ip = 2;
+  bool unban = 3;
+}
+
+message Fail2banJailSettings {
+  string jail = 1;
+  int32 ban_time_seconds = 2;
+  int32 find_time_seconds = 3;
+  int32 max_retry = 4;
+  repeated string ignore_ips = 5;
+}

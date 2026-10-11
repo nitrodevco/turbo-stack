@@ -1,4 +1,4 @@
-using System.Net.Http.Json;
+﻿using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,12 +20,18 @@ public sealed class PanelFactory : WebApplicationFactory<PanelEntryPoint>
 
     public string TokenFile => Path.Combine(_dataDirectory, "setup-token.sha256");
 
+    /// <summary>Where the panel looks for the agent; start a <see cref="FakeAgent"/> here when a test needs one.</summary>
+    public string AgentSocket => Path.Combine(_dataDirectory, "agent.sock");
+
+    public string DataDirectory => _dataDirectory;
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
         builder.UseSetting("Panel:DataDirectory", _dataDirectory);
         builder.UseSetting("Panel:SetupTokenHashFile", TokenFile);
-        builder.UseSetting("Panel:AgentSocket", Path.Combine(_dataDirectory, "missing-agent.sock"));
+        builder.UseSetting("Panel:AgentSocket", AgentSocket);
+        builder.UseSetting("Panel:AuthLogFile", Path.Combine(_dataDirectory, "auth.log"));
         builder.UseSetting("Panel:SecureCookies", "false");
         builder.ConfigureServices(services => services.Replace(ServiceDescriptor.Singleton<TimeProvider>(Time)));
     }

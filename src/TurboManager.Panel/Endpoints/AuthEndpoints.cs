@@ -23,7 +23,7 @@ public static class AuthEndpoints
         var group = app.MapGroup("/api/auth");
 
         group.MapPost("/login", async (LoginRequest request, HttpContext http, PanelDbContext db,
-            IPasswordHasher<PanelUser> hasher, AuditLog audit, TimeProvider time) =>
+            IPasswordHasher<PanelUser> hasher, AuditLog audit, AuthFailureLog failures, TimeProvider time) =>
         {
             var now = time.GetUtcNow();
             var username = AccountRules.NormalizeUsername(request.Username);
@@ -31,6 +31,8 @@ public static class AuthEndpoints
 
             if (user is null || string.IsNullOrEmpty(request.Password))
             {
+                failures.Record(http, "unknown_user", username);
+
                 return InvalidCredentials();
             }
 
@@ -42,6 +44,7 @@ public static class AuthEndpoints
             if (hasher.VerifyHashedPassword(user, user.PasswordHash, request.Password) == PasswordVerificationResult.Failed)
             {
                 RegisterFailure(user, now);
+                failures.Record(http, "bad_password", username);
                 audit.Record("auth.login_failed", user);
                 await db.SaveChangesAsync();
 
@@ -59,7 +62,7 @@ public static class AuthEndpoints
         }).RequireRateLimiting(RateLimits.Auth);
 
         group.MapPost("/mfa", async (MfaRequest request, HttpContext http, PanelDbContext db, TotpService totp,
-            AuditLog audit, TimeProvider time) =>
+            AuditLog audit, AuthFailureLog failures, TimeProvider time) =>
         {
             var now = time.GetUtcNow();
             var user = await SessionManager.GetUserAsync(http, AuthSchemes.MfaPending, db);
@@ -82,6 +85,7 @@ public static class AuthEndpoints
             if (!valid)
             {
                 RegisterFailure(user, now);
+                failures.Record(http, "bad_second_factor", user.Username);
                 audit.Record("auth.mfa_failed", user);
                 await db.SaveChangesAsync();
 
@@ -120,6 +124,7 @@ public static class AuthEndpoints
         username = user.Username,
         role = user.Role.ToString(),
         remainingRecoveryCodes = user.RecoveryCodes.Count(c => c.UsedAt is null),
+        permissions = Permissions.For(user.Role),
     };
 
     private static void RegisterFailure(PanelUser user, DateTimeOffset now)

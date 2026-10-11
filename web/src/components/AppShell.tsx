@@ -1,20 +1,23 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { NavLink, Outlet, useNavigate } from 'react-router';
 import { api, type Me } from '../api';
+import { PendingFirewallBanner } from './PendingFirewallBanner';
 import { Logo } from './ui';
 
 /** Sections arrive milestone by milestone; unbuilt ones are listed so the shape of the panel is visible. */
-const navigation: { label: string; to?: string }[] = [
-    { label: 'Dashboard', to: '/' },
+const navigation: { label: string; to?: string; permission?: string }[] = [
+    { label: 'Dashboard', to: '/', permission: 'system.view' },
     { label: 'Hotel' },
     { label: 'Sites' },
     { label: 'Apps & deploys' },
     { label: 'Databases' },
-    { label: 'Services' },
-    { label: 'Firewall' },
+    { label: 'Services', to: '/services', permission: 'services.view' },
+    { label: 'Logs', to: '/logs', permission: 'logs.view' },
+    { label: 'Firewall', to: '/firewall', permission: 'firewall.view' },
+    { label: 'SSH access', to: '/ssh', permission: 'ssh.view' },
+    { label: 'Updates', to: '/updates', permission: 'packages.view' },
     { label: 'Cloudflare' },
-    { label: 'Logs' },
-    { label: 'Settings' },
+    { label: 'Activity', to: '/activity', permission: 'audit.view' },
 ];
 
 export function AppShell({ me }: { me: Me }) {
@@ -32,7 +35,7 @@ export function AppShell({ me }: { me: Me }) {
             <aside className="border-b border-slate-200 bg-white px-4 py-4 md:w-60 md:shrink-0 md:border-r md:border-b-0 dark:border-slate-800 dark:bg-slate-900">
                 <Logo />
                 <nav className="mt-6 flex gap-1 overflow-x-auto md:flex-col">
-                    {navigation.map((item) =>
+                    {navigation.filter((item) => !item.permission || me.permissions.includes(item.permission)).map((item) =>
                         item.to ? (
                             <NavLink
                                 key={item.label}
@@ -65,6 +68,7 @@ export function AppShell({ me }: { me: Me }) {
                         Sign out
                     </button>
                 </header>
+                {me.permissions.includes('firewall.view') && <PendingFirewallBanner />}
                 <main className="flex-1 px-4 py-6 sm:px-6">
                     <Outlet />
                 </main>

@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+option csharp_namespace = "TurboManager.Contracts.Agent";
+
+package turbomanager.agent.v1;
+
+// systemd journal.
+service LogsAgent {
+  rpc QueryJournal (JournalQuery) returns (JournalEntries);
+  // Streams the last `limit` entries, then new entries as they arrive, until cancelled.
+  rpc FollowJournal (JournalQuery) returns (stream JournalEntry);
+}
+
+message JournalQuery {
+  string unit = 1;               // optional systemd unit, e.g. "tm-panel.service"
+  optional int32 max_priority = 2; // 0 (emerg) .. 7 (debug); unset = all
+  int64 since_unix_ms = 3;       // 0 = unbounded
+  int64 until_unix_ms = 4;       // 0 = unbounded
+  string grep = 5;               // optional pattern (journalctl --grep)
+  int32 limit = 6;               // max entries (default 200, max 5000)
+}
+
+message JournalEntries {
+  repeated JournalEntry entries = 1;
+}
+
+message JournalEntry {
+  int64 timestamp_usec = 1;
+  string unit = 2;
+  string identifier = 3;
+  int32 priority = 4;
+  string message = 5;
+  int32 pid = 6;
+  string cursor = 7;
+}

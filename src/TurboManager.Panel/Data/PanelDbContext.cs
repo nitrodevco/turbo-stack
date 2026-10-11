@@ -10,6 +10,18 @@ public sealed class PanelDbContext(DbContextOptions<PanelDbContext> options) : D
 
     public DbSet<AuditEntry> AuditLog => Set<AuditEntry>();
 
+    public DbSet<Job> Jobs => Set<Job>();
+
+    public DbSet<MetricSample> MetricSamples => Set<MetricSample>();
+
+    public DbSet<ManagedFirewallRule> FirewallRules => Set<ManagedFirewallRule>();
+
+    public DbSet<IpList> IpLists => Set<IpList>();
+
+    public DbSet<FirewallSettings> FirewallSettings => Set<FirewallSettings>();
+
+    public DbSet<FirewallChangeRecord> FirewallChanges => Set<FirewallChangeRecord>();
+
     protected override void OnModelCreating(ModelBuilder model)
     {
         model.Entity<PanelUser>(user =>
@@ -24,6 +36,33 @@ public sealed class PanelDbContext(DbContextOptions<PanelDbContext> options) : D
         {
             audit.HasIndex(a => a.At);
             audit.Property(a => a.Action).HasMaxLength(64);
+        });
+
+        model.Entity<Job>(job =>
+        {
+            job.HasIndex(j => j.StartedAt);
+            job.Property(j => j.Status).HasConversion<string>().HasMaxLength(16);
+        });
+
+        model.Entity<MetricSample>().HasIndex(m => m.AtUnixMs);
+
+        model.Entity<ManagedFirewallRule>(rule =>
+        {
+            rule.HasIndex(r => r.Key).IsUnique();
+            rule.Property(r => r.SourceKind).HasConversion<string>().HasMaxLength(16);
+            rule.HasOne(r => r.IpList).WithMany().HasForeignKey(r => r.IpListId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        model.Entity<IpList>(list =>
+        {
+            list.HasIndex(l => l.Name).IsUnique();
+            list.HasMany(l => l.Entries).WithOne().HasForeignKey(e => e.IpListId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        model.Entity<FirewallChangeRecord>(change =>
+        {
+            change.Property(c => c.Status).HasConversion<string>().HasMaxLength(16);
+            change.HasIndex(c => c.Status);
         });
     }
 

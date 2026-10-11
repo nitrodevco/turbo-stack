@@ -5,7 +5,7 @@ using TurboManager.Contracts.Agent;
 
 namespace TurboManager.Panel.AgentClient;
 
-/// <summary>gRPC channel to the root agent over its unix socket.</summary>
+/// <summary>gRPC clients for the root agent over its unix socket (one shared HTTP/2 channel).</summary>
 public sealed class AgentChannelFactory(IOptions<PanelOptions> options) : IDisposable
 {
     private readonly Lazy<GrpcChannel> _channel = new(() =>
@@ -29,12 +29,26 @@ public sealed class AgentChannelFactory(IOptions<PanelOptions> options) : IDispo
                     throw;
                 }
             },
+            // Live log tails hold long-running streams; allow several at once.
+            EnableMultipleHttp2Connections = true,
         };
 
-        return GrpcChannel.ForAddress("http://agent", new GrpcChannelOptions { HttpHandler = handler });
+        return GrpcChannel.ForAddress("http://agent", new GrpcChannelOptions { HttpHandler = handler, MaxReceiveMessageSize = 32 * 1024 * 1024 });
     });
 
     public SystemAgent.SystemAgentClient System => new(_channel.Value);
+
+    public ServicesAgent.ServicesAgentClient Services => new(_channel.Value);
+
+    public LogsAgent.LogsAgentClient Logs => new(_channel.Value);
+
+    public MetricsAgent.MetricsAgentClient Metrics => new(_channel.Value);
+
+    public FirewallAgent.FirewallAgentClient Firewall => new(_channel.Value);
+
+    public SshAgent.SshAgentClient Ssh => new(_channel.Value);
+
+    public PackagesAgent.PackagesAgentClient Packages => new(_channel.Value);
 
     public void Dispose()
     {

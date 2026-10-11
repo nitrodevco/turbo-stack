@@ -3,9 +3,15 @@ import { Navigate, Route, Routes, useLocation } from 'react-router';
 import { api, ApiError, type Me, type SetupStatus } from './api';
 import { AppShell } from './components/AppShell';
 import { CenteredPage, ErrorNote } from './components/ui';
+import { ActivityPage } from './pages/ActivityPage';
 import { DashboardPage } from './pages/DashboardPage';
+import { FirewallPage } from './pages/FirewallPage';
 import { LoginPage } from './pages/LoginPage';
+import { LogsPage } from './pages/LogsPage';
+import { ServicesPage } from './pages/ServicesPage';
 import { SetupPage } from './pages/SetupPage';
+import { SshPage } from './pages/SshPage';
+import { UpdatesPage } from './pages/UpdatesPage';
 
 export function App() {
     const location = useLocation();
@@ -40,6 +46,12 @@ export function App() {
             <Route path="/setup" element={<Navigate to="/" replace />} />
             <Route element={me.data ? <AppShell me={me.data} /> : <Navigate to="/login" replace />}>
                 <Route index element={<DashboardPage />} />
+                <Route path="services" element={<ServicesPage />} />
+                <Route path="logs" element={<LogsPage />} />
+                <Route path="firewall" element={<FirewallPage />} />
+                <Route path="ssh" element={<SshPage />} />
+                <Route path="updates" element={<UpdatesPage />} />
+                <Route path="activity" element={<ActivityPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
         </Routes>

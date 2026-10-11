@@ -1,3 +1,4 @@
+﻿using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -11,7 +12,10 @@ using TurboManager.Panel.Audit;
 using TurboManager.Panel.Auth;
 using TurboManager.Panel.Data;
 using TurboManager.Panel.Endpoints;
+using TurboManager.Panel.Firewall;
 using TurboManager.Panel.Http;
+using TurboManager.Panel.Jobs;
+using TurboManager.Panel.Metrics;
 using TurboManager.Panel.Setup;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -35,7 +39,13 @@ builder.Services.AddSingleton<TotpService>();
 builder.Services.AddSingleton<AgentChannelFactory>();
 builder.Services.AddSingleton<IPasswordHasher<PanelUser>, PasswordHasher<PanelUser>>();
 builder.Services.AddScoped<AuditLog>();
+builder.Services.AddSingleton<AuthFailureLog>();
+builder.Services.AddScoped<FirewallService>();
+builder.Services.AddSingleton<JobRunner>();
+builder.Services.AddHostedService<MetricsCollector>();
+builder.Services.AddHostedService<FirewallReconciler>();
 builder.Services.AddPanelRateLimits();
+builder.Services.ConfigureHttpJsonOptions(json => json.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 builder.Services.Configure<ForwardedHeadersOptions>(forwarded =>
 {
@@ -47,7 +57,7 @@ builder.Services.AddAuthentication(AuthSchemes.Session)
     .AddCookie(AuthSchemes.Session, cookie => ConfigureCookie(cookie, "tm_session", TimeSpan.FromHours(12), sliding: true, validate: true))
     .AddCookie(AuthSchemes.MfaPending, cookie => ConfigureCookie(cookie, "tm_mfa", TimeSpan.FromMinutes(5), sliding: false, validate: false))
     .AddCookie(AuthSchemes.Setup, cookie => ConfigureCookie(cookie, "tm_setup", TimeSpan.FromMinutes(30), sliding: true, validate: false));
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(authorization => authorization.AddPermissionPolicies());
 
 var app = builder.Build();
 
@@ -55,6 +65,7 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<PanelDbContext>();
     await db.Database.MigrateAsync();
+    await FirewallService.SeedAsync(db);
 
     if (panelOptions.DevGenerateSetupToken && !await SetupEndpoints.IsClaimedAsync(db))
     {
@@ -75,6 +86,11 @@ app.UseAuthorization();
 app.MapSetupEndpoints();
 app.MapAuthEndpoints();
 app.MapSystemEndpoints();
+app.MapServicesEndpoints();
+app.MapFirewallEndpoints();
+app.MapAccessEndpoints();
+app.MapPackagesEndpoints();
+app.MapActivityEndpoints();
 app.MapFallback("/api/{**path}", () => Results.NotFound());
 app.MapFallbackToFile("index.html");
 

@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+option csharp_namespace = "TurboManager.Contracts.Agent";
+
+package turbomanager.agent.v1;
+
+// Host resource usage, sampled continuously by the agent.
+service MetricsAgent {
+  rpc GetMetrics (MetricsRequest) returns (MetricsSnapshot);
+}
+
+message MetricsRequest {}
+
+message MetricsSnapshot {
+  int64 timestamp_unix_ms = 1;
+  double cpu_percent = 2;
+  int32 cpu_count = 3;
+  double load_1m = 4;
+  double load_5m = 5;
+  double load_15m = 6;
+  int64 memory_total_bytes = 7;
+  int64 memory_available_bytes = 8;
+  int64 swap_total_bytes = 9;
+  int64 swap_free_bytes = 10;
+  repeated DiskUsage disks = 11;
+  double net_rx_bytes_per_sec = 12;
+  double net_tx_bytes_per_sec = 13;
+  int64 uptime_seconds = 14;
+}
+
+message DiskUsage {
+  string mount = 1;
+  string fs_type = 2;
+  int64 total_bytes = 3;
+  int64 free_bytes = 4;
+}

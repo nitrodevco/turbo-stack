@@ -52,6 +52,242 @@ namespace TurboManager.Panel.Data.Migrations
                     b.ToTable("AuditLog");
                 });
 
+            modelBuilder.Entity("TurboManager.Panel.Data.FirewallChangeRecord", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("PreviousStateJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("RevertAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Summary")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("UserId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("FirewallChanges");
+                });
+
+            modelBuilder.Entity("TurboManager.Panel.Data.FirewallSettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("DefaultIncoming")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("FirewallSettings");
+                });
+
+            modelBuilder.Entity("TurboManager.Panel.Data.IpList", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("IpLists");
+                });
+
+            modelBuilder.Entity("TurboManager.Panel.Data.IpListEntry", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("IpListId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IpListId");
+
+                    b.ToTable("IpListEntry");
+                });
+
+            modelBuilder.Entity("TurboManager.Panel.Data.Job", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("FinishedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Output")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("StartedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("StartedBy")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("StartedByUserId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StartedAt");
+
+                    b.ToTable("Jobs");
+                });
+
+            modelBuilder.Entity("TurboManager.Panel.Data.ManagedFirewallRule", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("IpListId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Ports")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Protocol")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SourceAddress")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SourceKind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("System")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IpListId");
+
+                    b.HasIndex("Key")
+                        .IsUnique();
+
+                    b.ToTable("FirewallRules");
+                });
+
+            modelBuilder.Entity("TurboManager.Panel.Data.MetricSample", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("AtUnixMs")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<double>("CpuPercent")
+                        .HasColumnType("REAL");
+
+                    b.Property<long>("DiskTotalBytes")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("DiskUsedBytes")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<double>("Load1")
+                        .HasColumnType("REAL");
+
+                    b.Property<long>("MemoryTotalBytes")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("MemoryUsedBytes")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<double>("NetRxBytesPerSec")
+                        .HasColumnType("REAL");
+
+                    b.Property<double>("NetTxBytesPerSec")
+                        .HasColumnType("REAL");
+
+                    b.Property<long>("SwapUsedBytes")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AtUnixMs");
+
+                    b.ToTable("MetricSamples");
+                });
+
             modelBuilder.Entity("TurboManager.Panel.Data.PanelUser", b =>
                 {
                     b.Property<int>("Id")
@@ -128,6 +364,25 @@ namespace TurboManager.Panel.Data.Migrations
                     b.ToTable("RecoveryCodes");
                 });
 
+            modelBuilder.Entity("TurboManager.Panel.Data.IpListEntry", b =>
+                {
+                    b.HasOne("TurboManager.Panel.Data.IpList", null)
+                        .WithMany("Entries")
+                        .HasForeignKey("IpListId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("TurboManager.Panel.Data.ManagedFirewallRule", b =>
+                {
+                    b.HasOne("TurboManager.Panel.Data.IpList", "IpList")
+                        .WithMany()
+                        .HasForeignKey("IpListId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("IpList");
+                });
+
             modelBuilder.Entity("TurboManager.Panel.Data.RecoveryCode", b =>
                 {
                     b.HasOne("TurboManager.Panel.Data.PanelUser", null)
@@ -135,6 +390,11 @@ namespace TurboManager.Panel.Data.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("TurboManager.Panel.Data.IpList", b =>
+                {
+                    b.Navigation("Entries");
                 });
 
             modelBuilder.Entity("TurboManager.Panel.Data.PanelUser", b =>

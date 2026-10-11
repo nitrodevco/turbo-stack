@@ -26,7 +26,8 @@ public static class SetupEndpoints
         group.MapGet("/status", async (PanelDbContext db) =>
             Results.Ok(new { claimed = await IsClaimedAsync(db), productName = Branding.ProductName }));
 
-        group.MapPost("/claim", async (ClaimRequest request, HttpContext http, PanelDbContext db, SetupTokenStore tokens, AuditLog audit) =>
+        group.MapPost("/claim", async (ClaimRequest request, HttpContext http, PanelDbContext db, SetupTokenStore tokens, AuditLog audit,
+            AuthFailureLog failures) =>
         {
             if (await IsClaimedAsync(db))
             {
@@ -35,6 +36,7 @@ public static class SetupEndpoints
 
             if (!tokens.Verify(request.Token))
             {
+                failures.Record(http, "bad_setup_token");
                 audit.Record("setup.claim_failed");
                 await db.SaveChangesAsync();
 

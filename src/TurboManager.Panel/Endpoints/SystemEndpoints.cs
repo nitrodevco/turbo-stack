@@ -1,11 +1,22 @@
-using Grpc.Core;
+using Microsoft.EntityFrameworkCore;
 using TurboManager.Contracts.Agent;
 using TurboManager.Panel.AgentClient;
+using TurboManager.Panel.Auth;
+using TurboManager.Panel.Data;
 
 namespace TurboManager.Panel.Endpoints;
 
 public static class SystemEndpoints
 {
+    /// <summary>History ranges and the bucket size used to downsample them (≈300-400 points each).</summary>
+    private static readonly Dictionary<string, (TimeSpan Range, long BucketMs)> HistoryRanges = new()
+    {
+        ["1h"] = (TimeSpan.FromHours(1), 10_000),
+        ["6h"] = (TimeSpan.FromHours(6), 60_000),
+        ["24h"] = (TimeSpan.FromHours(24), 300_000),
+        ["7d"] = (TimeSpan.FromDays(7), 1_800_000),
+    };
+
     public static void MapSystemEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapGet("/api/health", () => Results.Ok(new
@@ -14,27 +25,43 @@ public static class SystemEndpoints
             version = typeof(SystemEndpoints).Assembly.GetName().Version?.ToString(3),
         }));
 
-        var group = app.MapGroup("/api/system").RequireAuthorization();
+        var group = app.MapGroup("/api").WithAgentErrors().RequirePermission(Permissions.SystemView);
 
-        group.MapGet("/info", async (AgentChannelFactory agent, CancellationToken cancellationToken) =>
+        group.MapGet("/system/info", async (AgentChannelFactory agent, CancellationToken cancellationToken) =>
+            Results.Ok(await agent.System.GetSystemInfoAsync(new SystemInfoRequest(), cancellationToken: cancellationToken)));
+
+        group.MapGet("/metrics/current", async (AgentChannelFactory agent, CancellationToken cancellationToken) =>
+            Results.Ok(await agent.Metrics.GetMetricsAsync(new MetricsRequest(), cancellationToken: cancellationToken)));
+
+        group.MapGet("/metrics/history", async (string? range, PanelDbContext db, TimeProvider time, CancellationToken cancellationToken) =>
         {
-            try
+            if (!HistoryRanges.TryGetValue(range ?? "1h", out var window))
             {
-                var info = await agent.System.GetSystemInfoAsync(new SystemInfoRequest(), cancellationToken: cancellationToken);
+                return Results.ValidationProblem(new Dictionary<string, string[]> { ["range"] = ["Use 1h, 6h, 24h or 7d."] });
+            }
 
-                return Results.Ok(info);
-            }
-            catch (RpcException e)
-            {
-                return AgentUnavailable(e);
-            }
-            catch (IOException e)
-            {
-                return AgentUnavailable(e);
-            }
+            var from = time.GetUtcNow().Add(-window.Range).ToUnixTimeMilliseconds();
+            var bucket = window.BucketMs;
+            var points = await db.MetricSamples
+                .Where(m => m.AtUnixMs >= from)
+                .GroupBy(m => m.AtUnixMs / bucket)
+                .Select(g => new
+                {
+                    at = g.Key * bucket,
+                    cpuPercent = g.Average(m => m.CpuPercent),
+                    load1 = g.Average(m => m.Load1),
+                    memoryUsedBytes = (long)g.Average(m => m.MemoryUsedBytes),
+                    memoryTotalBytes = g.Max(m => m.MemoryTotalBytes),
+                    swapUsedBytes = (long)g.Average(m => m.SwapUsedBytes),
+                    diskUsedBytes = g.Max(m => m.DiskUsedBytes),
+                    diskTotalBytes = g.Max(m => m.DiskTotalBytes),
+                    netRxBytesPerSec = g.Average(m => m.NetRxBytesPerSec),
+                    netTxBytesPerSec = g.Average(m => m.NetTxBytesPerSec),
+                })
+                .OrderBy(p => p.at)
+                .ToListAsync(cancellationToken);
+
+            return Results.Ok(new { range = range ?? "1h", bucketMs = bucket, points });
         });
     }
-
-    private static IResult AgentUnavailable(Exception e) =>
-        Results.Problem($"The system agent is not reachable: {e.Message}", statusCode: StatusCodes.Status503ServiceUnavailable);
 }

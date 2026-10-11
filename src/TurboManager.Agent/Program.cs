@@ -2,9 +2,15 @@
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Options;
 using TurboManager.Agent;
-using TurboManager.Agent.Security;
-using TurboManager.Agent.Services;
+using TurboManager.Agent.Commands;
+using TurboManager.Agent.Firewall;
 using TurboManager.Agent.HostInfo;
+using TurboManager.Agent.Journal;
+using TurboManager.Agent.Metrics;
+using TurboManager.Agent.Packages;
+using TurboManager.Agent.Security;
+using TurboManager.Agent.Ssh;
+using TurboManager.Agent.Systemd;
 using TurboManager.Core.Unix;
 
 var builder = WebApplication.CreateSlimBuilder(args);
@@ -13,7 +19,14 @@ builder.Host.UseSystemd();
 builder.Services.Configure<AgentOptions>(builder.Configuration.GetSection(AgentOptions.Section));
 builder.Services.AddSingleton<PeerAuthorizer>();
 builder.Services.AddSingleton<SystemInfoReader>();
-builder.Services.AddGrpc();
+builder.Services.AddSingleton<ICommandRunner, ProcessCommandRunner>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<UfwFiles>();
+builder.Services.AddSingleton<FirewallManager>();
+builder.Services.AddSingleton<Fail2banManager>();
+builder.Services.AddSingleton<MetricsSampler>();
+builder.Services.AddHostedService(services => services.GetRequiredService<MetricsSampler>());
+builder.Services.AddGrpc(grpc => grpc.EnableDetailedErrors = false);
 
 var agentOptions = builder.Configuration.GetSection(AgentOptions.Section).Get<AgentOptions>() ?? new AgentOptions();
 var socketPath = Path.GetFullPath(agentOptions.SocketPath);
@@ -53,6 +66,21 @@ builder.WebHost.ConfigureKestrel(kestrel =>
 var app = builder.Build();
 
 app.MapGrpcService<SystemAgentService>();
+app.MapGrpcService<ServicesAgentService>();
+app.MapGrpcService<LogsAgentService>();
+app.MapGrpcService<MetricsAgentService>();
+app.MapGrpcService<FirewallAgentService>();
+app.MapGrpcService<SshAgentService>();
+app.MapGrpcService<PackagesAgentService>();
+
+try
+{
+    await app.Services.GetRequiredService<FirewallManager>().RecoverAsync(CancellationToken.None);
+}
+catch (Exception e)
+{
+    app.Logger.LogError(e, "Could not revert a pending firewall change from before the restart");
+}
 
 app.Lifetime.ApplicationStarted.Register(() => SecureSocket(socketPath, app.Services.GetRequiredService<IOptions<AgentOptions>>().Value, app.Logger));
 

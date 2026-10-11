@@ -55,6 +55,7 @@ cmd_e2e() {
     url="$(grep -oE 'https://[^ ]+/setup\?token=[0-9a-f]+' "$ARTIFACTS/install.log" | tail -n1 | sed 's/\x1b\[[0-9;]*m//g')"
     [[ -n "$url" ]] || { echo "No setup URL in $ARTIFACTS/install.log; run 'install' first." >&2; exit 1; }
     compose --profile test run --rm --build tester /e2e/setup-flow.sh "$url"
+    on_server bash -s < "$HERE/e2e/server-post-checks.sh"
 }
 
 cmd_collect() {

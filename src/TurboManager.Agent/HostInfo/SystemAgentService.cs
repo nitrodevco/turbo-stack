@@ -1,8 +1,7 @@
 ﻿using Grpc.Core;
-using TurboManager.Agent.HostInfo;
 using TurboManager.Contracts.Agent;
 
-namespace TurboManager.Agent.Services;
+namespace TurboManager.Agent.HostInfo;
 
 public sealed class SystemAgentService(SystemInfoReader systemInfo) : SystemAgent.SystemAgentBase
 {

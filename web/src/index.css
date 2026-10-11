@@ -9,6 +9,25 @@
     --color-brand-700: #4338ca;
 }
 
+/* Chart roles (validated reference palette: categorical slots 1-2, light and dark steps). */
+:root {
+    --series-1: #2a78d6;
+    --series-2: #eb6834;
+    --chart-grid: #e7e5e0;
+    --chart-axis: #8a8984;
+    --chart-surface: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --series-1: #3987e5;
+        --series-2: #d95926;
+        --chart-grid: #2c2c2a;
+        --chart-axis: #8a8984;
+        --chart-surface: #0f172a;
+    }
+}
+
 html,
 body,
 #root {

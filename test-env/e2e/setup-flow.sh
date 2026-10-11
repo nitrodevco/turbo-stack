@@ -81,3 +81,56 @@ response="$(call POST /api/auth/mfa "{\"code\":\"$(oathtool --totp -b "$SECRET")
 pass "signed in with TOTP"
 
 echo "Setup flow passed."
+echo
+echo "Server management against the real server"
+
+response="$(call GET /api/metrics/current)"
+[[ "$(status_of "$response")" == "200" ]] || fail "metrics failed: $response"
+pass "live metrics from the agent"
+
+response="$(call GET /api/services)"
+[[ "$(body_of "$response" | jq -r '.[] | select(.name == "tm-panel.service") | .activeState')" == "active" ]] || fail "tm-panel.service should be listed as active"
+pass "services listed (tm-panel.service active)"
+
+response="$(call GET '/api/logs?unit=tm-panel.service&limit=5')"
+[[ "$(status_of "$response")" == "200" ]] || fail "journal query failed: $response"
+pass "journal query works"
+
+response="$(call GET /api/ssh/settings)"
+[[ "$(body_of "$response" | jq '.ports | index(22) != null')" == "true" ]] || fail "sshd settings should report port 22: $response"
+pass "sshd settings read via sshd -T"
+
+response="$(call GET /api/firewall/fail2ban)"
+[[ "$(body_of "$response" | jq '[.jails[].name] | contains(["sshd", "turbo-manager-panel"])')" == "true" ]] || fail "fail2ban jails missing: $response"
+pass "fail2ban jails active (sshd, panel)"
+
+response="$(call GET /api/firewall)"
+[[ "$(body_of "$response" | jq -r .inSync)" == "true" ]] || fail "installer rules should match the panel's: $response"
+pass "installer firewall rules adopted by the panel"
+
+response="$(call POST /api/firewall/rules '{"name":"Game TCP","action":"allow","protocol":"tcp","ports":"30000","sourceKind":"Any"}')"
+[[ "$(body_of "$response" | jq -r '.pending')" == "null" && "$(body_of "$response" | jq -r .changed)" == "true" ]] || fail "allow rule should apply immediately: $response"
+pass "allow rule applied without confirmation"
+
+response="$(call POST /api/firewall/rules '{"name":"Block scanner","action":"deny","protocol":"tcp","ports":"22","sourceKind":"Address","sourceAddress":"198.51.100.66"}')"
+PENDING="$(body_of "$response" | jq -r '.pending.id')"
+[[ "$PENDING" != "null" ]] || fail "deny rule should need confirmation: $response"
+response="$(call POST "/api/firewall/changes/$PENDING/confirm")"
+[[ "$(body_of "$response" | jq -r .status)" == "confirmed" ]] || fail "confirmation failed: $response"
+pass "risky rule applied and confirmed"
+
+response="$(call POST /api/firewall/rules '{"name":"Unconfirmed","action":"deny","protocol":"tcp","ports":"25","sourceKind":"Address","sourceAddress":"198.51.100.77"}')"
+[[ "$(body_of "$response" | jq -r '.pending.id')" != "null" ]] || fail "deny rule should need confirmation: $response"
+echo "  … waiting 70s for the unconfirmed change to revert"
+sleep 70
+response="$(call GET /api/firewall)"
+[[ "$(body_of "$response" | jq -r .pending)" == "null" ]] || fail "change should no longer be pending: $response"
+[[ "$(body_of "$response" | jq '[.rules[].name] | index("Unconfirmed")')" == "null" ]] || fail "reverted rule should be gone from the panel: $response"
+pass "unconfirmed change reverted in the panel"
+
+response="$(call GET /api/firewall/exposure)"
+[[ "$(body_of "$response" | jq -r '.[] | select(.port == 7800) | .exposure')" == "local" ]] || fail "panel port should be local only: $response"
+pass "exposure check: panel port is local only"
+
+echo "Server management passed."
+

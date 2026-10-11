@@ -261,15 +261,52 @@ if [[ ! -f "$CONFIG_ROOT/firewall-initialized" ]]; then
     fi
 fi
 
-cat > /etc/fail2ban/jail.d/$SLUG.conf <<EOF
-# Managed by $PRODUCT_NAME
+# Failed panel sign-ins are written here by tm-panel; the panel jail bans their source.
+install -m 0640 -o "$SYSTEM_USER" -g adm /dev/null "$LOG_ROOT/auth.log" 2>/dev/null || touch "$LOG_ROOT/auth.log"
+
+cat > /etc/fail2ban/filter.d/$SLUG-panel.conf <<'EOF'
+# Managed by Turbo Manager: failed sign-ins to the panel.
+[Definition]
+failregex = ^\S+ AUTH_FAILURE ip=<HOST>
+ignoreregex =
+EOF
+
+# Jail settings are edited from the panel afterwards, so only write them on first install.
+if [[ ! -f /etc/fail2ban/jail.d/$SLUG.conf ]]; then
+    cat > /etc/fail2ban/jail.d/$SLUG.conf <<EOF
+# Managed by $PRODUCT_NAME.
+
 [DEFAULT]
 backend = systemd
 
 [sshd]
 enabled = true
+
+[$SLUG-panel]
+enabled = true
+backend = auto
+filter = $SLUG-panel
+logpath = $LOG_ROOT/auth.log
+port = http,https,$SETUP_PORT
+maxretry = 10
+findtime = 600
+bantime = 3600
 EOF
+fi
 systemctl enable --now fail2ban >/dev/null 2>&1 || warn "fail2ban could not be started."
+systemctl restart fail2ban >/dev/null 2>&1 || true
+
+cat > /etc/logrotate.d/$SLUG <<EOF
+$LOG_ROOT/*.log {
+    weekly
+    rotate 8
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}
+EOF
 
 cat > /etc/apt/apt.conf.d/20auto-upgrades <<EOF
 APT::Periodic::Update-Package-Lists "1";

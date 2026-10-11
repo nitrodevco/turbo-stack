@@ -1,101 +1,174 @@
 import { useQuery } from '@tanstack/react-query';
-import { api, ApiError, type SystemInfo } from '../api';
-import { Card } from '../components/ui';
+import { useState } from 'react';
+import { api, errorMessage, type MetricPoint, type MetricsHistory, type MetricsSnapshot, type SystemInfo } from '../api';
+import { TimeSeriesChart } from '../components/TimeSeriesChart';
+import { Badge, Card, Notice, PageHeader, Tabs } from '../components/ui';
+import { formatBytes, formatDuration, formatRate } from '../format';
+
+type Range = '1h' | '6h' | '24h' | '7d';
 
 export function DashboardPage() {
-    const info = useQuery({
-        queryKey: ['system-info'],
-        queryFn: () => api.get<SystemInfo>('/api/system/info'),
-        refetchInterval: 10_000,
+    const [range, setRange] = useState<Range>('1h');
+    const info = useQuery({ queryKey: ['system-info'], queryFn: () => api.get<SystemInfo>('/api/system/info'), retry: false });
+    const current = useQuery({
+        queryKey: ['metrics-current'],
+        queryFn: () => api.get<MetricsSnapshot>('/api/metrics/current'),
+        refetchInterval: 5_000,
         retry: false,
     });
+    const history = useQuery({
+        queryKey: ['metrics-history', range],
+        queryFn: () => api.get<MetricsHistory>(`/api/metrics/history?range=${range}`),
+        refetchInterval: range === '1h' ? 10_000 : 60_000,
+    });
+
+    const points = history.data?.points ?? [];
 
     return (
         <div className="space-y-6">
-            <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+            <PageHeader title="Dashboard" />
             {info.isError && (
-                <Card className="border-amber-300 dark:border-amber-800">
+                <Notice tone="warning">
                     <p className="font-medium">System agent unavailable</p>
-                    <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                        {info.error instanceof ApiError ? info.error.message : 'Could not reach the panel.'} Check{' '}
-                        <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">systemctl status tm-agent</code> on the server.
+                    <p className="mt-1">
+                        {errorMessage(info.error)} Check <code>systemctl status tm-agent</code> on the server.
                     </p>
-                </Card>
+                </Notice>
             )}
-            {info.data && <ServerOverview info={info.data} />}
+            {info.data && <ServerCard info={info.data} />}
+            {current.data && current.data.timestampUnixMs > 0 && <LiveTiles metrics={current.data} />}
+
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold">History</h2>
+                <Tabs<Range>
+                    tabs={[
+                        { id: '1h', label: '1 hour' },
+                        { id: '6h', label: '6 hours' },
+                        { id: '24h', label: '24 hours' },
+                        { id: '7d', label: '7 days' },
+                    ]}
+                    value={range}
+                    onChange={setRange}
+                />
+            </div>
+            <div className="grid gap-4 xl:grid-cols-2">
+                <ChartCard title="CPU usage">
+                    <TimeSeriesChart<MetricPoint>
+                        label="CPU usage over time, percent"
+                        points={points}
+                        yMax={100}
+                        formatValue={(v) => `${Math.round(v)}%`}
+                        series={[{ key: 'cpu', label: 'CPU', color: 'var(--series-1)', value: (p) => p.cpuPercent }]}
+                    />
+                </ChartCard>
+                <ChartCard title="Memory used">
+                    <TimeSeriesChart<MetricPoint>
+                        label="Memory used over time"
+                        points={points}
+                        yMax={points.at(-1)?.memoryTotalBytes || undefined}
+                        formatValue={formatBytes}
+                        series={[{ key: 'memory', label: 'Memory', color: 'var(--series-1)', value: (p) => p.memoryUsedBytes }]}
+                    />
+                </ChartCard>
+                <ChartCard title="Network traffic">
+                    <TimeSeriesChart<MetricPoint>
+                        label="Network traffic in and out over time"
+                        points={points}
+                        formatValue={formatRate}
+                        series={[
+                            { key: 'rx', label: 'In', color: 'var(--series-1)', value: (p) => p.netRxBytesPerSec },
+                            { key: 'tx', label: 'Out', color: 'var(--series-2)', value: (p) => p.netTxBytesPerSec },
+                        ]}
+                    />
+                </ChartCard>
+                <ChartCard title="Load average (1 min)">
+                    <TimeSeriesChart<MetricPoint>
+                        label="One-minute load average over time"
+                        points={points}
+                        formatValue={(v) => v.toFixed(1)}
+                        series={[{ key: 'load', label: 'Load', color: 'var(--series-1)', value: (p) => p.load1 }]}
+                    />
+                </ChartCard>
+            </div>
         </div>
     );
 }
 
-function ServerOverview({ info }: { info: SystemInfo }) {
-    const memoryUsed = info.memoryTotalBytes - info.memoryAvailableBytes;
-    const diskUsed = info.diskTotalBytes - info.diskFreeBytes;
-
+function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
     return (
-        <>
-            <Card>
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <div>
-                        <p className="text-lg font-semibold">{info.hostname}</p>
-                        <p className="text-sm text-slate-600 dark:text-slate-400">
-                            {info.osName} · kernel {info.kernel} · {info.architecture}
-                        </p>
-                    </div>
-                    <div className="flex gap-2 text-xs">
-                        {info.container && (
-                            <span className="rounded-full bg-amber-100 px-2.5 py-1 font-medium text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-                                Container ({info.container}) — some features are skipped
-                            </span>
-                        )}
-                        <span className="rounded-full bg-emerald-100 px-2.5 py-1 font-medium text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                            Up {formatDuration(info.uptimeSeconds)}
-                        </span>
-                    </div>
-                </div>
-            </Card>
-            <div className="grid gap-4 sm:grid-cols-3">
-                <Meter label="CPU load (1m)" value={`${info.loadAverage1M.toFixed(2)}`} detail={`${info.cpuCount} cores`} ratio={info.loadAverage1M / Math.max(info.cpuCount, 1)} />
-                <Meter label="Memory" value={formatBytes(memoryUsed)} detail={`of ${formatBytes(info.memoryTotalBytes)}`} ratio={memoryUsed / Math.max(info.memoryTotalBytes, 1)} />
-                <Meter label="Disk (/)" value={formatBytes(diskUsed)} detail={`of ${formatBytes(info.diskTotalBytes)}`} ratio={diskUsed / Math.max(info.diskTotalBytes, 1)} />
-            </div>
-        </>
+        <Card className="space-y-3 p-5">
+            <h3 className="text-sm font-medium text-slate-600 dark:text-slate-400">{title}</h3>
+            {children}
+        </Card>
     );
 }
 
-function Meter({ label, value, detail, ratio }: { label: string; value: string; detail: string; ratio: number }) {
-    const percent = Math.min(Math.max(ratio, 0), 1) * 100;
-    const color = percent > 90 ? 'bg-red-500' : percent > 75 ? 'bg-amber-500' : 'bg-brand-600';
-
+function ServerCard({ info }: { info: SystemInfo }) {
     return (
-        <Card className="space-y-3">
-            <p className="text-sm text-slate-600 dark:text-slate-400">{label}</p>
-            <p className="text-2xl font-semibold tabular-nums">
-                {value} <span className="text-sm font-normal text-slate-500">{detail}</span>
-            </p>
-            <div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-                <div className={`h-full rounded-full ${color}`} style={{ width: `${percent}%` }} />
+        <Card>
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <div>
+                    <p className="text-lg font-semibold">{info.hostname}</p>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                        {info.osName} · kernel {info.kernel} · {info.architecture} · {info.cpuCount} cores
+                    </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                    {info.container && <Badge tone="warning">Container ({info.container}) — some features are skipped</Badge>}
+                    <Badge tone="good">Up {formatDuration(info.uptimeSeconds)}</Badge>
+                </div>
             </div>
         </Card>
     );
 }
 
-function formatBytes(bytes: number) {
-    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-    let value = bytes;
-    let unit = 0;
+function LiveTiles({ metrics }: { metrics: MetricsSnapshot }) {
+    const memoryUsed = metrics.memoryTotalBytes - metrics.memoryAvailableBytes;
+    const swapUsed = metrics.swapTotalBytes - metrics.swapFreeBytes;
 
-    while (value >= 1024 && unit < units.length - 1) {
-        value /= 1024;
-        unit++;
-    }
-
-    return `${value.toFixed(value >= 10 || unit === 0 ? 0 : 1)} ${units[unit]}`;
+    return (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <Meter label="CPU" value={`${Math.round(metrics.cpuPercent)}%`} detail={`load ${metrics.load1M.toFixed(2)}`} ratio={metrics.cpuPercent / 100} />
+            <Meter
+                label="Memory"
+                value={formatBytes(memoryUsed)}
+                detail={`of ${formatBytes(metrics.memoryTotalBytes)}${metrics.swapTotalBytes > 0 ? ` · swap ${formatBytes(swapUsed)}` : ''}`}
+                ratio={memoryUsed / Math.max(1, metrics.memoryTotalBytes)}
+            />
+            {metrics.disks.slice(0, 1).map((disk) => (
+                <Meter
+                    key={disk.mount}
+                    label={`Disk (${disk.mount})`}
+                    value={formatBytes(disk.totalBytes - disk.freeBytes)}
+                    detail={`of ${formatBytes(disk.totalBytes)}`}
+                    ratio={(disk.totalBytes - disk.freeBytes) / Math.max(1, disk.totalBytes)}
+                />
+            ))}
+            <Card className="space-y-1 p-5">
+                <p className="text-sm text-slate-600 dark:text-slate-400">Network</p>
+                <p className="text-lg font-semibold tabular-nums">↓ {formatRate(metrics.netRxBytesPerSec)}</p>
+                <p className="text-lg font-semibold tabular-nums">↑ {formatRate(metrics.netTxBytesPerSec)}</p>
+            </Card>
+        </div>
+    );
 }
 
-function formatDuration(seconds: number) {
-    const days = Math.floor(seconds / 86400);
-    const hours = Math.floor((seconds % 86400) / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
+function Meter({ label, value, detail, ratio }: { label: string; value: string; detail: string; ratio: number }) {
+    const percent = Math.min(Math.max(ratio, 0), 1) * 100;
+    const status = percent > 90 ? { color: 'bg-red-600', text: 'Critical' } : percent > 75 ? { color: 'bg-amber-500', text: 'High' } : null;
 
-    return days > 0 ? `${days}d ${hours}h` : hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+    return (
+        <Card className="space-y-3 p-5">
+            <div className="flex items-center justify-between">
+                <p className="text-sm text-slate-600 dark:text-slate-400">{label}</p>
+                {status && <Badge tone={percent > 90 ? 'danger' : 'warning'}>⚠ {status.text}</Badge>}
+            </div>
+            <p className="text-2xl font-semibold tabular-nums">
+                {value} <span className="text-sm font-normal text-slate-500">{detail}</span>
+            </p>
+            <div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800" role="meter" aria-valuenow={Math.round(percent)} aria-valuemin={0} aria-valuemax={100} aria-label={label}>
+                <div className={`h-full rounded-full ${status?.color ?? 'bg-brand-600'}`} style={{ width: `${percent}%` }} />
+            </div>
+        </Card>
+    );
 }

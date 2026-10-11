@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+option csharp_namespace = "TurboManager.Contracts.Agent";
+
+package turbomanager.agent.v1;
+
+// apt updates and reboots.
+service PackagesAgent {
+  rpc ListUpgradable (ListUpgradableRequest) returns (UpgradablePackages);
+  rpc UpgradePackages (UpgradeRequest) returns (stream OutputLine);
+  rpc ScheduleReboot (RebootRequest) returns (RebootStatus);
+  rpc GetRebootStatus (RebootRequest) returns (RebootStatus);
+}
+
+message ListUpgradableRequest {
+  bool refresh = 1;  // run apt-get update first
+}
+
+message UpgradablePackages {
+  repeated UpgradablePackage packages = 1;
+  bool reboot_required = 2;
+  repeated string reboot_required_packages = 3;
+  int64 lists_updated_unix_ms = 4;
+}
+
+message UpgradablePackage {
+  string name = 1;
+  string current_version = 2;
+  string candidate_version = 3;
+  string source = 4;   // e.g. "noble-updates,noble-security"
+  bool security = 5;
+}
+
+enum UpgradeMode {
+  UPGRADE_MODE_UNSPECIFIED = 0;
+  UPGRADE_MODE_ALL = 1;
+  UPGRADE_MODE_SECURITY = 2;
+  UPGRADE_MODE_SELECTED = 3;
+}
+
+message UpgradeRequest {
+  UpgradeMode mode = 1;
+  repeated string names = 2;  // for UPGRADE_MODE_SELECTED
+}
+
+message OutputLine {
+  string line = 1;
+  bool finished = 2;
+  int32 exit_code = 3;
+}
+
+message RebootRequest {
+  int32 delay_minutes = 1;  // 0 = now
+  bool cancel = 2;
+}
+
+message RebootStatus {
+  bool scheduled = 1;
+  int64 scheduled_at_unix_ms = 2;
+  bool supported = 3;        // false inside containers
+  string message = 4;
+}
