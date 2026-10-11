@@ -709,6 +709,9 @@ an unconfirmed change reverting) but has still not been run. Deferred from M1: c
   new address), `sudo tm-panel-recover` to reopen it.
 - *Tests:* 179 unit/API tests (fake agent + fake Cloudflare in-process); the Docker E2E gains a
   fake Cloudflare service and covers the whole flow, still not run (no Docker here).
+- *E2E (2026-10-11):* first real runs found 4 Linux-only bugs (nginx 1.24 `http2` syntax,
+  reload race, leaked `NOTIFY_SOCKET`, missing-routes crash); after fixes the full Docker
+  suite passes on Ubuntu 24.04 and 26.04.
 - *Deviations / later:* ACME DNS-01 (wildcards without Cloudflare Origin) and Pebble in the
   Docker env are not done yet; fail2ban still bans in UFW even for proxied traffic (banning via
   the Cloudflare API, plan 6.8, comes with the WAF work); Authenticated Origin Pulls not yet.
