@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Issues a new one-time setup token for an unclaimed panel and prints the setup link.
+# Any previous token stops working. Usage: sudo tm-setup-token [--url-only]
+set -euo pipefail
+
+SLUG="turbo-manager"
+STATE_ROOT="/var/lib/$SLUG"
+TOKEN_FILE="$STATE_ROOT/setup-token.sha256"
+
+[[ $EUID -eq 0 ]] || { echo "Run as root: sudo tm-setup-token" >&2; exit 1; }
+
+# shellcheck disable=SC1091
+. "/etc/$SLUG/install.env"
+
+if [[ "$(curl -fsS "http://127.0.0.1:$TM_PANEL_PORT/api/setup/status" 2>/dev/null | jq -r '.claimed')" == "true" ]]; then
+    echo "This panel has already been set up. Sign in with the owner account instead." >&2
+    exit 1
+fi
+
+TOKEN="$(openssl rand -hex 24)"
+umask 077
+printf '%s\n' "$(printf '%s' "$TOKEN" | sha256sum | awk '{print $1}')" > "$TOKEN_FILE.tmp"
+chown "$SLUG:$SLUG" "$TOKEN_FILE.tmp"
+mv "$TOKEN_FILE.tmp" "$TOKEN_FILE"
+
+URL="https://$TM_PUBLIC_HOST:$TM_SETUP_PORT/setup?token=$TOKEN"
+
+if [[ "${1:-}" == "--url-only" ]]; then
+    echo "$URL"
+else
+    printf 'Setup link (valid for 24 hours):\n\n  %s\n\n' "$URL"
+fi

@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/TurboManager.Agent/TurboManager.Agent.csproj" />
+    <Project Path="src/TurboManager.Contracts/TurboManager.Contracts.csproj" />
+    <Project Path="src/TurboManager.Core/TurboManager.Core.csproj" />
+    <Project Path="src/TurboManager.Panel/TurboManager.Panel.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/TurboManager.Agent.Tests/TurboManager.Agent.Tests.csproj" />
+    <Project Path="tests/TurboManager.Panel.Tests/TurboManager.Panel.Tests.csproj" />
+  </Folder>
+</Solution>

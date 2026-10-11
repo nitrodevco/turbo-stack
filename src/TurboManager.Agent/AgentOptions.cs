@@ -1,0 +1,22 @@
+using TurboManager.Core;
+
+namespace TurboManager.Agent;
+
+public sealed class AgentOptions
+{
+    public const string Section = "Agent";
+
+    public string SocketPath { get; set; } = ManagerPaths.AgentSocket;
+
+    /// <summary>Besides root, the only local user allowed to call the agent.</summary>
+    public string AllowedUser { get; set; } = Branding.SystemUser;
+
+    /// <summary>Group given access to the socket file (mode 0660).</summary>
+    public string SocketGroup { get; set; } = Branding.SystemUser;
+
+    /// <summary>Development only: platforms without SO_PEERCRED (Windows) cannot identify peers.</summary>
+    public bool AllowUnverifiedPeers { get; set; }
+
+    /// <summary>Filesystem root used when reading /proc, /etc etc. Overridable for tests.</summary>
+    public string HostRoot { get; set; } = "/";
+}

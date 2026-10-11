@@ -1,0 +1,31 @@
+[Unit]
+Description=Turbo Manager panel (web UI and API)
+After=network.target tm-agent.service
+Wants=tm-agent.service
+
+[Service]
+Type=notify
+User=turbo-manager
+Group=turbo-manager
+ExecStart=/opt/turbo-manager/panel/tm-panel
+WorkingDirectory=/opt/turbo-manager/panel
+Environment=DOTNET_ENVIRONMENT=Production
+Environment=ASPNETCORE_URLS=http://127.0.0.1:7800
+Restart=always
+RestartSec=2
+
+# The panel is unprivileged; everything privileged goes through tm-agent.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+ReadWritePaths=/var/lib/turbo-manager /var/log/turbo-manager
+
+[Install]
+WantedBy=multi-user.target

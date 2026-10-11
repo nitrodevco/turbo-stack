@@ -1,0 +1,43 @@
+name: tm-test
+
+services:
+  # Stands in for the install domain: serves dist/ (install.sh, channels/*.json, files/*.tar.gz).
+  install-host:
+    image: nginx:1.29-alpine
+    volumes:
+      - ../dist:/usr/share/nginx/html:ro
+    networks: [hotel]
+
+  # The fresh Ubuntu server under test.
+  server:
+    build:
+      context: ./server
+      args:
+        UBUNTU: ${UBUNTU:-24.04}
+    image: tm-test-server:${UBUNTU:-24.04}
+    hostname: hotel-test
+    privileged: true
+    cgroup: private
+    tmpfs:
+      - /run
+      - /run/lock
+      - /tmp
+    ports:
+      - "8443:8443"
+      - "8080:80"
+    networks:
+      hotel:
+        aliases: [server]
+    depends_on: [install-host]
+
+  # Runs the e2e scripts against the server over the network.
+  tester:
+    build:
+      context: .
+      dockerfile: tester/Dockerfile
+    profiles: [test]
+    networks: [hotel]
+    depends_on: [server]
+
+networks:
+  hotel: {}

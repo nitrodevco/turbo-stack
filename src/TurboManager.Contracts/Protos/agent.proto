@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+option csharp_namespace = "TurboManager.Contracts.Agent";
+
+package turbomanager.agent.v1;
+
+// The root agent exposes a closed set of typed operations. Never add a "run arbitrary command" RPC.
+service SystemAgent {
+  rpc Ping (PingRequest) returns (PingReply);
+  rpc GetSystemInfo (SystemInfoRequest) returns (SystemInfo);
+}
+
+message PingRequest {}
+
+message PingReply {
+  string agent_version = 1;
+}
+
+message SystemInfoRequest {}
+
+message SystemInfo {
+  string hostname = 1;
+  string os_name = 2;          // PRETTY_NAME from /etc/os-release
+  string os_version_id = 3;    // VERSION_ID, e.g. "24.04"
+  string kernel = 4;
+  string architecture = 5;
+  int64 uptime_seconds = 6;
+  int32 cpu_count = 7;
+  int64 memory_total_bytes = 8;
+  int64 memory_available_bytes = 9;
+  int64 disk_total_bytes = 10;
+  int64 disk_free_bytes = 11;
+  double load_average_1m = 12;
+  // Non-empty when running inside a container (e.g. "docker"); some features are skipped there.
+  string container = 13;
+}

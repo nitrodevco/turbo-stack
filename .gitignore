@@ -1,0 +1,24 @@
+src/**/bin/
+src/**/obj/
+tests/**/bin/
+tests/**/obj/
+*.user
+.vs/
+.idea/
+
+# Local panel/agent state when running with DOTNET_ENVIRONMENT=Development
+.dev-data/
+
+# Release bundles from scripts/package.sh
+dist/
+
+# Web
+web/node_modules/
+web/dist/
+web/.yarn/*
+!web/.yarn/patches
+!web/.yarn/releases
+
+# Test artifacts
+test-env/artifacts/
+TestResults/

@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: Build and unit tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Web UI
+        working-directory: web
+        run: |
+          corepack enable
+          yarn install --immutable
+          yarn build
+
+      - name: .NET tests
+        run: dotnet test --configuration Release
+
+  e2e:
+    name: Install + setup E2E (Ubuntu ${{ matrix.ubuntu }})
+    needs: build-test
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        ubuntu: ["24.04", "26.04"]
+    env:
+      UBUNTU: ${{ matrix.ubuntu }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - run: corepack enable
+
+      - name: Package, install on a fresh server, run E2E
+        run: test-env/dev all
+
+      - name: Collect diagnostics
+        if: failure()
+        run: test-env/dev collect
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-${{ matrix.ubuntu }}
+          path: test-env/artifacts/

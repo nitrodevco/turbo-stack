@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# Docker test environment for Turbo Manager. See docs/PLAN.md section 8.
+#
+#   test-env/dev package     Build release bundles into dist/ (linux-x64 by default; ARCH=arm64 to change)
+#   test-env/dev up          Start a fresh Ubuntu server + the stand-in install domain
+#   test-env/dev install     Run install.sh on the server, exactly like a user would (curl | bash)
+#   test-env/dev e2e         Run the end-to-end checks (needs a fresh install)
+#   test-env/dev all         package + reset + install + e2e (what CI runs)
+#   test-env/dev shell       Root shell on the server
+#   test-env/dev logs        Follow panel + agent logs
+#   test-env/dev token       Print a new setup link
+#   test-env/dev reset       Destroy and recreate the server (back to a fresh box)
+#   test-env/dev down        Stop everything
+#
+# UBUNTU=26.04 selects the server image version (default 24.04).
+set -euo pipefail
+
+HERE="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "$HERE/.." && pwd)"
+export UBUNTU="${UBUNTU:-24.04}"
+ARCH="${ARCH:-x64}"
+ARTIFACTS="$HERE/artifacts"
+
+compose() { docker compose -f "$HERE/compose.yaml" "$@"; }
+on_server() { compose exec -T server "$@"; }
+
+wait_for_systemd() {
+    for _ in $(seq 1 60); do
+        state="$(on_server systemctl is-system-running 2>/dev/null || true)"
+        [[ "$state" == "running" || "$state" == "degraded" ]] && return 0
+        sleep 1
+    done
+    echo "systemd did not finish booting in the server container" >&2
+    return 1
+}
+
+cmd_package() { "$ROOT/scripts/package.sh" --arch "$ARCH"; }
+
+cmd_up() {
+    [[ -f "$ROOT/dist/install.sh" ]] || { echo "No bundle in dist/. Run: test-env/dev package" >&2; exit 1; }
+    compose up -d --build install-host server
+    wait_for_systemd
+    echo "Server is up (Ubuntu $UBUNTU). Setup address will be https://localhost:8443"
+}
+
+cmd_install() {
+    mkdir -p "$ARTIFACTS"
+    on_server bash -c "curl -fsSL http://install-host/install.sh | bash -s -- --base-url http://install-host --no-upgrade --public-host localhost" \
+        | tee "$ARTIFACTS/install.log"
+}
+
+cmd_e2e() {
+    local url
+    on_server bash -s < "$HERE/e2e/server-checks.sh"
+    url="$(grep -oE 'https://[^ ]+/setup\?token=[0-9a-f]+' "$ARTIFACTS/install.log" | tail -n1 | sed 's/\x1b\[[0-9;]*m//g')"
+    [[ -n "$url" ]] || { echo "No setup URL in $ARTIFACTS/install.log; run 'install' first." >&2; exit 1; }
+    compose --profile test run --rm --build tester /e2e/setup-flow.sh "$url"
+}
+
+cmd_collect() {
+    mkdir -p "$ARTIFACTS"
+    on_server journalctl --no-pager -u tm-agent -u tm-panel -u nginx > "$ARTIFACTS/journal.log" 2>&1 || true
+    on_server cat /etc/nginx/sites-enabled/tm-setup.conf > "$ARTIFACTS/nginx-tm-setup.conf" 2>&1 || true
+    on_server ufw status verbose > "$ARTIFACTS/ufw.txt" 2>&1 || true
+    echo "Collected diagnostics in $ARTIFACTS"
+}
+
+cmd_reset() {
+    compose down --volumes --remove-orphans
+    cmd_up
+}
+
+case "${1:-}" in
+    package) cmd_package ;;
+    up) cmd_up ;;
+    install) cmd_install ;;
+    e2e) cmd_e2e ;;
+    all) cmd_package && cmd_reset && cmd_install && cmd_e2e ;;
+    collect) cmd_collect ;;
+    shell) compose exec server bash ;;
+    logs) compose exec server journalctl -f -u tm-agent -u tm-panel ;;
+    token) on_server tm-setup-token ;;
+    reset) cmd_reset ;;
+    down) compose down --volumes --remove-orphans ;;
+    *) sed -n '2,16p' "$0"; exit 1 ;;
+esac
