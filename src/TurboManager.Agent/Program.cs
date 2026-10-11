@@ -7,6 +7,7 @@ using TurboManager.Agent.Firewall;
 using TurboManager.Agent.HostInfo;
 using TurboManager.Agent.Journal;
 using TurboManager.Agent.Metrics;
+using TurboManager.Agent.Nginx;
 using TurboManager.Agent.Packages;
 using TurboManager.Agent.Security;
 using TurboManager.Agent.Ssh;
@@ -24,6 +25,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<UfwFiles>();
 builder.Services.AddSingleton<FirewallManager>();
 builder.Services.AddSingleton<Fail2banManager>();
+builder.Services.AddSingleton<NginxManager>();
 builder.Services.AddSingleton<MetricsSampler>();
 builder.Services.AddHostedService(services => services.GetRequiredService<MetricsSampler>());
 builder.Services.AddGrpc(grpc => grpc.EnableDetailedErrors = false);
@@ -72,6 +74,7 @@ app.MapGrpcService<MetricsAgentService>();
 app.MapGrpcService<FirewallAgentService>();
 app.MapGrpcService<SshAgentService>();
 app.MapGrpcService<PackagesAgentService>();
+app.MapGrpcService<NginxAgentService>();
 
 try
 {

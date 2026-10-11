@@ -22,6 +22,16 @@ public sealed class PanelDbContext(DbContextOptions<PanelDbContext> options) : D
 
     public DbSet<FirewallChangeRecord> FirewallChanges => Set<FirewallChangeRecord>();
 
+    public DbSet<Site> Sites => Set<Site>();
+
+    public DbSet<SiteRevision> SiteRevisions => Set<SiteRevision>();
+
+    public DbSet<ManagedCertificate> Certificates => Set<ManagedCertificate>();
+
+    public DbSet<AcmeAccount> AcmeAccounts => Set<AcmeAccount>();
+
+    public DbSet<ServerSettings> ServerSettings => Set<ServerSettings>();
+
     protected override void OnModelCreating(ModelBuilder model)
     {
         model.Entity<PanelUser>(user =>
@@ -57,6 +67,28 @@ public sealed class PanelDbContext(DbContextOptions<PanelDbContext> options) : D
         {
             list.HasIndex(l => l.Name).IsUnique();
             list.HasMany(l => l.Entries).WithOne().HasForeignKey(e => e.IpListId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        model.Entity<Site>(site =>
+        {
+            site.HasIndex(s => s.Name).IsUnique();
+            site.Property(s => s.TlsMode).HasConversion<string>().HasMaxLength(24);
+            site.HasMany(s => s.Routes).WithOne().HasForeignKey(r => r.SiteId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        model.Entity<SiteRoute>().Property(r => r.Kind).HasConversion<string>().HasMaxLength(16);
+
+        model.Entity<SiteRevision>(revision =>
+        {
+            revision.HasIndex(r => new { r.SiteId, r.Number }).IsUnique();
+            revision.HasOne<Site>().WithMany().HasForeignKey(r => r.SiteId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        model.Entity<ManagedCertificate>(certificate =>
+        {
+            certificate.HasIndex(c => c.Name).IsUnique();
+            certificate.Property(c => c.Kind).HasConversion<string>().HasMaxLength(24);
+            certificate.Property(c => c.Status).HasConversion<string>().HasMaxLength(16);
         });
 
         model.Entity<FirewallChangeRecord>(change =>

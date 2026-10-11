@@ -204,13 +204,22 @@ if [[ ! -f "$CONFIG_ROOT/tls/setup.crt" ]]; then
     chmod 0600 "$CONFIG_ROOT/tls/setup.key"
 fi
 
-cat > "/etc/nginx/sites-available/$SHORT-setup.conf" <<EOF
-# Managed by $PRODUCT_NAME — temporary setup entry point.
+# http-level helpers every panel-generated site relies on.
+cat > "/etc/nginx/conf.d/$SHORT-maps.conf" <<EOF
+# Managed by $PRODUCT_NAME.
 map \$http_upgrade \$tm_connection_upgrade {
     default upgrade;
     ''      close;
 }
+EOF
 
+# Webroot for ACME (Let's Encrypt) HTTP-01 challenges, written by tm-agent.
+install -d -m 0755 /var/lib/turbo-manager-acme
+
+# The setup address is closed once the panel has moved to its own domain; upgrades keep it closed.
+if [[ ! -f "$CONFIG_ROOT/setup-closed" ]]; then
+cat > "/etc/nginx/sites-available/$SHORT-setup.conf" <<EOF
+# Managed by $PRODUCT_NAME — temporary setup entry point.
 server {
     listen $SETUP_PORT ssl;
     listen [::]:$SETUP_PORT ssl;
@@ -236,6 +245,7 @@ server {
 }
 EOF
 ln -sf "/etc/nginx/sites-available/$SHORT-setup.conf" "/etc/nginx/sites-enabled/$SHORT-setup.conf"
+fi
 nginx -t -q || die "nginx configuration test failed."
 systemctl enable --now nginx >/dev/null 2>&1
 systemctl reload nginx

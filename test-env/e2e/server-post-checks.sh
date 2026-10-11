@@ -27,4 +27,10 @@ pass "unconfirmed rule reverted in ufw"
 [[ ! -f /var/lib/turbo-manager-agent/pending-firewall-change.json ]] || fail "no pending change should remain on disk"
 pass "no pending change left on disk"
 
+nginx -t 2>/dev/null || fail "nginx config should still be valid"
+[[ -L /etc/nginx/sites-enabled/tm-e2e-http.conf ]] || fail "site should be enabled via symlink"
+[[ ! -f /etc/nginx/sites-available/tm-e2e-evil.conf ]] || fail "refused config must not be written"
+[[ "$(stat -c '%a' /etc/turbo-manager/certs/secure.hotel.test/privkey.pem)" == "600" ]] || fail "private key must be 0600"
+pass "nginx valid, sites enabled, refused config absent, key private"
+
 echo "Server post-checks passed."

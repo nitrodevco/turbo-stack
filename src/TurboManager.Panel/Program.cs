@@ -17,6 +17,7 @@ using TurboManager.Panel.Http;
 using TurboManager.Panel.Jobs;
 using TurboManager.Panel.Metrics;
 using TurboManager.Panel.Setup;
+using TurboManager.Panel.Sites;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,6 +45,16 @@ builder.Services.AddScoped<FirewallService>();
 builder.Services.AddSingleton<JobRunner>();
 builder.Services.AddHostedService<MetricsCollector>();
 builder.Services.AddHostedService<FirewallReconciler>();
+builder.Services.AddScoped<CertificateService>();
+builder.Services.AddScoped<SiteService>();
+builder.Services.AddHostedService<CertificateRenewalService>();
+builder.Services.AddHttpClient("detect-ip", client => client.Timeout = TimeSpan.FromSeconds(5));
+builder.Services.AddHttpClient(CertificateService.AcmeHttpClientName)
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+    {
+        // Only for test ACME servers such as Pebble; never enabled in production config.
+        ServerCertificateCustomValidationCallback = panelOptions.AcmeSkipTlsVerify ? HttpClientHandler.DangerousAcceptAnyServerCertificateValidator : null,
+    });
 builder.Services.AddPanelRateLimits();
 builder.Services.ConfigureHttpJsonOptions(json => json.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
@@ -91,6 +102,7 @@ app.MapFirewallEndpoints();
 app.MapAccessEndpoints();
 app.MapPackagesEndpoints();
 app.MapActivityEndpoints();
+app.MapSitesEndpoints();
 app.MapFallback("/api/{**path}", () => Results.NotFound());
 app.MapFallbackToFile("index.html");
 

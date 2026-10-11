@@ -205,3 +205,64 @@ export type RebootStatus = { scheduled: boolean; scheduledAtUnixMs: number; supp
 export type JobSummary = { id: number; kind: string; title: string; status: 'running' | 'succeeded' | 'failed'; startedAt: string; finishedAt: string | null; startedBy: string | null };
 
 export type AuditEntry = { id: number; at: string; username: string | null; action: string; target: string | null; details: string | null; ipAddress: string | null };
+
+export type TlsMode = 'None' | 'LetsEncrypt' | 'CloudflareOrigin' | 'SelfSigned';
+
+export type RouteKind = 'Static' | 'Spa' | 'Proxy' | 'WebSocket' | 'Redirect';
+
+export type SiteRouteModel = { path: string; kind: RouteKind; target: string; cors: boolean; cacheSeconds: number | null; snippet: string | null };
+
+export type SiteModel = {
+    name: string;
+    domains: string[];
+    routes: SiteRouteModel[];
+    tlsMode: TlsMode;
+    forceHttps: boolean;
+    hsts: boolean;
+    securityHeaders: boolean;
+    clientMaxBodyMb: number;
+    serverSnippet: string | null;
+    customConfig: string | null;
+    enabled: boolean;
+};
+
+export type SiteSummary = {
+    id: number;
+    name: string;
+    domains: string[];
+    tlsMode: TlsMode;
+    https: boolean;
+    certificateExpires: string | null;
+    enabled: boolean;
+    system: boolean;
+    custom: boolean;
+    lastError: string | null;
+    routes: { path: string; kind: RouteKind; target: string }[];
+};
+
+export type SiteDetail = {
+    id: number;
+    system: boolean;
+    lastError: string | null;
+    lastAppliedRevision: number | null;
+    model: SiteModel;
+    revisions: { number: number; applied: boolean; error: string | null; createdBy: string | null; createdAt: string }[];
+};
+
+export type SiteApplyResponse = { id: number; applied: boolean; error: string | null; revision: number; certificateJobId: number | null };
+
+export type DnsCheck = { domain: string; addresses: string[]; pointsHere: boolean | null };
+
+export type CertificateView = {
+    id: number;
+    name: string;
+    domains: string[];
+    kind: 'LetsEncrypt' | 'CloudflareOrigin' | 'SelfSigned';
+    status: 'Pending' | 'Valid' | 'Failed';
+    notAfter: string | null;
+    issuedAt: string | null;
+    lastError: string | null;
+    autoRenew: boolean;
+};
+
+export type ServerSettings = { publicIPv4: string | null; publicIPv6: string | null };

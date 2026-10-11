@@ -149,6 +149,58 @@ public sealed class FakePackagesAgent : PackagesAgent.PackagesAgentBase
     }
 }
 
+public sealed class FakeNginxAgent : NginxAgent.NginxAgentBase
+{
+    public Dictionary<string, string> Sites { get; } = [];
+
+    public Dictionary<string, string> Certificates { get; } = [];
+
+    public override Task<NginxApplyResult> ApplyNginxConfig(NginxConfig request, ServerCallContext context)
+    {
+        // Stand-in for nginx -t failing.
+        if (request.Content.Contains("BROKEN", StringComparison.Ordinal))
+        {
+            return Task.FromResult(new NginxApplyResult { Applied = false, Error = "[emerg] unknown directive \"BROKEN\"" });
+        }
+
+        lock (Sites)
+        {
+            Sites[request.Name] = request.Content;
+        }
+
+        return Task.FromResult(new NginxApplyResult { Applied = true });
+    }
+
+    public override Task<NginxApplyResult> RemoveNginxConfig(NginxConfigRef request, ServerCallContext context)
+    {
+        lock (Sites)
+        {
+            Sites.Remove(request.Name);
+        }
+
+        return Task.FromResult(new NginxApplyResult { Applied = true });
+    }
+
+    public override Task<WebRootResult> EnsureWebRoot(WebRootRequest request, ServerCallContext context) =>
+        Task.FromResult(new WebRootResult { Path = request.Path, Created = true });
+
+    public override Task<CertificateInfo> InstallCertificate(InstallCertificateRequest request, ServerCallContext context)
+    {
+        var certificate = System.Security.Cryptography.X509Certificates.X509Certificate2.CreateFromPem(request.FullchainPem, request.PrivateKeyPem);
+
+        lock (Certificates)
+        {
+            Certificates[request.Name] = request.FullchainPem;
+        }
+
+        return Task.FromResult(new CertificateInfo
+        {
+            Name = request.Name,
+            NotAfterUnixMs = new DateTimeOffset(certificate.NotAfter.ToUniversalTime()).ToUnixTimeMilliseconds(),
+        });
+    }
+}
+
 /// <summary>A gRPC server on a unix socket implementing the agent services the panel tests need.</summary>
 public sealed class FakeAgent : IAsyncDisposable
 {
@@ -158,6 +210,8 @@ public sealed class FakeAgent : IAsyncDisposable
 
     public FakeServicesAgent Services { get; } = new();
 
+    public FakeNginxAgent Nginx { get; } = new();
+
     private FakeAgent(string socketPath)
     {
         var builder = WebApplication.CreateSlimBuilder();
@@ -166,10 +220,12 @@ public sealed class FakeAgent : IAsyncDisposable
         builder.Services.AddGrpc();
         builder.Services.AddSingleton(Firewall);
         builder.Services.AddSingleton(Services);
+        builder.Services.AddSingleton(Nginx);
         _app = builder.Build();
         _app.MapGrpcService<FakeFirewallAgent>();
         _app.MapGrpcService<FakeServicesAgent>();
         _app.MapGrpcService<FakePackagesAgent>();
+        _app.MapGrpcService<FakeNginxAgent>();
     }
 
     public static async Task<FakeAgent> StartAsync(string socketPath)

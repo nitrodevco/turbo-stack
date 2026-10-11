@@ -16,6 +16,28 @@ namespace TurboManager.Panel.Data.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.12");
 
+            modelBuilder.Entity("TurboManager.Panel.Data.AcmeAccount", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("DirectoryUrl")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Email")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("KeyProtected")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("AcmeAccounts");
+                });
+
             modelBuilder.Entity("TurboManager.Panel.Data.AuditEntry", b =>
                 {
                     b.Property<long>("Id")
@@ -187,6 +209,53 @@ namespace TurboManager.Panel.Data.Migrations
                     b.HasIndex("StartedAt");
 
                     b.ToTable("Jobs");
+                });
+
+            modelBuilder.Entity("TurboManager.Panel.Data.ManagedCertificate", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("AutoRenew")
+                        .HasColumnType("INTEGER");
+
+                    b.PrimitiveCollection<string>("Domains")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("IssuedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("LastAttemptAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("LastError")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("NotAfter")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Certificates");
                 });
 
             modelBuilder.Entity("TurboManager.Panel.Data.ManagedFirewallRule", b =>
@@ -364,6 +433,167 @@ namespace TurboManager.Panel.Data.Migrations
                     b.ToTable("RecoveryCodes");
                 });
 
+            modelBuilder.Entity("TurboManager.Panel.Data.ServerSettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("PublicIPv4")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PublicIPv6")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ServerSettings");
+                });
+
+            modelBuilder.Entity("TurboManager.Panel.Data.Site", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ClientMaxBodyMb")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("CustomConfig")
+                        .HasColumnType("TEXT");
+
+                    b.PrimitiveCollection<string>("Domains")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("ForceHttps")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("Hsts")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("LastAppliedRevision")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("LastError")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("SecurityHeaders")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ServerSnippet")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("System")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("TlsMode")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("UpdatedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Sites");
+                });
+
+            modelBuilder.Entity("TurboManager.Panel.Data.SiteRevision", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("Applied")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Error")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ModelJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("SiteId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SiteId", "Number")
+                        .IsUnique();
+
+                    b.ToTable("SiteRevisions");
+                });
+
+            modelBuilder.Entity("TurboManager.Panel.Data.SiteRoute", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("CacheSeconds")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("Cors")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Path")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SiteId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Snippet")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Target")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SiteId");
+
+                    b.ToTable("SiteRoute");
+                });
+
             modelBuilder.Entity("TurboManager.Panel.Data.IpListEntry", b =>
                 {
                     b.HasOne("TurboManager.Panel.Data.IpList", null)
@@ -392,6 +622,24 @@ namespace TurboManager.Panel.Data.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("TurboManager.Panel.Data.SiteRevision", b =>
+                {
+                    b.HasOne("TurboManager.Panel.Data.Site", null)
+                        .WithMany()
+                        .HasForeignKey("SiteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("TurboManager.Panel.Data.SiteRoute", b =>
+                {
+                    b.HasOne("TurboManager.Panel.Data.Site", null)
+                        .WithMany("Routes")
+                        .HasForeignKey("SiteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("TurboManager.Panel.Data.IpList", b =>
                 {
                     b.Navigation("Entries");
@@ -400,6 +648,11 @@ namespace TurboManager.Panel.Data.Migrations
             modelBuilder.Entity("TurboManager.Panel.Data.PanelUser", b =>
                 {
                     b.Navigation("RecoveryCodes");
+                });
+
+            modelBuilder.Entity("TurboManager.Panel.Data.Site", b =>
+                {
+                    b.Navigation("Routes");
                 });
 #pragma warning restore 612, 618
         }

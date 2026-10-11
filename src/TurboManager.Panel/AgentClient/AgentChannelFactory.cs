@@ -50,6 +50,8 @@ public sealed class AgentChannelFactory(IOptions<PanelOptions> options) : IDispo
 
     public PackagesAgent.PackagesAgentClient Packages => new(_channel.Value);
 
+    public NginxAgent.NginxAgentClient Nginx => new(_channel.Value);
+
     public void Dispose()
     {
         if (_channel.IsValueCreated)

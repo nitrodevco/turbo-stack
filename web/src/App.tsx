@@ -4,12 +4,16 @@ import { api, ApiError, type Me, type SetupStatus } from './api';
 import { AppShell } from './components/AppShell';
 import { CenteredPage, ErrorNote } from './components/ui';
 import { ActivityPage } from './pages/ActivityPage';
+import { CertificatesPage } from './pages/CertificatesPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { FirewallPage } from './pages/FirewallPage';
 import { LoginPage } from './pages/LoginPage';
 import { LogsPage } from './pages/LogsPage';
 import { ServicesPage } from './pages/ServicesPage';
+import { SettingsPage } from './pages/SettingsPage';
 import { SetupPage } from './pages/SetupPage';
+import { SiteEditorPage } from './pages/SiteEditorPage';
+import { SitesPage } from './pages/SitesPage';
 import { SshPage } from './pages/SshPage';
 import { UpdatesPage } from './pages/UpdatesPage';
 
@@ -52,6 +56,11 @@ export function App() {
                 <Route path="ssh" element={<SshPage />} />
                 <Route path="updates" element={<UpdatesPage />} />
                 <Route path="activity" element={<ActivityPage />} />
+                <Route path="sites" element={<SitesPage />} />
+                <Route path="sites/new" element={<SiteEditorPage />} />
+                <Route path="sites/:id" element={<SiteEditorPage />} />
+                <Route path="certificates" element={<CertificatesPage />} />
+                <Route path="settings" element={<SettingsPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
         </Routes>

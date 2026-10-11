@@ -133,4 +133,31 @@ response="$(call GET /api/firewall/exposure)"
 pass "exposure check: panel port is local only"
 
 echo "Server management passed."
+echo
+echo "Sites"
+
+response="$(call POST /api/sites '{"name":"e2e-http","domains":["site.hotel.test"],"tlsMode":"None","routes":[{"path":"/","kind":"Static","target":"/var/www/e2e-http"},{"path":"/health/","kind":"Proxy","target":"http://127.0.0.1:7800/api/health"}]}')"
+[[ "$(body_of "$response" | jq -r .applied)" == "true" ]] || fail "HTTP site should apply: $response"
+curl -sf -H "Host: site.hotel.test" http://server/ | grep -q "It works" || fail "nginx should serve the site's placeholder page"
+curl -sf -H "Host: site.hotel.test" http://server/health/ | grep -q '"ok"' || fail "proxy route should reach the panel health endpoint"
+pass "HTTP site served by nginx (static + proxy routes)"
+
+response="$(call POST /api/sites '{"name":"e2e-tls","domains":["secure.hotel.test"],"tlsMode":"SelfSigned","routes":[{"path":"/","kind":"Spa","target":"/var/www/e2e-tls"}]}')"
+JOB="$(body_of "$response" | jq -r .certificateJobId)"
+[[ "$JOB" != "null" ]] || fail "self-signed site should start a certificate job: $response"
+for _ in $(seq 1 30); do
+    [[ "$(body_of "$(call GET "/api/jobs/$JOB")" | jq -r .status)" != "running" ]] && break
+    sleep 1
+done
+[[ "$(body_of "$(call GET "/api/jobs/$JOB")" | jq -r .status)" == "succeeded" ]] || fail "certificate job failed: $(call GET "/api/jobs/$JOB")"
+curl -sfk --resolve secure.hotel.test:443:"$(getent hosts server | awk '{print $1}')" https://secure.hotel.test/ | grep -q "It works" \
+    || fail "site should be served over HTTPS after the certificate job"
+[[ "$(curl -s -o /dev/null -w '%{http_code}' -H "Host: secure.hotel.test" http://server/)" == "301" ]] || fail "HTTP should redirect to HTTPS"
+pass "self-signed HTTPS site: certificate issued, HTTPS served, HTTP redirected"
+
+response="$(call POST /api/sites '{"name":"e2e-evil","domains":["evil.hotel.test"],"tlsMode":"None","customConfig":"server { listen 80; server_name evil.hotel.test; location / { alias /etc/; } }"}')"
+[[ "$(body_of "$response" | jq -r .applied)" == "false" ]] || fail "unsafe custom config must be refused: $response"
+pass "unsafe custom config refused by the agent's policy"
+
+echo "Sites passed."
 

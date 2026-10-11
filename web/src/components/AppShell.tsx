@@ -8,7 +8,8 @@ import { Logo } from './ui';
 const navigation: { label: string; to?: string; permission?: string }[] = [
     { label: 'Dashboard', to: '/', permission: 'system.view' },
     { label: 'Hotel' },
-    { label: 'Sites' },
+    { label: 'Sites', to: '/sites', permission: 'sites.view' },
+    { label: 'Certificates', to: '/certificates', permission: 'sites.view' },
     { label: 'Apps & deploys' },
     { label: 'Databases' },
     { label: 'Services', to: '/services', permission: 'services.view' },
@@ -18,6 +19,7 @@ const navigation: { label: string; to?: string; permission?: string }[] = [
     { label: 'Updates', to: '/updates', permission: 'packages.view' },
     { label: 'Cloudflare' },
     { label: 'Activity', to: '/activity', permission: 'audit.view' },
+    { label: 'Settings', to: '/settings', permission: 'sites.view' },
 ];
 
 export function AppShell({ me }: { me: Me }) {
@@ -40,7 +42,7 @@ export function AppShell({ me }: { me: Me }) {
                             <NavLink
                                 key={item.label}
                                 to={item.to}
-                                end
+                                end={item.to === '/'}
                                 className={({ isActive }) =>
                                     `rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap ${isActive ? 'bg-brand-50 text-brand-700 dark:bg-brand-600/20 dark:text-brand-100' : 'text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'}`
                                 }

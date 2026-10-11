@@ -21,19 +21,21 @@ public static class Permissions
     public const string PackagesManage = "packages.manage";
     public const string ServerReboot = "server.reboot";
     public const string AuditView = "audit.view";
+    public const string SitesView = "sites.view";
+    public const string SitesManage = "sites.manage";
 
     public static readonly string[] All =
     [
         SystemView, ServicesView, ServicesControl, LogsView, FirewallView, FirewallManage,
-        SshView, SshManage, PackagesView, PackagesManage, ServerReboot, AuditView,
+        SshView, SshManage, PackagesView, PackagesManage, ServerReboot, AuditView, SitesView, SitesManage,
     ];
 
     private static readonly Dictionary<PanelRole, HashSet<string>> RolePermissions = new()
     {
         [PanelRole.Owner] = [.. All],
         [PanelRole.Admin] = [.. All],
-        [PanelRole.Operator] = [SystemView, ServicesView, ServicesControl, LogsView, FirewallView, PackagesView],
-        [PanelRole.Developer] = [SystemView, ServicesView, LogsView],
+        [PanelRole.Operator] = [SystemView, ServicesView, ServicesControl, LogsView, FirewallView, PackagesView, SitesView],
+        [PanelRole.Developer] = [SystemView, ServicesView, LogsView, SitesView],
         [PanelRole.Viewer] = [SystemView, ServicesView],
     };
 

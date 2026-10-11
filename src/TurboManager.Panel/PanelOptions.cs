@@ -22,6 +22,12 @@ public sealed class PanelOptions
     /// <summary>Failed sign-ins are appended here for the fail2ban panel jail.</summary>
     public string AuthLogFile { get; set; } = $"{ManagerPaths.LogRoot}/auth.log";
 
+    /// <summary>ACME directory for Let's Encrypt (staging, or Pebble in tests, can be configured).</summary>
+    public string AcmeDirectory { get; set; } = "https://acme-v02.api.letsencrypt.org/directory";
+
+    /// <summary>Test environments only: accept the ACME server's self-signed TLS certificate (Pebble).</summary>
+    public bool AcmeSkipTlsVerify { get; set; }
+
     /// <summary>Cookies are marked Secure. Disable only for plain-http local development.</summary>
     public bool SecureCookies { get; set; } = true;
 }

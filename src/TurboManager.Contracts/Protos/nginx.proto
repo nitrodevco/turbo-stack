@@ -1,0 +1,98 @@
+syntax = "proto3";
+
+option csharp_namespace = "TurboManager.Contracts.Agent";
+
+package turbomanager.agent.v1;
+
+import "google/protobuf/empty.proto";
+
+// nginx configs and TLS certificates. Every config is checked against a policy (allowed paths,
+// no module loading) and `nginx -t` before it replaces the previous one; failures roll back.
+service NginxAgent {
+  rpc GetNginxStatus (google.protobuf.Empty) returns (NginxStatus);
+  rpc ApplyNginxConfig (NginxConfig) returns (NginxApplyResult);
+  rpc RemoveNginxConfig (NginxConfigRef) returns (NginxApplyResult);
+  rpc ListNginxConfigs (google.protobuf.Empty) returns (NginxConfigs);
+
+  rpc InstallCertificate (InstallCertificateRequest) returns (CertificateInfo);
+  rpc RemoveCertificate (CertificateRef) returns (google.protobuf.Empty);
+  rpc ListCertificates (google.protobuf.Empty) returns (CertificateList);
+
+  rpc WriteAcmeChallenge (AcmeChallenge) returns (google.protobuf.Empty);
+  rpc RemoveAcmeChallenge (AcmeChallenge) returns (google.protobuf.Empty);
+
+  rpc EnsureWebRoot (WebRootRequest) returns (WebRootResult);
+}
+
+enum NginxConfigKind {
+  NGINX_CONFIG_KIND_UNSPECIFIED = 0;
+  NGINX_CONFIG_KIND_SITE = 1;     // sites-available/tm-<name>.conf (+ enabled symlink)
+  NGINX_CONFIG_KIND_GLOBAL = 2;   // conf.d/tm-<name>.conf (http-level: maps, real-ip, ...)
+}
+
+message NginxStatus {
+  bool installed = 1;
+  bool running = 2;
+  string version = 3;
+  bool config_ok = 4;
+  string test_output = 5;
+}
+
+message NginxConfig {
+  string name = 1;               // [a-z0-9-], becomes tm-<name>.conf
+  NginxConfigKind kind = 2;
+  string content = 3;
+}
+
+message NginxConfigRef {
+  string name = 1;
+  NginxConfigKind kind = 2;
+}
+
+message NginxApplyResult {
+  bool applied = 1;
+  string error = 2;              // policy violations or nginx -t output when not applied
+}
+
+message NginxConfigs {
+  repeated NginxConfig configs = 1;
+}
+
+message InstallCertificateRequest {
+  string name = 1;               // [a-z0-9.-]
+  string fullchain_pem = 2;
+  string private_key_pem = 3;
+}
+
+message CertificateRef {
+  string name = 1;
+}
+
+message CertificateInfo {
+  string name = 1;
+  repeated string domains = 2;
+  int64 not_before_unix_ms = 3;
+  int64 not_after_unix_ms = 4;
+  string issuer = 5;
+  string fullchain_path = 6;
+  string private_key_path = 7;
+}
+
+message CertificateList {
+  repeated CertificateInfo certificates = 1;
+}
+
+message AcmeChallenge {
+  string token = 1;
+  string key_authorization = 2;
+}
+
+message WebRootRequest {
+  string path = 1;               // must be under an allowed web root, e.g. /var/www/<name>
+  bool create_placeholder = 2;   // write a default index.html when the directory is empty
+}
+
+message WebRootResult {
+  string path = 1;
+  bool created = 2;
+}
