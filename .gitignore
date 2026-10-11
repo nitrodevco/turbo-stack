@@ -2,6 +2,8 @@ src/**/bin/
 src/**/obj/
 tests/**/bin/
 tests/**/obj/
+test-env/**/bin/
+test-env/**/obj/
 *.user
 .vs/
 .idea/
