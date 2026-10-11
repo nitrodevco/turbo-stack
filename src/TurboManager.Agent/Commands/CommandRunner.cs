@@ -29,6 +29,13 @@ public interface ICommandRunner
     /// <summary>Streams output lines (stdout, plus stderr when <paramref name="mergeStdErr"/>) and returns the exit code.</summary>
     Task<int> StreamAsync(string fileName, IReadOnlyList<string> arguments, Func<string, ValueTask> onLine,
         bool mergeStdErr = true, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Feeds <paramref name="stdin"/> to the command and/or copies its stdout into <paramref name="stdout"/>
+    /// (database dumps and restores). StdOut in the result is empty when it was redirected.
+    /// </summary>
+    Task<CommandResult> RunWithStreamsAsync(string fileName, IReadOnlyList<string> arguments, Stream? stdin, Stream? stdout,
+        TimeSpan timeout, CancellationToken cancellationToken = default);
 }
 
 public static class CommandRunnerExtensions
@@ -113,6 +120,53 @@ public sealed class ProcessCommandRunner : ICommandRunner
         }
     }
 
+    public async Task<CommandResult> RunWithStreamsAsync(string fileName, IReadOnlyList<string> arguments, Stream? stdin, Stream? stdout,
+        TimeSpan timeout, CancellationToken cancellationToken = default)
+    {
+        using var process = Start(fileName, arguments, redirectStdin: stdin is not null);
+        using var timeoutSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutSource.CancelAfter(timeout);
+        var token = timeoutSource.Token;
+
+        try
+        {
+            var stderr = process.StandardError.ReadToEndAsync(token);
+            var output = stdout is null ? process.StandardOutput.ReadToEndAsync(token) : CopyOutputAsync();
+
+            async Task<string> CopyOutputAsync()
+            {
+                await process.StandardOutput.BaseStream.CopyToAsync(stdout, token);
+
+                return "";
+            }
+
+            if (stdin is not null)
+            {
+                try
+                {
+                    await stdin.CopyToAsync(process.StandardInput.BaseStream, token);
+                }
+                catch (IOException)
+                {
+                    // The command exited early (e.g. a SQL error); its exit code and stderr explain why.
+                }
+                finally
+                {
+                    process.StandardInput.Close();
+                }
+            }
+
+            await process.WaitForExitAsync(token);
+
+            return new CommandResult(process.ExitCode, await output, await stderr);
+        }
+        catch (OperationCanceledException)
+        {
+            Kill(process);
+            throw;
+        }
+    }
+
     private static Process Start(string fileName, IReadOnlyList<string> arguments, bool redirectStdin)
     {
         var info = new ProcessStartInfo(fileName)
@@ -121,6 +175,8 @@ public sealed class ProcessCommandRunner : ICommandRunner
             RedirectStandardError = true,
             RedirectStandardInput = redirectStdin,
             UseShellExecute = false,
+            // A neutral directory: tools run as other users (runuser -u postgres) warn if they can't enter it.
+            WorkingDirectory = OperatingSystem.IsWindows() ? null : "/",
             StandardOutputEncoding = Encoding.UTF8,
             StandardErrorEncoding = Encoding.UTF8,
         };

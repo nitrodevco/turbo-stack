@@ -712,6 +712,15 @@ an unconfirmed change reverting) but has still not been run. Deferred from M1: c
 - *E2E (2026-10-11):* first real runs found 4 Linux-only bugs (nginx 1.24 `http2` syntax,
   reload race, leaked `NOTIFY_SOCKET`, missing-routes crash); after fixes the full Docker
   suite passes on Ubuntu 24.04 and 26.04.
+- *M3 status (2026-10-11):* databases implemented. MySQL / MariaDB / PostgreSQL from Ubuntu's
+  packages (MySQL and MariaDB mutually exclusive), administered as the local admin over the
+  socket (no stored admin passwords; SQL on stdin). Databases, users, access levels
+  (PostgreSQL: full or none for now), generated passwords kept encrypted for app wiring,
+  backups (gzip, root-only), download, raw upload of .sql/.sql.gz, restore-replaces, final
+  backup before drop, daily schedules with retention, SSH-tunnel instructions instead of
+  opening ports. E2E installs real MySQL + PostgreSQL and checks logins and isolation on
+  24.04 and 26.04. Later: MySQL↔MariaDB migration job, remote backup targets (M8), tuning,
+  process list. Note: Ubuntu 24.04's MySQL is 8.0 (past Oracle's EOL); see open question.
 - *Deviations / later:* ACME DNS-01 (wildcards without Cloudflare Origin) and Pebble in the
   Docker env are not done yet; fail2ban still bans in UFW even for proxied traffic (banning via
   the Cloudflare API, plan 6.8, comes with the WAF work); Authenticated Origin Pulls not yet.

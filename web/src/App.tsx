@@ -7,6 +7,7 @@ import { ActivityPage } from './pages/ActivityPage';
 import { CertificatesPage } from './pages/CertificatesPage';
 import { CloudflarePage } from './pages/CloudflarePage';
 import { DashboardPage } from './pages/DashboardPage';
+import { DatabasesPage } from './pages/DatabasesPage';
 import { FirewallPage } from './pages/FirewallPage';
 import { LoginPage } from './pages/LoginPage';
 import { LogsPage } from './pages/LogsPage';
@@ -68,6 +69,7 @@ export function App() {
                 <Route path="certificates" element={<CertificatesPage />} />
                 <Route path="settings" element={<SettingsPage />} />
                 <Route path="cloudflare" element={<CloudflarePage />} />
+                <Route path="databases" element={<DatabasesPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
         </Routes>

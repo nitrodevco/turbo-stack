@@ -10,7 +10,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Protobuf Include="Protos\*.proto" GrpcServices="Both" />
+    <Protobuf Include="Protos\*.proto" ProtoRoot="Protos" GrpcServices="Both" />
   </ItemGroup>
 
 </Project>

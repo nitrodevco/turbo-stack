@@ -20,6 +20,9 @@ public sealed class AgentOptions
     /// <summary>Root-only state (e.g. pending firewall changes that must survive restarts).</summary>
     public string StateDirectory { get; set; } = $"{ManagerPaths.StateRoot}-agent";
 
+    /// <summary>Database dumps and uploaded imports (root-only).</summary>
+    public string DatabaseBackupRoot { get; set; } = "/var/lib/turbo-manager-backups/databases";
+
     /// <summary>Filesystem root used when reading /proc, /etc etc. Overridable for tests.</summary>
     public string HostRoot { get; set; } = "/";
 }

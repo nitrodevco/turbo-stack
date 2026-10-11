@@ -40,4 +40,21 @@ if ufw status | grep -qE "^8443/tcp"; then
 fi
 pass "real-IP config installed; setup site and port closed"
 
+[[ "$(mysql -uturbo -pE2e-Mysql-Passw0rd -h 127.0.0.1 turbo -N -e 'SELECT COUNT(*) FROM players' 2>/dev/null)" == "2" ]] \
+    || fail "the turbo user should log in over TCP and see the restored rows"
+if mysql -uturbo -pE2e-Mysql-Passw0rd -h 127.0.0.1 mysql -N -e 'SELECT 1' >/dev/null 2>&1; then
+    fail "the turbo user must not reach other databases"
+fi
+pass "MySQL app user can log in, sees its restored data, and nothing else"
+
+[[ "$(PGPASSWORD=E2e-Postgres-Passw0rd psql -h 127.0.0.1 -U studio -d studio -tAc 'SELECT current_user')" == "studio" ]] \
+    || fail "the studio user should log in to PostgreSQL"
+if PGPASSWORD=E2e-Postgres-Passw0rd psql -h 127.0.0.1 -U studio -d other_app -tAc 'SELECT 1' >/dev/null 2>&1; then
+    fail "the studio user must not connect to another app's database"
+fi
+pass "PostgreSQL app user can log in to its database and not to another app's"
+
+[[ "$(stat -c '%a' /var/lib/turbo-manager-backups/databases)" == "700" ]] || fail "backup directory must be root-only"
+pass "database backups are root-only"
+
 echo "Server post-checks passed."

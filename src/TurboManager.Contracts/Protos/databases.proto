@@ -1,0 +1,130 @@
+syntax = "proto3";
+
+option csharp_namespace = "TurboManager.Contracts.Agent";
+
+package turbomanager.agent.v1;
+
+import "google/protobuf/empty.proto";
+import "packages.proto";
+
+// MySQL, MariaDB and PostgreSQL. The agent talks to each engine as its local administrator over the
+// unix socket (auth_socket / unix_socket / peer auth), so no admin password is ever stored.
+// SQL is sent on stdin, never as command-line arguments.
+service DatabaseAgent {
+  rpc GetEngines (google.protobuf.Empty) returns (DatabaseEngines);
+  rpc InstallEngine (EngineRef) returns (stream OutputLine);
+
+  rpc ListDatabases (EngineRef) returns (DatabaseList);
+  rpc CreateDatabase (DatabaseRequest) returns (google.protobuf.Empty);
+  rpc DropDatabase (DatabaseRequest) returns (google.protobuf.Empty);
+
+  rpc ListUsers (EngineRef) returns (DatabaseUserList);
+  rpc CreateUser (DatabaseUserRequest) returns (google.protobuf.Empty);
+  rpc SetUserPassword (DatabaseUserRequest) returns (google.protobuf.Empty);
+  rpc DropUser (DatabaseUserRequest) returns (google.protobuf.Empty);
+  rpc SetGrant (GrantRequest) returns (google.protobuf.Empty);
+
+  rpc BackupDatabase (DatabaseRequest) returns (BackupFile);
+  rpc ListBackups (EngineRef) returns (BackupList);
+  rpc DeleteBackup (BackupRef) returns (google.protobuf.Empty);
+  rpc RestoreBackup (RestoreRequest) returns (stream OutputLine);
+  rpc DownloadBackup (BackupRef) returns (stream FileChunk);
+  // First chunk carries the file name; the import lands next to the backups under "imports".
+  rpc UploadImport (stream FileChunk) returns (BackupFile);
+}
+
+enum DatabaseEngine {
+  DATABASE_ENGINE_UNSPECIFIED = 0;
+  DATABASE_ENGINE_MYSQL = 1;
+  DATABASE_ENGINE_MARIADB = 2;
+  DATABASE_ENGINE_POSTGRES = 3;
+}
+
+message EngineRef {
+  DatabaseEngine engine = 1;
+}
+
+message DatabaseEngines {
+  repeated DatabaseEngineStatus engines = 1;
+}
+
+message DatabaseEngineStatus {
+  DatabaseEngine engine = 1;
+  bool installed = 2;
+  bool running = 3;
+  string version = 4;
+  string service = 5;
+  int32 port = 6;
+  // Why it can't be installed (e.g. MySQL and MariaDB exclude each other); empty when it can.
+  string blocked_reason = 7;
+}
+
+message DatabaseInfo {
+  string name = 1;
+  int64 size_bytes = 2;
+  int32 tables = 3;  // -1 when unknown
+}
+
+message DatabaseList {
+  repeated DatabaseInfo databases = 1;
+}
+
+message DatabaseRequest {
+  DatabaseEngine engine = 1;
+  string name = 2;
+}
+
+message DatabaseUser {
+  string name = 1;
+  repeated DatabaseGrant grants = 2;
+}
+
+message DatabaseGrant {
+  string database = 1;
+  string level = 2;  // all | readonly
+}
+
+message DatabaseUserList {
+  repeated DatabaseUser users = 1;
+}
+
+message DatabaseUserRequest {
+  DatabaseEngine engine = 1;
+  string name = 2;
+  string password = 3;
+}
+
+message GrantRequest {
+  DatabaseEngine engine = 1;
+  string user = 2;
+  string database = 3;
+  string level = 4;  // all | readonly | none
+}
+
+message BackupFile {
+  string id = 1;            // path relative to the backup root, e.g. "mysql/turbo/turbo-20261011-030000.sql.gz"
+  DatabaseEngine engine = 2;
+  string database = 3;      // empty for imports
+  int64 size_bytes = 4;
+  int64 created_unix_ms = 5;
+  bool import = 6;
+}
+
+message BackupList {
+  repeated BackupFile backups = 1;
+}
+
+message BackupRef {
+  string id = 1;
+}
+
+message RestoreRequest {
+  string backup_id = 1;
+  DatabaseEngine engine = 2;
+  string database = 3;
+}
+
+message FileChunk {
+  string name = 1;  // first chunk only
+  bytes data = 2;
+}

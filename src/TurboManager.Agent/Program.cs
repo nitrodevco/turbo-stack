@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Options;
 using TurboManager.Agent;
 using TurboManager.Agent.Commands;
+using TurboManager.Agent.Databases;
 using TurboManager.Agent.Firewall;
 using TurboManager.Agent.HostInfo;
 using TurboManager.Agent.Journal;
@@ -26,6 +27,7 @@ builder.Services.AddSingleton<UfwFiles>();
 builder.Services.AddSingleton<FirewallManager>();
 builder.Services.AddSingleton<Fail2banManager>();
 builder.Services.AddSingleton<NginxManager>();
+builder.Services.AddSingleton<DatabaseManager>();
 builder.Services.AddSingleton<MetricsSampler>();
 builder.Services.AddHostedService(services => services.GetRequiredService<MetricsSampler>());
 builder.Services.AddGrpc(grpc => grpc.EnableDetailedErrors = false);
@@ -75,6 +77,7 @@ app.MapGrpcService<FirewallAgentService>();
 app.MapGrpcService<SshAgentService>();
 app.MapGrpcService<PackagesAgentService>();
 app.MapGrpcService<NginxAgentService>();
+app.MapGrpcService<DatabaseAgentService>();
 
 try
 {

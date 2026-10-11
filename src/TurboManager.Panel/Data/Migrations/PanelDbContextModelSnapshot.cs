@@ -74,6 +74,44 @@ namespace TurboManager.Panel.Data.Migrations
                     b.ToTable("AuditLog");
                 });
 
+            modelBuilder.Entity("TurboManager.Panel.Data.BackupSchedule", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Database")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Engine")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LastResult")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("LastRunAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("RetentionCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("TimeOfDay")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Engine", "Database")
+                        .IsUnique();
+
+                    b.ToTable("BackupSchedules");
+                });
+
             modelBuilder.Entity("TurboManager.Panel.Data.CloudflareAccount", b =>
                 {
                     b.Property<int>("Id")
@@ -113,6 +151,35 @@ namespace TurboManager.Panel.Data.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("CloudflareAccounts");
+                });
+
+            modelBuilder.Entity("TurboManager.Panel.Data.DatabaseCredential", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Engine")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PasswordProtected")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("UpdatedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Engine", "Username")
+                        .IsUnique();
+
+                    b.ToTable("DatabaseCredentials");
                 });
 
             modelBuilder.Entity("TurboManager.Panel.Data.FirewallChangeRecord", b =>

@@ -36,6 +36,10 @@ public sealed class PanelDbContext(DbContextOptions<PanelDbContext> options) : D
 
     public DbSet<PanelAddress> PanelAddresses => Set<PanelAddress>();
 
+    public DbSet<DatabaseCredential> DatabaseCredentials => Set<DatabaseCredential>();
+
+    public DbSet<BackupSchedule> BackupSchedules => Set<BackupSchedule>();
+
     protected override void OnModelCreating(ModelBuilder model)
     {
         model.Entity<PanelUser>(user =>
@@ -94,6 +98,10 @@ public sealed class PanelDbContext(DbContextOptions<PanelDbContext> options) : D
             certificate.Property(c => c.Kind).HasConversion<string>().HasMaxLength(24);
             certificate.Property(c => c.Status).HasConversion<string>().HasMaxLength(16);
         });
+
+        model.Entity<DatabaseCredential>().HasIndex(c => new { c.Engine, c.Username }).IsUnique();
+
+        model.Entity<BackupSchedule>().HasIndex(s => new { s.Engine, s.Database }).IsUnique();
 
         model.Entity<FirewallChangeRecord>(change =>
         {

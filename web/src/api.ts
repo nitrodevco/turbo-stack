@@ -290,3 +290,26 @@ export type ZoneSetting = { setting: string; label: string; current: string | nu
 export type DnsActionView = { kind: 'ok' | 'create' | 'update' | 'conflict' | 'delete'; type: string; name: string; content: string | null; proxied: boolean; existing: string | null; reason: string | null };
 
 export type PanelAddressView = { domain: string | null; siteId: number | null; verified: boolean; verifyUrl: string | null; setupClosed: boolean; onPanelDomain: boolean };
+
+export type DatabaseEngineSlug = 'mysql' | 'mariadb' | 'postgres';
+
+export type DatabaseEngineView = {
+    engine: DatabaseEngineSlug;
+    label: string;
+    installed: boolean;
+    running: boolean;
+    version: string;
+    service: string;
+    port: number;
+    blockedReason: string;
+};
+
+export type DatabaseInfo = { name: string; sizeBytes: number; tables: number };
+
+export type DatabaseUserView = { name: string; grants: { database: string; level: 'all' | 'readonly' }[]; passwordStored: boolean };
+
+export type DatabaseCredentials = { engine: DatabaseEngineSlug; database: string; user: string; password: string; host: string; port: number };
+
+export type DatabaseBackup = { id: string; engine: DatabaseEngineSlug | ''; database: string; sizeBytes: number; createdUnixMs: number; import: boolean; fileName: string };
+
+export type BackupScheduleView = { id: number; engine: DatabaseEngineSlug; database: string; enabled: boolean; timeOfDay: string; retentionCount: number; lastRunAt: string | null; lastResult: string | null };

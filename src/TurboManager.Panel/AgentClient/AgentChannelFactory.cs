@@ -52,6 +52,8 @@ public sealed class AgentChannelFactory(IOptions<PanelOptions> options) : IDispo
 
     public NginxAgent.NginxAgentClient Nginx => new(_channel.Value);
 
+    public DatabaseAgent.DatabaseAgentClient Databases => new(_channel.Value);
+
     public void Dispose()
     {
         if (_channel.IsValueCreated)

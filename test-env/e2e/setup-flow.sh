@@ -161,18 +161,67 @@ pass "unsafe custom config refused by the agent's policy"
 
 echo "Sites passed."
 echo
+echo "Databases (real MySQL and PostgreSQL)"
+
+wait_for_job() {
+    local limit="${2:-60}"
+    for _ in $(seq 1 "$limit"); do
+        [[ "$(body_of "$(call GET "/api/jobs/$1")" | jq -r .status)" != "running" ]] && break
+        sleep 1
+    done
+    [[ "$(body_of "$(call GET "/api/jobs/$1")" | jq -r .status)" == "succeeded" ]] \
+        || fail "job $1 failed: $(body_of "$(call GET "/api/jobs/$1")" | jq -r .output | tail -20)"
+}
+
+for engine in mysql postgres; do
+    response="$(call POST "/api/databases/$engine/install")"
+    wait_for_job "$(body_of "$response" | jq -r .jobId)" 600
+done
+[[ "$(body_of "$(call GET /api/databases/engines)" | jq -r '[.[] | select(.installed and .running) | .engine] | join(",")')" == "mysql,postgres" ]] \
+    || fail "MySQL and PostgreSQL should be installed and running"
+[[ -n "$(body_of "$(call GET /api/databases/engines)" | jq -r '.[] | select(.engine == "mariadb") | .blockedReason')" ]] \
+    || fail "MariaDB should be blocked next to MySQL"
+pass "MySQL and PostgreSQL installed; MariaDB blocked next to MySQL"
+
+response="$(call POST /api/databases/mysql/databases '{"name":"turbo","user":"turbo"}')"
+[[ "$(body_of "$response" | jq -r '.credentials.password | length')" == "32" ]] || fail "database with user should return credentials: $response"
+call PUT /api/databases/mysql/users/turbo/password '{"password":"E2e-Mysql-Passw0rd"}' >/dev/null
+response="$(curl -sk -b "$JAR" -c "$JAR" -H 'X-TM-Request: 1' -H 'Content-Type: application/octet-stream' \
+    --data-binary $'CREATE TABLE players (id int);\nINSERT INTO players VALUES (1),(2);\n' "$BASE/api/databases/backups/upload?name=seed.sql")"
+IMPORT="$(jq -r .id <<<"$response")"
+[[ "$IMPORT" == imports/*seed.sql ]] || fail "upload failed: $response"
+response="$(call POST /api/databases/mysql/restore "{\"backupId\":\"$IMPORT\",\"database\":\"turbo\"}")"
+wait_for_job "$(body_of "$response" | jq -r .jobId)" 120
+response="$(call POST /api/databases/mysql/databases/turbo/backup)"
+wait_for_job "$(body_of "$response" | jq -r .jobId)" 120
+BACKUP="$(body_of "$(call GET '/api/databases/backups?engine=mysql')" | jq -r '[.[] | select(.database == "turbo")][0].id')"
+[[ "$(curl -sk -b "$JAR" "$BASE/api/databases/backups/download?id=$BACKUP" | gunzip | grep -c 'INSERT INTO .players.')" -ge 1 ]] \
+    || fail "downloaded backup should contain the data"
+pass "MySQL database + user created, import restored, backup taken and downloaded"
+
+response="$(call POST /api/databases/postgres/databases '{"name":"studio","user":"studio"}')"
+[[ "$(body_of "$response" | jq -r .credentials.port)" == "5432" ]] || fail "PostgreSQL database with user failed: $response"
+call PUT /api/databases/postgres/users/studio/password '{"password":"E2e-Postgres-Passw0rd"}' >/dev/null
+response="$(call POST /api/databases/postgres/databases/studio/backup)"
+wait_for_job "$(body_of "$response" | jq -r .jobId)" 120
+call POST /api/databases/postgres/databases '{"name":"other_app"}' >/dev/null
+pass "PostgreSQL database + user created and backed up"
+
+call POST /api/databases/mysql/databases '{"name":"scratch"}' >/dev/null
+[[ "$(body_of "$(call DELETE /api/databases/mysql/databases/scratch)" | jq -r .finalBackup)" == mysql/scratch/* ]] \
+    || fail "drop should keep a final backup"
+pass "dropping a database keeps a final backup"
+
+[[ "$(body_of "$(call GET /api/firewall/exposure)" | jq -r '[.[] | select(.port == 3306 or .port == 5432) | .exposure] | unique | join(",")')" == "local" ]] \
+    || fail "database ports should only listen locally"
+pass "exposure check: database ports are local only"
+
+echo "Databases passed."
+echo
 echo "Cloudflare (fake API)"
 
 SERVER_IP="$(getent hosts server | awk '{print $1}')"
 FAKE="http://fake-cloudflare:8080"
-
-wait_for_job() {
-    for _ in $(seq 1 60); do
-        [[ "$(body_of "$(call GET "/api/jobs/$1")" | jq -r .status)" != "running" ]] && break
-        sleep 1
-    done
-    [[ "$(body_of "$(call GET "/api/jobs/$1")" | jq -r .status)" == "succeeded" ]] || fail "job $1 failed: $(call GET "/api/jobs/$1")"
-}
 
 call PUT /api/settings/server '{"publicIPv4":"203.0.113.10"}' >/dev/null
 response="$(call PUT /api/cloudflare/token '{"token":"test-token"}')"
