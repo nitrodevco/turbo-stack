@@ -248,7 +248,7 @@ public sealed class CloudflareApiTests : IAsyncLifetime
         });
         await WaitForJobAsync(site.GetProperty("certificateJobId").GetInt64());
 
-        Assert.Contains("listen 443 ssl;", _agent.Nginx.Sites["play"]);
+        Assert.Contains("listen 443 ssl http2;", _agent.Nginx.Sites["play"]);
         Assert.Contains("/etc/turbo-manager/certs/hotel.test/fullchain.pem", _agent.Nginx.Sites["play"]);
         var certificate = Assert.Single((await _client.GetFromJsonAsync<JsonElement>("/api/certificates")).EnumerateArray());
         Assert.Equal(["hotel.test", "*.hotel.test"], certificate.GetProperty("domains").EnumerateArray().Select(d => d.GetString()));

@@ -21,7 +21,8 @@ export UBUNTU="${UBUNTU:-24.04}"
 ARCH="${ARCH:-x64}"
 ARTIFACTS="$HERE/artifacts"
 
-compose() { docker compose -f "$HERE/compose.yaml" "$@"; }
+# MSYS_NO_PATHCONV: Git Bash on Windows would otherwise rewrite container paths like /e2e/setup-flow.sh.
+compose() { (cd "$HERE" && MSYS_NO_PATHCONV=1 docker compose -f compose.yaml "$@"); }
 on_server() { compose exec -T server "$@"; }
 
 wait_for_systemd() {
@@ -82,7 +83,8 @@ case "${1:-}" in
     up) cmd_up ;;
     install) cmd_install ;;
     e2e) cmd_e2e ;;
-    all) cmd_package && cmd_reset && cmd_install && cmd_e2e ;;
+    # Separate statements (not &&) so set -e stops at the first failing step.
+    all) cmd_package; cmd_reset; cmd_install; cmd_e2e ;;
     collect) cmd_collect ;;
     shell) compose exec server bash ;;
     logs) compose exec server journalctl -f -u tm-agent -u tm-panel ;;

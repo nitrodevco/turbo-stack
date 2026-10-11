@@ -73,7 +73,7 @@ public sealed class SitesApiTests : IAsyncLifetime
 
         await WaitForJobAsync(jobId);
 
-        Assert.Contains("listen 443 ssl;", _agent.Nginx.Sites["web"]);
+        Assert.Contains("listen 443 ssl http2;", _agent.Nginx.Sites["web"]);
         Assert.Contains("ssl_certificate /etc/turbo-manager/certs/myhotel.test/fullchain.pem;", _agent.Nginx.Sites["web"]);
         Assert.True(_agent.Nginx.Certificates.ContainsKey("myhotel.test"));
 
@@ -146,6 +146,21 @@ public sealed class SitesApiTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
         Assert.False(_agent.Nginx.Sites.ContainsKey("web"));
+    }
+
+    [Fact]
+    public async Task Custom_config_site_can_omit_routes()
+    {
+        var response = await _client.PostAsJsonAsync("/api/sites", new
+        {
+            name = "custom",
+            domains = new[] { "custom.test" },
+            tlsMode = "None",
+            customConfig = "server { listen 80; server_name custom.test; }",
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("server { listen 80; server_name custom.test; }\n", _agent.Nginx.Sites["custom"]);
     }
 
     [Fact]

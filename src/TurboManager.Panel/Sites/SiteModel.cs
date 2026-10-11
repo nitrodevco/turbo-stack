@@ -39,7 +39,7 @@ public sealed record SiteModel(
     public void ApplyTo(Site site)
     {
         site.Name = Name.Trim().ToLowerInvariant();
-        site.Domains = Domains.Select(d => d.Trim().TrimEnd('.').ToLowerInvariant()).Where(d => d.Length > 0).ToList();
+        site.Domains = (Domains ?? []).Select(d => d.Trim().TrimEnd('.').ToLowerInvariant()).Where(d => d.Length > 0).ToList();
         site.TlsMode = TlsMode;
         site.ForceHttps = ForceHttps;
         site.Hsts = Hsts;
@@ -51,7 +51,7 @@ public sealed record SiteModel(
         site.CloudflareDns = CloudflareDns;
         site.CloudflareProxied = CloudflareProxied;
         site.Routes.Clear();
-        site.Routes.AddRange(Routes.Select((r, i) => new SiteRoute
+        site.Routes.AddRange((Routes ?? []).Select((r, i) => new SiteRoute
         {
             SortOrder = i,
             Path = NormalizePath(r.Path),

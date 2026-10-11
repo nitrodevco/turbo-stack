@@ -60,9 +60,8 @@ public static class SiteRenderer
         {
             builder.AppendLine();
             builder.AppendLine("server {");
-            builder.AppendLine("    listen 443 ssl;");
-            builder.AppendLine("    listen [::]:443 ssl;");
-            builder.AppendLine("    http2 on;");
+            builder.AppendLine("    listen 443 ssl http2;");
+            builder.AppendLine("    listen [::]:443 ssl http2;");
             builder.AppendLine($"    server_name {names};");
             builder.AppendLine();
             builder.AppendLine($"    ssl_certificate {certificate!.Fullchain};");

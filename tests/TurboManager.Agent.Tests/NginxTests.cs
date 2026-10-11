@@ -25,7 +25,7 @@ public sealed class NginxTests : IDisposable
     {
         const string config = """
             server {
-                listen 443 ssl;
+                listen 443 ssl http2;
                 server_name play.example.com;
                 ssl_certificate /etc/turbo-manager/certs/example.com/fullchain.pem;
                 ssl_certificate_key /etc/turbo-manager/certs/example.com/privkey.pem;

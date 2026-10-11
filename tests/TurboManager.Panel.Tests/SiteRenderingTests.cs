@@ -28,7 +28,7 @@ public sealed class SiteRenderingTests
         Assert.Contains("server_name myhotel.com www.myhotel.com;", config);
         Assert.Contains("location ^~ /.well-known/acme-challenge/ {\n        root /var/lib/turbo-manager-acme;", config.Replace("\r", ""));
         Assert.Contains("return 301 https://$host$request_uri;", config);
-        Assert.Contains("listen 443 ssl;", config);
+        Assert.Contains("listen 443 ssl http2;", config);
         Assert.Contains("ssl_certificate /etc/turbo-manager/certs/myhotel.com/fullchain.pem;", config);
         Assert.Contains("try_files $uri $uri/ /index.html;", config);
         Assert.Contains("location ^~ /api/ {", config);

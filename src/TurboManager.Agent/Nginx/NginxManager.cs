@@ -373,8 +373,55 @@ public sealed partial class NginxManager(ICommandRunner commands, IOptions<Agent
         }
     }
 
-    private async Task ReloadAsync(CancellationToken cancellationToken) =>
+    /// <summary>
+    /// Reloads nginx and waits until it has replaced its worker processes. `nginx -s reload` (what
+    /// systemd runs) returns before the new workers exist, so a request right after it could still
+    /// see the old config.
+    /// </summary>
+    private async Task ReloadAsync(CancellationToken cancellationToken)
+    {
+        var before = WorkerPids();
+
         await commands.RunCheckedAsync("systemctl", ["reload-or-restart", "nginx"], cancellationToken: cancellationToken);
+
+        if (before.Count == 0)
+        {
+            return;
+        }
+
+        for (var attempt = 0; attempt < 50; attempt++)
+        {
+            var current = WorkerPids();
+
+            // Old workers may linger to finish open connections; new workers mean the new config is live.
+            if (current.Except(before).Any())
+            {
+                return;
+            }
+
+            await Task.Delay(100, cancellationToken);
+        }
+
+        logger.LogWarning("nginx workers were not replaced within 5 seconds after a reload");
+    }
+
+    /// <summary>Child processes of the nginx master (from /run/nginx.pid); empty if unknown.</summary>
+    private HashSet<int> WorkerPids()
+    {
+        try
+        {
+            var master = File.ReadAllText(HostPath("/run/nginx.pid")).Trim();
+            var children = HostPath($"/proc/{master}/task/{master}/children");
+
+            return File.Exists(children)
+                ? File.ReadAllText(children).Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse).ToHashSet()
+                : [];
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or FormatException)
+        {
+            return [];
+        }
+    }
 
     private static async Task WriteAtomicallyAsync(string path, string content, CancellationToken cancellationToken, UnixFileMode? mode = null)
     {

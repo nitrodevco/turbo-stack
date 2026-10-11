@@ -136,6 +136,13 @@ public sealed class ProcessCommandRunner : ICommandRunner
         info.Environment["SYSTEMD_PAGER"] = "";
         info.Environment["SYSTEMD_COLORS"] = "0";
 
+        // The agent's own systemd service variables must not leak into tools it runs.
+        info.Environment.Remove("NOTIFY_SOCKET");
+        info.Environment.Remove("WATCHDOG_PID");
+        info.Environment.Remove("WATCHDOG_USEC");
+        info.Environment.Remove("LISTEN_FDS");
+        info.Environment.Remove("LISTEN_PID");
+
         return Process.Start(info) ?? throw new InvalidOperationException($"Could not start {fileName}");
     }
 

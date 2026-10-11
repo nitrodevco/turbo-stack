@@ -220,9 +220,8 @@ install -d -m 0755 /var/lib/turbo-manager-acme
 cat > "$CONFIG_ROOT/setup-site.conf" <<EOF
 # Managed by $PRODUCT_NAME — temporary setup entry point.
 server {
-    listen $SETUP_PORT ssl;
-    listen [::]:$SETUP_PORT ssl;
-    http2 on;
+    listen $SETUP_PORT ssl http2;
+    listen [::]:$SETUP_PORT ssl http2;
     server_name _;
 
     ssl_certificate     $CONFIG_ROOT/tls/setup.crt;
