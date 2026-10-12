@@ -14,7 +14,8 @@ public sealed class RecipeTemplateException(string message) : Exception(message)
 /// {{ input.hotelName ?? 'Turbo' }}
 /// {{ input.adminUrl ? 'true' : 'false' }}
 /// </code>
-/// Filters: origin (scheme://host[:port] of a URL), host, ident (a safe database name), json (a JSON string),
+/// Filters: origin (scheme://host[:port] of a URL), host, ident (a safe database name), json (a JSON string), ws
+/// (http → ws, https → wss),
 /// trimslash. There is deliberately nothing else: no loops, no code.
 /// </summary>
 public static partial class RecipeTemplate
@@ -88,7 +89,7 @@ public static partial class RecipeTemplate
 
         var filters = match.Groups["filter"].Captures.Select(c => c.Value).ToList();
 
-        foreach (var filter in filters.Where(f => f is not ("origin" or "host" or "ident" or "json" or "trimslash")))
+        foreach (var filter in filters.Where(f => f is not ("origin" or "host" or "ident" or "json" or "trimslash" or "ws")))
         {
             throw new RecipeTemplateException($"Unknown filter \"{filter}\".");
         }
@@ -126,6 +127,9 @@ public static partial class RecipeTemplate
                 }
 
                 return ident.ToString();
+            case "ws":
+                return value.StartsWith("https://", StringComparison.Ordinal) ? "wss://" + value[8..]
+                    : value.StartsWith("http://", StringComparison.Ordinal) ? "ws://" + value[7..] : value;
             case "json":
                 return JsonSerializer.Serialize(value);
             default:

@@ -7,6 +7,7 @@
 #   test-env/dev e2e         Run the end-to-end checks (needs a fresh install)
 #   test-env/dev all         package + reset + install + e2e (what CI runs)
 #   test-env/dev recipes     Deploy the Turbo/Nitro recipes from the real GitHub repositories (slow)
+#   test-env/dev hotel       A whole hotel via the wizard API from the local turbo-cloud + nitro-next (slow)
 #   test-env/dev try         package + reset + install, then open the setup page in your browser
 #   test-env/dev shell       Root shell on the server
 #   test-env/dev logs        Follow panel + agent logs
@@ -115,6 +116,20 @@ cmd_recipes() {
     compose --profile test run --rm --build -e "LOCAL_NITRO=${LOCAL_NITRO:+1}" tester /e2e/recipes-flow.sh "$url"
 }
 
+# A whole hotel through the wizard's API, from the local turbo-cloud and nitro-next checkouts' commits
+# (TURBO_CLOUD / NITRO_NEXT; default: next to this repository), served by the fake GitHub.
+cmd_hotel() {
+    local url turbo_cloud="${TURBO_CLOUD:-$ROOT/../turbo-workspace/turbo-cloud}" nitro_next="${NITRO_NEXT:-$ROOT/../../nitro-next}"
+    [[ -d "$turbo_cloud/.git" && -d "$nitro_next/.git" ]] || { echo "Set TURBO_CLOUD and NITRO_NEXT to the local checkouts." >&2; exit 1; }
+    cmd_package
+    cmd_reset
+    cmd_install
+    mirror_local_repo "$turbo_cloud" nitrodevco/turbo-cloud
+    mirror_local_repo "$nitro_next" nitrodevco/nitro-next
+    url="$(setup_url)"
+    compose --profile test run --rm --build tester /e2e/hotel-flow.sh "$url"
+}
+
 cmd_collect() {
     mkdir -p "$ARTIFACTS"
     on_server journalctl --no-pager -u tm-agent -u tm-panel -u nginx > "$ARTIFACTS/journal.log" 2>&1 || true
@@ -156,6 +171,7 @@ case "${1:-}" in
     # Separate statements (not &&) so set -e stops at the first failing step.
     all) cmd_package; cmd_reset; cmd_install; cmd_e2e ;;
     recipes) cmd_recipes ;;
+    hotel) cmd_hotel ;;
     try) cmd_try ;;
     collect) cmd_collect ;;
     shell) compose exec server bash ;;
@@ -163,5 +179,5 @@ case "${1:-}" in
     token) on_server tm-setup-token ;;
     reset) cmd_reset ;;
     down) compose down --volumes --remove-orphans ;;
-    *) sed -n '2,19p' "$0"; exit 1 ;;
+    *) sed -n '2,20p' "$0"; exit 1 ;;
 esac

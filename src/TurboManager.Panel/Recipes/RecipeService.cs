@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using TurboManager.Contracts.Agent;
 using TurboManager.Panel.AgentClient;
@@ -62,11 +63,23 @@ public sealed record RecipePlan(
     Dictionary<string, string> Inputs,
     List<string> Notes)
 {
-    /// <summary>Generated secrets and the database password (null in a preview).</summary>
+    /// <summary>Generated secrets (empty in a preview).</summary>
     internal Dictionary<string, string> Secrets { get; init; } = [];
+
+    internal string? DatabasePassword { get; init; }
 }
 
 public sealed record RecipeResult(int? AppId, int? SiteId, int? RepositoryId, bool RepositoryCreated, SiteApplyResult? Site, List<string> Notes);
+
+/// <summary>Which hotel (stack) and role an app or site is created for.</summary>
+public sealed record StackLink(int StackId, string Role);
+
+/// <summary>What re-rendering an app needs besides its inputs and ports (kept encrypted on the app).</summary>
+public sealed record RecipeState(
+    Dictionary<string, string> Secrets,
+    PlannedDatabase? Database,
+    string? DatabasePassword,
+    Dictionary<string, string> Environment);
 
 /// <summary>Turns a recipe plus the user's answers into a repository, database, app and site.</summary>
 public sealed partial class RecipeService(
@@ -75,9 +88,17 @@ public sealed partial class RecipeService(
     DeployService deployments,
     DatabaseService databases,
     SiteService sites,
+    IDataProtectionProvider dataProtection,
     AuditLog audit)
 {
     private const string Generated = "(generated)";
+
+    private readonly IDataProtector _protector = dataProtection.CreateProtector("TurboManager.Recipes.v1");
+
+    public RecipeState? GetState(App app) =>
+        string.IsNullOrEmpty(app.RecipeStateProtected) ? null : JsonSerializer.Deserialize<RecipeState>(_protector.Unprotect(app.RecipeStateProtected));
+
+    public void SetState(App app, RecipeState state) => app.RecipeStateProtected = _protector.Protect(JsonSerializer.Serialize(state));
 
     private static readonly HashSet<int> ReservedPorts = [22, 25, 53, 80, 443, 3306, 5432, 7800, 8443];
 
@@ -126,62 +147,15 @@ public sealed partial class RecipeService(
         var database = recipe.Database is null ? null : await PlanDatabaseAsync(recipe, request, name, cancellationToken);
         var databasePassword = database is null ? null : preview ? Generated : DatabaseService.GeneratePassword();
 
-        var appDirectory = $"/home/{user}/apps/{name}";
-        var values = new Dictionary<string, string>
-        {
-            ["user"] = user,
-            ["app.name"] = name,
-            ["app.dir"] = appDirectory,
-            ["app.shared"] = $"{appDirectory}/shared",
-            ["app.static"] = "",
-            ["site.domain"] = domains.FirstOrDefault() ?? "",
-            ["site.url"] = domains.Count == 0 ? "" : $"{(request.TlsMode == TlsMode.None ? "http" : "https")}://{domains[0]}",
-            ["site.dir"] = site is { Directory: true } ? $"/home/{user}/sites/{name}" : "",
-        };
+        var rendered = Render(recipe, new RenderState(name, user, domains, request.TlsMode, request.CloudflareDns, inputs, ports, secrets, database,
+            databasePassword));
 
-        foreach (var (key, value) in inputs)
+        if (rendered.App is { } app && DeployModels.ValidateApp(ToAppRequest(name, 0, app)) is { } appError)
         {
-            values[$"input.{key}"] = value;
+            throw new RecipeException(appError);
         }
 
-        foreach (var (key, port) in ports)
-        {
-            values[$"port.{key}"] = port.ToString(CultureInfo.InvariantCulture);
-        }
-
-        foreach (var secret in recipe.Secrets)
-        {
-            foreach (var (key, value) in RecipeCatalog.SecretValues(secret, secrets[secret.Key]))
-            {
-                values[key] = value;
-            }
-        }
-
-        if (database is not null)
-        {
-            values["db.engine"] = database.Engine;
-            values["db.host"] = "127.0.0.1";
-            values["db.port"] = DatabaseService.Port(DatabaseService.Parse(database.Engine)!.Value).ToString(CultureInfo.InvariantCulture);
-            values["db.name"] = database.Name;
-            values["db.user"] = database.User;
-            values["db.password"] = databasePassword!;
-        }
-
-        var app = recipe.App is null ? null : PlanApp(recipe.App, values, ports);
-
-        if (app is not null)
-        {
-            var error = DeployModels.ValidateApp(ToAppRequest(name, 0, app));
-
-            if (error is not null)
-            {
-                throw new RecipeException(error);
-            }
-        }
-
-        var siteModel = site is null || domains.Count == 0 ? null : PlanSite(site, name, domains, request, values);
-
-        if (siteModel is not null)
+        if (rendered.Site is { } siteModel)
         {
             var entity = new Site { Name = "" };
             siteModel.ApplyTo(entity);
@@ -192,16 +166,122 @@ public sealed partial class RecipeService(
             }
         }
 
-        var notes = recipe.Notes.Select(n => Render(n, values)).Where(n => n.Length > 0).ToList();
-
-        return new RecipePlan(recipe.Id, name, user, repository, database, ports, app, siteModel, values["site.dir"] is { Length: > 0 } dir ? dir : null,
-            inputs, notes)
+        return new RecipePlan(recipe.Id, name, user, repository, database, ports, rendered.App, rendered.Site, rendered.SiteDirectory, inputs, rendered.Notes)
         {
-            Secrets = preview ? [] : new Dictionary<string, string>(secrets) { ["db.password"] = databasePassword ?? "" },
+            Secrets = preview ? [] : secrets,
+            DatabasePassword = preview ? null : databasePassword,
         };
     }
 
-    public async Task<RecipeResult> CreateAsync(RecipeManifest recipe, RecipeRequest request, PanelUser? actor, CancellationToken cancellationToken)
+    /// <summary>Everything a recipe's templates are rendered from; kept (encrypted) so an app can be re-rendered later.</summary>
+    public sealed record RenderState(
+        string Name,
+        string User,
+        List<string> Domains,
+        TlsMode TlsMode,
+        bool CloudflareDns,
+        Dictionary<string, string> Inputs,
+        Dictionary<string, int> Ports,
+        Dictionary<string, string> Secrets,
+        PlannedDatabase? Database,
+        string? DatabasePassword);
+
+    public sealed record Rendered(PlannedApp? App, SiteModel? Site, string? SiteDirectory, List<string> Notes);
+
+    /// <summary>Renders the app, site and notes. Pure: the same state always gives the same result.</summary>
+    public static Rendered Render(RecipeManifest recipe, RenderState state)
+    {
+        var values = Values(recipe, state);
+        var app = recipe.App is null ? null : PlanApp(recipe.App, values, state.Ports);
+        var site = recipe.Site is null || state.Domains.Count == 0 ? null : PlanSite(recipe.Site, state, values);
+        var notes = recipe.Notes.Select(n => Render(n, values)).Where(n => n.Length > 0).ToList();
+
+        return new Rendered(app, site, values["site.dir"] is { Length: > 0 } dir ? dir : null, notes);
+    }
+
+    /// <summary>What an app offers the rest of its hotel (exports only see the site and ports).</summary>
+    public static Dictionary<string, string> Exports(RecipeManifest recipe, string? domain, TlsMode tlsMode, IReadOnlyDictionary<string, int> ports)
+    {
+        var values = new Dictionary<string, string>
+        {
+            ["site.domain"] = domain ?? "",
+            ["site.url"] = SiteUrl(domain, tlsMode),
+            ["site.dir"] = "",
+        };
+
+        foreach (var port in recipe.Ports)
+        {
+            values[$"port.{port.Name}"] = ports.TryGetValue(port.Name, out var value) ? value.ToString(CultureInfo.InvariantCulture) : "";
+        }
+
+        return recipe.Exports.ToDictionary(e => e.Key, e => RecipeTemplate.Render(e.Value, values) is { UsedEmptyValue: false } r ? r.Text : "");
+    }
+
+    /// <summary>A site model as it reads back once saved (trimmed, normalised): comparable with SiteModel.From(site).</summary>
+    public static string Canonical(SiteModel model)
+    {
+        var site = new Site { Name = "" };
+        model.ApplyTo(site);
+
+        return JsonSerializer.Serialize(SiteModel.From(site));
+    }
+
+    private static string SiteUrl(string? domain, TlsMode tlsMode) =>
+        string.IsNullOrEmpty(domain) ? "" : $"{(tlsMode == TlsMode.None ? "http" : "https")}://{domain}";
+
+    private static Dictionary<string, string> Values(RecipeManifest recipe, RenderState state)
+    {
+        var appDirectory = $"/home/{state.User}/apps/{state.Name}";
+        var values = new Dictionary<string, string>
+        {
+            ["user"] = state.User,
+            ["app.name"] = state.Name,
+            ["app.dir"] = appDirectory,
+            ["app.shared"] = $"{appDirectory}/shared",
+            ["app.static"] = "",
+            ["site.domain"] = state.Domains.FirstOrDefault() ?? "",
+            ["site.url"] = SiteUrl(state.Domains.FirstOrDefault(), state.TlsMode),
+            ["site.dir"] = recipe.Site is { Directory: true } ? $"/home/{state.User}/sites/{state.Name}" : "",
+        };
+
+        foreach (var (key, value) in state.Inputs)
+        {
+            values[$"input.{key}"] = value;
+        }
+
+        foreach (var input in recipe.Inputs.Where(i => !values.ContainsKey($"input.{i.Key}")))
+        {
+            values[$"input.{input.Key}"] = "";
+        }
+
+        foreach (var (key, port) in state.Ports)
+        {
+            values[$"port.{key}"] = port.ToString(CultureInfo.InvariantCulture);
+        }
+
+        foreach (var secret in recipe.Secrets)
+        {
+            foreach (var (key, value) in RecipeCatalog.SecretValues(secret, state.Secrets.GetValueOrDefault(secret.Key, "")))
+            {
+                values[key] = value;
+            }
+        }
+
+        if (state.Database is { } database)
+        {
+            values["db.engine"] = database.Engine;
+            values["db.host"] = "127.0.0.1";
+            values["db.port"] = DatabaseService.Port(DatabaseService.Parse(database.Engine)!.Value).ToString(CultureInfo.InvariantCulture);
+            values["db.name"] = database.Name;
+            values["db.user"] = database.User;
+            values["db.password"] = state.DatabasePassword ?? "";
+        }
+
+        return values;
+    }
+
+    public async Task<RecipeResult> CreateAsync(RecipeManifest recipe, RecipeRequest request, PanelUser? actor, CancellationToken cancellationToken,
+        StackLink? stack = null, bool startCertificateJob = true)
     {
         var plan = await PlanAsync(recipe, request, preview: false, cancellationToken);
 
@@ -240,7 +320,7 @@ public sealed partial class RecipeService(
 
         if (plan.Database is { } database)
         {
-            await databases.CreateDatabaseAsync(DatabaseService.Parse(database.Engine)!.Value, database.Name, database.User, plan.Secrets["db.password"],
+            await databases.CreateDatabaseAsync(DatabaseService.Parse(database.Engine)!.Value, database.Name, database.User, plan.DatabasePassword,
                 cancellationToken);
             audit.Record("database.created", actor, target: $"{database.Engine}/{database.Name}", details: $"recipe {recipe.Id}");
         }
@@ -259,6 +339,9 @@ public sealed partial class RecipeService(
             app.RecipeId = recipe.Id;
             app.RecipeInputs = plan.Inputs;
             app.Ports = plan.Ports;
+            app.StackId = stack?.StackId;
+            app.StackRole = stack?.Role;
+            SetState(app, new RecipeState(plan.Secrets, plan.Database, plan.DatabasePassword, planned2.Environment));
             deployments.SetEnvironment(app, planned2.Environment);
             db.Apps.Add(app);
             audit.Record("app.created", actor, target: plan.Name, details: $"recipe {recipe.Id}, {repository.FullName}");
@@ -273,10 +356,14 @@ public sealed partial class RecipeService(
         {
             site = new Site { Name = "" };
             siteModel.ApplyTo(site);
+            site.RecipeId = recipe.Id;
+            site.RecipeRendered = Canonical(siteModel);
+            site.StackId = stack?.StackId;
+            site.StackRole = stack?.Role;
             db.Sites.Add(site);
             audit.Record("site.created", actor, target: site.Name, details: $"{string.Join(", ", site.Domains)} (recipe {recipe.Id})");
             await db.SaveChangesAsync(cancellationToken);
-            applied = await sites.ApplyAsync(site, actor, requestCertificate: true, cancellationToken);
+            applied = await sites.ApplyAsync(site, actor, requestCertificate: true, cancellationToken, startCertificateJob);
         }
 
         return new RecipeResult(app?.Id, site?.Id, repository?.Id, repositoryCreated, applied, plan.Notes);
@@ -545,9 +632,9 @@ public sealed partial class RecipeService(
             environment);
     }
 
-    private static SiteModel PlanSite(RecipeSite site, string name, List<string> domains, RecipeRequest request, Dictionary<string, string> values) => new(
-        name,
-        domains,
+    private static SiteModel PlanSite(RecipeSite site, RenderState state, Dictionary<string, string> values) => new(
+        state.Name,
+        state.Domains,
         site.Routes.Select(r => new SiteRouteModel(
             r.Path,
             System.Enum.Parse<RouteKind>(Render(r.Kind, values)),
@@ -555,12 +642,12 @@ public sealed partial class RecipeService(
             r.Cors,
             r.CacheSeconds,
             Render(r.Snippet, values) is { Length: > 0 } snippet ? snippet : null)).ToList(),
-        request.TlsMode,
-        ForceHttps: request.TlsMode != TlsMode.None,
+        state.TlsMode,
+        ForceHttps: state.TlsMode != TlsMode.None,
         SecurityHeaders: site.SecurityHeaders,
         ClientMaxBodyMb: site.ClientMaxBodyMb,
         ServerSnippet: Render(site.ServerSnippet, values) is { Length: > 0 } server ? server : null,
-        CloudflareDns: request.CloudflareDns);
+        CloudflareDns: state.CloudflareDns);
 
     private static AppRequest ToAppRequest(string name, int repositoryId, PlannedApp app) => new(
         name,

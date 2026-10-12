@@ -48,6 +48,8 @@ public sealed class PanelDbContext(DbContextOptions<PanelDbContext> options) : D
 
     public DbSet<WebhookDelivery> WebhookDeliveries => Set<WebhookDelivery>();
 
+    public DbSet<Stack> Stacks => Set<Stack>();
+
     protected override void OnModelCreating(ModelBuilder model)
     {
         model.Entity<PanelUser>(user =>
@@ -135,6 +137,16 @@ public sealed class PanelDbContext(DbContextOptions<PanelDbContext> options) : D
         });
 
         model.Entity<WebhookDelivery>().HasIndex(d => d.ReceivedAt);
+
+        model.Entity<Stack>(stack =>
+        {
+            stack.HasIndex(s => s.Name).IsUnique();
+            stack.Property(s => s.TlsMode).HasConversion<string>().HasMaxLength(24);
+            stack.Property(s => s.Hosts).HasConversion(JsonConverter<Dictionary<string, string>>(), JsonComparer<Dictionary<string, string>>());
+            stack.Property(s => s.Settings).HasConversion(JsonConverter<Dictionary<string, string>>(), JsonComparer<Dictionary<string, string>>());
+            stack.Property(s => s.Overrides).HasConversion(JsonConverter<Dictionary<string, string>>(), JsonComparer<Dictionary<string, string>>());
+            stack.Property(s => s.Sources).HasConversion(JsonConverter<List<StackSource>>(), JsonComparer<List<StackSource>>());
+        });
 
         model.Entity<BackupSchedule>().HasIndex(s => new { s.Engine, s.Database }).IsUnique();
 

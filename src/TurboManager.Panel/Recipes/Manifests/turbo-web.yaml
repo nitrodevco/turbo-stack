@@ -13,21 +13,25 @@ source:
 
 inputs:
   - key: apiPort
+    from: emulator.webPort
     label: Emulator public site API port
     kind: number
     default: "8092"
     help: The emulator's "web" port.
   - key: gamedataPort
+    from: emulator.gamedataPort
     label: Emulator gamedata port
     kind: number
     default: "8094"
     help: The emulator's "gamedata" port.
   - key: clientUrl
+    from: client.url
     label: Client address
     kind: url
     placeholder: https://play.example.com
     help: Allowed as a frame on this site.
   - key: imagerUrl
+    from: imager.url
     label: Imager address
     kind: url
     placeholder: https://imager.example.com
@@ -69,3 +73,6 @@ site:
 notes:
   - "Set the emulator's \"Public site address\" and \"Gamedata public address\" to https://{{ site.domain }} and restart it."
   - "Discord sign-in: add https://{{ site.domain }}/api/auth/discord/callback as a redirect in your Discord app, then set TURBO__Turbo__Web__Discord__ClientId and ClientSecret on the emulator."
+
+exports:
+  url: "{{ site.url }}"

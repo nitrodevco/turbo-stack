@@ -5,32 +5,28 @@ using YamlDotNet.Serialization.NamingConventions;
 
 namespace TurboManager.Panel.Recipes;
 
-/// <summary>The recipes shipped with the panel (embedded Recipes/Manifests/*.yaml), validated when loaded.</summary>
+/// <summary>
+/// The recipes and hotel presets shipped with the panel (embedded Recipes/Manifests/*.yaml and Recipes/Presets/*.yaml),
+/// validated when loaded.
+/// </summary>
 public sealed partial class RecipeCatalog
 {
     public IReadOnlyList<RecipeManifest> All { get; }
 
-    public RecipeCatalog() : this(LoadEmbedded())
+    public IReadOnlyList<StackPreset> Presets { get; }
+
+    public RecipeCatalog() : this(LoadEmbedded("Manifests"), LoadEmbedded("Presets"))
     {
     }
 
-    public RecipeCatalog(IEnumerable<(string Source, string Yaml)> manifests)
+    public RecipeCatalog(IEnumerable<(string Source, string Yaml)> manifests, IEnumerable<(string Source, string Yaml)>? presets = null)
     {
         var deserializer = new DeserializerBuilder().WithNamingConvention(CamelCaseNamingConvention.Instance).Build();
         var all = new List<RecipeManifest>();
 
         foreach (var (source, yaml) in manifests)
         {
-            RecipeManifest manifest;
-
-            try
-            {
-                manifest = deserializer.Deserialize<RecipeManifest>(yaml);
-            }
-            catch (YamlDotNet.Core.YamlException e)
-            {
-                throw new InvalidOperationException($"Recipe {source}: {e.Message}", e);
-            }
+            var manifest = Parse<RecipeManifest>(deserializer, source, yaml);
 
             if (Validate(manifest) is { } error)
             {
@@ -46,20 +42,106 @@ public sealed partial class RecipeCatalog
         }
 
         All = all;
+
+        var loaded = new List<StackPreset>();
+
+        foreach (var (source, yaml) in presets ?? [])
+        {
+            var preset = Parse<StackPreset>(deserializer, source, yaml);
+
+            if (ValidatePreset(preset) is { } error)
+            {
+                throw new InvalidOperationException($"Preset {source}: {error}");
+            }
+
+            loaded.Add(preset);
+        }
+
+        Presets = loaded;
     }
 
     public RecipeManifest? Find(string id) => All.FirstOrDefault(r => r.Id == id);
 
-    private static IEnumerable<(string, string)> LoadEmbedded()
+    public StackPreset? FindPreset(string id) => Presets.FirstOrDefault(p => p.Id == id);
+
+    private static T Parse<T>(IDeserializer deserializer, string source, string yaml)
+    {
+        try
+        {
+            return deserializer.Deserialize<T>(yaml);
+        }
+        catch (YamlDotNet.Core.YamlException e)
+        {
+            throw new InvalidOperationException($"{source}: {e.Message}", e);
+        }
+    }
+
+    private static IEnumerable<(string, string)> LoadEmbedded(string folder)
     {
         var assembly = typeof(RecipeCatalog).Assembly;
 
-        foreach (var name in assembly.GetManifestResourceNames().Where(n => n.EndsWith(".yaml", StringComparison.Ordinal)).Order())
+        foreach (var name in assembly.GetManifestResourceNames()
+                     .Where(n => n.Contains($".{folder}.", StringComparison.Ordinal) && n.EndsWith(".yaml", StringComparison.Ordinal)).Order())
         {
             using var reader = new StreamReader(assembly.GetManifestResourceStream(name)!);
 
             yield return (name, reader.ReadToEnd());
         }
+    }
+
+    /// <summary>Roles and recipes exist, and every wired input of a member points at a real export or setting.</summary>
+    public string? ValidatePreset(StackPreset preset)
+    {
+        if (!SlugPattern().IsMatch(preset.Id) || preset.Name.Length == 0 || preset.Roles.Count == 0)
+        {
+            return "needs an id, a name and roles.";
+        }
+
+        if (preset.Roles.GroupBy(r => r.Role).FirstOrDefault(g => g.Count() > 1 || !SlugPattern().IsMatch(g.Key)) is { } badRole)
+        {
+            return $"role \"{badRole.Key}\" is duplicated or not a valid name.";
+        }
+
+        if (preset.Roles.FirstOrDefault(r => Find(r.Recipe) is null) is { } missing)
+        {
+            return $"role {missing.Role} uses the unknown recipe \"{missing.Recipe}\".";
+        }
+
+        if (preset.Roles.FirstOrDefault(r => r.Host != "@" && !HostPattern().IsMatch(r.Host)) is { } host)
+        {
+            return $"role {host.Role} has an invalid host \"{host.Host}\".";
+        }
+
+        if (preset.DeployOrder.FirstOrDefault(d => preset.Roles.All(r => r.Role != d)) is { } unknown)
+        {
+            return $"deployOrder names the unknown role \"{unknown}\".";
+        }
+
+        foreach (var role in preset.Roles)
+        {
+            foreach (var input in Find(role.Recipe)!.Inputs.Where(i => i.From.Length > 0))
+            {
+                var (source, export) = (input.From[..input.From.IndexOf('.')], input.From[(input.From.IndexOf('.') + 1)..]);
+
+                if (source == "settings")
+                {
+                    if (preset.Settings.All(s => s.Key != export))
+                    {
+                        return $"{role.Role}.{input.Key} comes from the setting \"{export}\", which the preset doesn't ask for.";
+                    }
+                }
+                else if (preset.Roles.FirstOrDefault(r => r.Role == source) is not { } other)
+                {
+                    return $"{role.Role}.{input.Key} comes from the role \"{source}\", which the preset doesn't have.";
+                }
+                else if (!Find(other.Recipe)!.Exports.ContainsKey(export))
+                {
+                    return $"{role.Role}.{input.Key} comes from {source}.{export}, which {other.Recipe} doesn't export.";
+                }
+            }
+        }
+
+        return null;
     }
 
     public static readonly string[] InputKinds = ["text", "url", "bool", "number"];
@@ -253,6 +335,26 @@ public sealed partial class RecipeCatalog
             }
         }
 
+        var exportValues = values.Where(v => v.Key.StartsWith("site.", StringComparison.Ordinal) || v.Key.StartsWith("port.", StringComparison.Ordinal))
+            .ToDictionary();
+
+        foreach (var (key, template) in recipe.Exports)
+        {
+            try
+            {
+                RecipeTemplate.Render(template, exportValues);
+            }
+            catch (RecipeTemplateException e)
+            {
+                return $"exports.{key}: {e.Message} Exports may only use site.* and port.* values.";
+            }
+        }
+
+        if (recipe.Inputs.FirstOrDefault(i => i.From.Length > 0 && !FromPattern().IsMatch(i.From)) is { } wired)
+        {
+            return $"input \"{wired.Key}\": from must be \"<role>.<export>\" or \"settings.<key>\".";
+        }
+
         return null;
     }
 
@@ -270,6 +372,12 @@ public sealed partial class RecipeCatalog
 
     [GeneratedRegex("^[a-z0-9][a-z0-9-]{0,39}$")]
     private static partial Regex SlugPattern();
+
+    [GeneratedRegex(@"^[a-z][a-z0-9-]{0,39}\.[a-zA-Z][a-zA-Z0-9_]{0,63}$")]
+    private static partial Regex FromPattern();
+
+    [GeneratedRegex("^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$")]
+    private static partial Regex HostPattern();
 
     [GeneratedRegex("^[a-zA-Z][a-zA-Z0-9_]{0,63}$")]
     private static partial Regex KeyPattern();

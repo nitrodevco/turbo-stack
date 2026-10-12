@@ -134,6 +134,13 @@ public sealed class App
     /// <summary>The recipe inputs it was created with.</summary>
     public Dictionary<string, string> RecipeInputs { get; set; } = [];
 
+    /// <summary>Generated secrets, database credentials and the last rendered environment (encrypted JSON; see RecipeState).</summary>
+    public string? RecipeStateProtected { get; set; }
+
+    public int? StackId { get; set; }
+
+    public string? StackRole { get; set; }
+
     /// <summary>Ports reserved for the app on 127.0.0.1, by the recipe's name for them.</summary>
     public Dictionary<string, int> Ports { get; set; } = [];
 

@@ -29,6 +29,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Recipes\Manifests\*.yaml" />
+    <EmbeddedResource Include="Recipes\Presets\*.yaml" />
   </ItemGroup>
 
   <ItemGroup>

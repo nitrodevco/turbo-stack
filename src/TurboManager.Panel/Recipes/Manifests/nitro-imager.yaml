@@ -12,12 +12,14 @@ source:
 
 inputs:
   - key: assetsUrl
+    from: assets.url
     label: Assets address
     kind: url
     required: true
     placeholder: https://assets.example.com
     help: Where the converted bundles and static gamedata are (Nitro Studio's layout).
   - key: gamedataUrl
+    from: web.url
     label: Gamedata address
     kind: url
     required: true
@@ -80,4 +82,8 @@ site:
       target: "http://127.0.0.1:{{ port.http }}"
 
 notes:
-  - "Avatars: https://{{ site.domain }}/avatarimage?figure=<figure> — use https://{{ site.domain }}/?figure={figure}&size=l as the emulator's \"Avatar image address\"."
+  - "Avatars: {{ site.url }}/avatarimage?figure=<figure> — use {{ site.url }}/avatarimage?figure={figure}&size=l as the emulator's \"Avatar image address\"."
+
+exports:
+  url: "{{ site.url }}"
+  avatarUrl: "{{ site.url }}/avatarimage?figure={figure}&size=l"

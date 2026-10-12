@@ -13,6 +13,7 @@ source:
 
 inputs:
   - key: apiPort
+    from: emulator.adminPort
     label: Emulator admin API port
     kind: number
     default: "8090"
@@ -53,3 +54,6 @@ site:
 
 notes:
   - "Set the emulator's \"Admin panel address\" to https://{{ site.domain }} and restart it."
+
+exports:
+  url: "{{ site.url }}"

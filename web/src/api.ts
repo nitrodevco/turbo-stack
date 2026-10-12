@@ -466,3 +466,88 @@ export type RecipeResultView = {
     site: { applied: boolean; error: string | null; certificateJobId: number | null; dnsError: string | null } | null;
     notes: string[];
 };
+
+export type PresetRoleView = {
+    role: string;
+    recipe: string;
+    host: string;
+    label: string;
+    optional: boolean;
+    source: { repository: string; branch: string; submodules: boolean } | null;
+    requiresTls: boolean;
+    exports: string[];
+};
+
+export type PresetView = {
+    id: string;
+    name: string;
+    summary: string;
+    description: string;
+    settings: RecipeInput[];
+    roles: PresetRoleView[];
+    databaseEngines: DatabaseEngineSlug[] | null;
+};
+
+export type StackSourceView = { default: string; repository: string; branch: string; private: boolean; privateSubmodules: string[] };
+
+export type StackRequest = {
+    name?: string;
+    preset?: string;
+    systemUser?: string;
+    domain?: string;
+    tlsMode: TlsMode;
+    cloudflareDns?: boolean;
+    hosts?: Record<string, string>;
+    settings?: Record<string, string>;
+    overrides?: Record<string, string>;
+    sources?: StackSourceView[];
+    databaseEngine?: string | null;
+};
+
+export type StackRoleView = {
+    role: string;
+    label: string;
+    recipe: string;
+    optional: boolean;
+    included: boolean;
+    domain: string | null;
+    app: {
+        id: number;
+        name: string;
+        repository: string;
+        currentRelease: string | null;
+        ports: Record<string, number>;
+        lastRelease: { name: string; status: ReleaseStatus; error: string | null } | null;
+        service: string | null;
+    } | null;
+    site: { id: number; name: string; applied: boolean; lastError: string | null } | null;
+    wiring: { input: string; label: string; from: string; value: string; pinned: boolean }[];
+};
+
+export type StackView = {
+    id: number;
+    name: string;
+    preset: string;
+    presetName: string;
+    domain: string;
+    systemUser: string;
+    tlsMode: TlsMode;
+    cloudflareDns: boolean;
+    hosts: Record<string, string>;
+    settings: Record<string, string>;
+    overrides: Record<string, string>;
+    sources: StackSourceView[];
+    databaseEngine: string | null;
+    installJobId: number | null;
+    roles: StackRoleView[];
+};
+
+export type MemberChangeView = {
+    role: string;
+    name: string;
+    environment: { key: string; from: string | null; to: string | null; pinned: boolean }[];
+    site: 'none' | 'update' | 'create' | 'hand-edited';
+    domainsFrom: string[];
+    domainsTo: string[];
+    action: 'none' | 'reload' | 'restart' | 'redeploy';
+};

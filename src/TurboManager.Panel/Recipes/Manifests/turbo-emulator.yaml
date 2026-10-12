@@ -14,36 +14,44 @@ source:
 
 inputs:
   - key: hotelName
+    from: settings.hotelName
     label: Hotel name
     default: Turbo
   - key: ownerName
+    from: settings.ownerName
     label: Owner's username
     help: When this player signs up (or at start-up, if they exist) Turbo logs a one-time admin panel setup link.
   - key: adminPanelUrl
+    from: admin.url
     label: Admin panel address
     kind: url
     placeholder: https://admin.example.com
     help: Where turbo-admin runs. Leave empty to keep the admin API off.
   - key: siteUrl
+    from: web.url
     label: Public site address
     kind: url
     placeholder: https://example.com
     help: Where turbo-web runs. Leave empty to keep the public site API off.
   - key: clientUrl
+    from: client.url
     label: Client address
     kind: url
     placeholder: https://play.example.com
     help: Where the Nitro client runs. Players are sent to <address>/?sso=<ticket>.
   - key: avatarImageUrl
+    from: imager.avatarUrl
     label: Avatar image address
     kind: text
     placeholder: https://imager.example.com/?figure={figure}&size=l
   - key: gamedataPublicUrl
+    from: web.url
     label: Gamedata public address
     kind: url
     placeholder: https://example.com
     help: The site that serves /gamedata/ (usually the public site). Leave empty to use Turbo's default.
   - key: badgeAssetUrl
+    from: assets.badgeUrl
     label: Badge image address
     kind: text
     default: https://images.nitrodev.co/images/badges/%badgename%.gif
@@ -143,3 +151,9 @@ notes:
   - "Players connect to wss://{{ site.domain }} — use that as the client's socket address."
   - "Turbo listens on 127.0.0.1 only; the admin API is on port {{ port.admin }}, the public site API on {{ port.web }} and gamedata on {{ port.gamedata }}."
   - "After the first start, the owner's admin setup link is in the service log (Services → tm-app-{{ app.name }})."
+
+exports:
+  socketUrl: "{{ site.url | ws }}"
+  adminPort: "{{ port.admin }}"
+  webPort: "{{ port.web }}"
+  gamedataPort: "{{ port.gamedata }}"

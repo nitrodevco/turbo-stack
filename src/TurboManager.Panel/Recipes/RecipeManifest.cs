@@ -39,6 +39,12 @@ public sealed class RecipeManifest
 
     /// <summary>What to do next, shown after creation (templates).</summary>
     public List<string> Notes { get; set; } = [];
+
+    /// <summary>
+    /// Values other apps of a hotel can use (templates). They may only use site.* and port.*, never inputs, so
+    /// the wiring between apps can't go round in circles.
+    /// </summary>
+    public Dictionary<string, string> Exports { get; set; } = [];
 }
 
 public sealed class RecipeSource
@@ -67,6 +73,9 @@ public sealed class RecipeInput
     public string Placeholder { get; set; } = "";
 
     public bool Required { get; set; }
+
+    /// <summary>In a hotel, where the value comes from: "<role>.<export>" or "settings.<key>".</summary>
+    public string From { get; set; } = "";
 }
 
 public sealed class RecipeDatabase
@@ -183,4 +192,39 @@ public sealed class RecipeRoute
 
     /// <summary>Template.</summary>
     public string Snippet { get; set; } = "";
+}
+
+/// <summary>A hotel (stack) layout: which recipes play which roles, on which subdomains (Recipes/Presets).</summary>
+public sealed class StackPreset
+{
+    public string Id { get; set; } = "";
+
+    public string Name { get; set; } = "";
+
+    public string Summary { get; set; } = "";
+
+    public string Description { get; set; } = "";
+
+    /// <summary>Hotel-wide answers, used by inputs wired "from: settings.&lt;key&gt;".</summary>
+    public List<RecipeInput> Settings { get; set; } = [];
+
+    /// <summary>In creation order.</summary>
+    public List<PresetRole> Roles { get; set; } = [];
+
+    public List<string> DeployOrder { get; set; } = [];
+}
+
+public sealed class PresetRole
+{
+    public string Role { get; set; } = "";
+
+    public string Recipe { get; set; } = "";
+
+    /// <summary>Subdomain of the hotel's domain ("@" = the domain itself).</summary>
+    public string Host { get; set; } = "";
+
+    public string Label { get; set; } = "";
+
+    /// <summary>Can be left out; its exports then come from settings ("&lt;role&gt;.&lt;export&gt;").</summary>
+    public bool Optional { get; set; }
 }

@@ -1,0 +1,47 @@
+id: turbo-nitro
+name: Turbo + Nitro hotel
+summary: The emulator, its admin panel and website, the Nitro client and imager, and a host for the game assets.
+description: >-
+  Every part gets its own subdomain of the hotel's domain and is wired to the others: the client knows the
+  socket and asset addresses, the emulator knows where its admin panel, website, client and imager are,
+  and the website's security headers allow the client and imager. Change a domain later and the panel
+  shows what needs to be rebuilt, restarted or reloaded, then does it.
+
+settings:
+  - key: hotelName
+    label: Hotel name
+    default: Turbo
+  - key: ownerName
+    label: Owner's username
+    required: true
+    help: Your player name. When you sign up on the website with it, the emulator logs your admin panel setup link.
+
+# Created in this order (the emulator first: other apps use its ports) and deployed in deployOrder.
+roles:
+  - role: emulator
+    recipe: turbo-emulator
+    host: ws
+    label: Emulator (WebSocket)
+  - role: web
+    recipe: turbo-web
+    host: "@"
+    label: Website
+  - role: client
+    recipe: nitro-client
+    host: play
+    label: Game client
+  - role: admin
+    recipe: turbo-admin
+    host: admin
+    label: Admin panel
+  - role: imager
+    recipe: nitro-imager
+    host: imager
+    label: Imager
+  - role: assets
+    recipe: static-assets
+    host: assets
+    label: Game assets
+    optional: true # or an existing asset host (settings: assets.url, assets.badgeUrl)
+
+deployOrder: [emulator, admin, web, client, imager]

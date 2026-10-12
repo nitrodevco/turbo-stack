@@ -11,6 +11,8 @@
 #   --no-upgrade              Skip `apt-get upgrade` (faster; used by tests)
 #   --no-root-terminal        Permanently disable the panel's root terminal feature
 #   --force                   Continue on unsupported OS versions
+#   --config <hotel.yaml>     Headless: also set up the hotel described in this answers file (download it from a
+#                             hotel's page in the panel). You still claim the panel with the setup link.
 set -euo pipefail
 
 # Keep in sync with src/TurboManager.Core/Branding.cs and ManagerPaths.cs.
@@ -33,6 +35,7 @@ PUBLIC_HOST=""
 UPGRADE=1
 ROOT_TERMINAL=1
 FORCE=0
+HOTEL_CONFIG=""
 
 log() { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m!!\033[0m %s\n' "$*" >&2; }
@@ -47,7 +50,8 @@ while [[ $# -gt 0 ]]; do
         --no-upgrade) UPGRADE=0; shift ;;
         --no-root-terminal) ROOT_TERMINAL=0; shift ;;
         --force) FORCE=1; shift ;;
-        -h|--help) sed -n '2,15p' "$0"; exit 0 ;;
+        --config) HOTEL_CONFIG="$2"; shift 2 ;;
+        -h|--help) sed -n '2,17p' "$0"; exit 0 ;;
         *) die "Unknown option: $1" ;;
     esac
 done
@@ -57,6 +61,7 @@ done
 # ---------------------------------------------------------------------------------------------
 [[ $EUID -eq 0 ]] || die "Run as root (sudo bash)."
 [[ -d /run/systemd/system ]] || die "systemd is not running; $PRODUCT_NAME needs a systemd-based Ubuntu server."
+[[ -z "$HOTEL_CONFIG" || -r "$HOTEL_CONFIG" ]] || die "Can't read the hotel answers file $HOTEL_CONFIG."
 
 # shellcheck disable=SC1091
 . /etc/os-release
@@ -150,6 +155,10 @@ fi
 install -d -m 0755 "$INSTALL_ROOT" "$CONFIG_ROOT"
 install -d -m 0750 -o "$SYSTEM_USER" -g "$SYSTEM_USER" "$STATE_ROOT" "$LOG_ROOT"
 install -d -m 0700 "$CONFIG_ROOT/tls"
+if [[ -n "$HOTEL_CONFIG" ]]; then
+    # Read by the panel at start-up; it sets the hotel up once no hotel exists yet.
+    install -m 0640 -o root -g "$SYSTEM_USER" "$HOTEL_CONFIG" "$CONFIG_ROOT/hotel.yaml"
+fi
 
 systemctl stop "$SHORT-panel.service" "$SHORT-agent.service" 2>/dev/null || true
 
@@ -357,3 +366,7 @@ printf '    \033[1m%s\033[0m\n\n' "$SETUP_URL"
 printf '  Your browser will warn about the certificate: that is expected for this one-time\n'
 printf '  setup address. The panel moves to your own domain during setup.\n\n'
 printf '  Lost the link? Run: sudo tm-setup-token\n\n'
+if [[ -n "$HOTEL_CONFIG" ]]; then
+    printf '  The hotel from %s is being set up now; follow it on the Hotel page once you have\n' "$HOTEL_CONFIG"
+    printf '  claimed the panel (or: journalctl -u tm-panel -f).\n\n'
+fi

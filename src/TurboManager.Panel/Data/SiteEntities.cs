@@ -76,6 +76,16 @@ public sealed class Site
 
     public string? LastError { get; set; }
 
+    /// <summary>The recipe that made this site (null for a hand-made one).</summary>
+    public string? RecipeId { get; set; }
+
+    /// <summary>The settings the recipe last rendered (SiteModel JSON): a site still equal to it wasn't edited by hand.</summary>
+    public string? RecipeRendered { get; set; }
+
+    public int? StackId { get; set; }
+
+    public string? StackRole { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;

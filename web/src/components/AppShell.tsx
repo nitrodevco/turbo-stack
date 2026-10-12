@@ -7,7 +7,7 @@ import { Logo } from './ui';
 /** Sections arrive milestone by milestone; unbuilt ones are listed so the shape of the panel is visible. */
 const navigation: { label: string; to?: string; permission?: string }[] = [
     { label: 'Dashboard', to: '/', permission: 'system.view' },
-    { label: 'Hotel' },
+    { label: 'Hotel', to: '/hotel', permission: 'apps.view' },
     { label: 'Sites', to: '/sites', permission: 'sites.view' },
     { label: 'Certificates', to: '/certificates', permission: 'sites.view' },
     { label: 'Apps & deploys', to: '/apps', permission: 'apps.view' },

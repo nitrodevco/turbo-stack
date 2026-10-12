@@ -425,7 +425,7 @@ public sealed class FakeDeployAgent : DeployAgent.DeployAgentBase
     public override async Task RunBuild(BuildRequest request, IServerStreamWriter<DeployOutput> responseStream, ServerCallContext context)
     {
         Builds.Add(request);
-        var failed = request.Script.Contains("fail", StringComparison.Ordinal);
+        var failed = request.Script.Contains("make fail", StringComparison.Ordinal); // a real script may mention "fail" in a comment
         await responseStream.WriteAsync(new DeployOutput { Line = failed ? "error: build broke" : "built" });
         await responseStream.WriteAsync(new DeployOutput { Finished = true, Success = !failed });
     }
@@ -462,6 +462,23 @@ public sealed class FakeDeployAgent : DeployAgent.DeployAgentBase
         return Task.FromResult(new Google.Protobuf.WellKnownTypes.Empty());
     }
 
+    public HashSet<string> InstalledRuntimes { get; } = [];
+
+    public override Task<Runtimes> ListRuntimes(Google.Protobuf.WellKnownTypes.Empty request, ServerCallContext context)
+    {
+        var reply = new Runtimes();
+        reply.Items.AddRange(new[] { "dotnet", "node" }.Select(n => new RuntimeInfo { Name = n, Installed = InstalledRuntimes.Contains(n) }));
+
+        return Task.FromResult(reply);
+    }
+
+    public override async Task InstallRuntime(RuntimeRequest request, IServerStreamWriter<OutputLine> responseStream, ServerCallContext context)
+    {
+        InstalledRuntimes.Add(request.Name);
+        await responseStream.WriteAsync(new OutputLine { Line = $"{request.Name} {request.Channel} installed" });
+        await responseStream.WriteAsync(new OutputLine { Finished = true, ExitCode = 0 });
+    }
+
     public HashSet<string> SiteDirectories { get; } = [];
 
     public override Task<SiteDirectory> EnsureSiteDirectory(AppRef request, ServerCallContext context)
@@ -481,6 +498,20 @@ public sealed class FakeDeployAgent : DeployAgent.DeployAgentBase
     }
 }
 
+public sealed class FakeLogsAgent : LogsAgent.LogsAgentBase
+{
+    public List<JournalEntry> Entries { get; } = [];
+
+    public override Task<JournalEntries> QueryJournal(JournalQuery request, ServerCallContext context)
+    {
+        var reply = new JournalEntries();
+        reply.Entries.AddRange(Entries.Where(e => (request.Unit.Length == 0 || e.Unit == request.Unit)
+            && (request.Grep.Length == 0 || e.Message.Contains(request.Grep, StringComparison.Ordinal))));
+
+        return Task.FromResult(reply);
+    }
+}
+
 /// <summary>A gRPC server on a unix socket implementing the agent services the panel tests need.</summary>
 public sealed class FakeAgent : IAsyncDisposable
 {
@@ -496,6 +527,8 @@ public sealed class FakeAgent : IAsyncDisposable
 
     public FakeDeployAgent Deploy { get; } = new();
 
+    public FakeLogsAgent Logs { get; } = new();
+
     private FakeAgent(string socketPath)
     {
         var builder = WebApplication.CreateSlimBuilder();
@@ -507,6 +540,7 @@ public sealed class FakeAgent : IAsyncDisposable
         builder.Services.AddSingleton(Nginx);
         builder.Services.AddSingleton(Databases);
         builder.Services.AddSingleton(Deploy);
+        builder.Services.AddSingleton(Logs);
         _app = builder.Build();
         _app.MapGrpcService<FakeFirewallAgent>();
         _app.MapGrpcService<FakeServicesAgent>();
@@ -514,6 +548,7 @@ public sealed class FakeAgent : IAsyncDisposable
         _app.MapGrpcService<FakeNginxAgent>();
         _app.MapGrpcService<FakeDatabaseAgent>();
         _app.MapGrpcService<FakeDeployAgent>();
+        _app.MapGrpcService<FakeLogsAgent>();
     }
 
     public static async Task<FakeAgent> StartAsync(string socketPath)

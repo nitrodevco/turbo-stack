@@ -13,26 +13,31 @@ source:
 
 inputs:
   - key: socketUrl
+    from: emulator.socketUrl
     label: Socket address
     kind: url
     required: true
     placeholder: wss://ws.example.com
     help: The emulator's WebSocket site.
   - key: assetsUrl
+    from: assets.url
     label: Assets address
     kind: url
     placeholder: https://assets.example.com
     help: Where the converted bundles, images and static gamedata are (Nitro Studio's layout). Leave empty to keep the shipped defaults.
   - key: gamedataUrl
+    from: web.url
     label: Gamedata address
     kind: url
     placeholder: https://example.com
     help: The site that serves Turbo's /gamedata/ (usually the public site).
   - key: imagerUrl
+    from: imager.url
     label: Imager address
     kind: url
     placeholder: https://imager.example.com
   - key: siteUrl
+    from: web.url
     label: Public site address
     kind: url
     placeholder: https://example.com
@@ -112,3 +117,6 @@ site:
 notes:
   - "Set the emulator's \"Client address\" to https://{{ site.domain }}."
   - "Changed an address? Edit the app's environment and redeploy: the client is built with them."
+
+exports:
+  url: "{{ site.url }}"

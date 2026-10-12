@@ -35,7 +35,8 @@ public sealed class SiteService(PanelDbContext db, AgentChannelFactory agent, Ce
     /// first (Let's Encrypt validates over port 80), then a certificate job is started which
     /// re-applies the site once the certificate is installed.
     /// </summary>
-    public async Task<SiteApplyResult> ApplyAsync(Site site, PanelUser? user, bool requestCertificate, CancellationToken cancellationToken)
+    public async Task<SiteApplyResult> ApplyAsync(Site site, PanelUser? user, bool requestCertificate, CancellationToken cancellationToken,
+        bool startCertificateJob = true)
     {
         var certificate = site.TlsMode == TlsMode.None ? null : await certificates.FindForAsync(site);
         var content = SiteRenderer.Render(site, certificate is null ? null : CertificateService.PathsFor(certificate));
@@ -81,7 +82,7 @@ public sealed class SiteService(PanelDbContext db, AgentChannelFactory agent, Ce
 
         long? jobId = null;
 
-        if (result.Applied && site.Enabled && requestCertificate && certificate is null && CertificateService.KindFor(site.TlsMode) is { } kind)
+        if (result.Applied && site.Enabled && requestCertificate && startCertificateJob && certificate is null && CertificateService.KindFor(site.TlsMode) is { } kind)
         {
             jobId = (await StartCertificateJobAsync(await CertificateDomainsAsync(site, kind), kind, user)).Id;
         }
@@ -143,29 +144,47 @@ public sealed class SiteService(PanelDbContext db, AgentChannelFactory agent, Ce
         await db.SaveChangesAsync();
         var certificateId = record.Id;
 
-        return await jobs.StartAsync("certificates", $"Certificate for {string.Join(", ", domains)}", user, async context =>
+        return await jobs.StartAsync("certificates", $"Certificate for {string.Join(", ", domains)}", user, context =>
+            context.Services.GetRequiredService<SiteService>().IssueAndApplyAsync(certificateId, context.Log, context.CancellationToken));
+    }
+
+    /// <summary>
+    /// Gives a site the certificate it needs right here (not in a job of its own): for callers that set up several
+    /// sites in one job, since only one certificates job runs at a time. True if the site has (or needs no) certificate.
+    /// </summary>
+    public async Task<bool> EnsureCertificateAsync(Site site, Action<string> log, CancellationToken cancellationToken)
+    {
+        if (!site.Enabled || CertificateService.KindFor(site.TlsMode) is not { } kind || await certificates.FindForAsync(site) is not null)
         {
-            var scoped = context.Services.GetRequiredService<CertificateService>();
-            var scopedDb = context.Services.GetRequiredService<PanelDbContext>();
-            var sites = context.Services.GetRequiredService<SiteService>();
-            var certificate = await scopedDb.Certificates.FirstAsync(c => c.Id == certificateId, context.CancellationToken);
-
-            if (!await scoped.IssueAsync(certificate, context.Log, context.CancellationToken))
-            {
-                return false;
-            }
-
-            foreach (var site in await sites.GetAllAsync())
-            {
-                if (site.Enabled && site.TlsMode != TlsMode.None && site.Domains.All(d => CertificateService.Covers(certificate.Domains, d)))
-                {
-                    var applied = await sites.ApplyAsync(site, user: null, requestCertificate: false, context.CancellationToken);
-                    context.Log(applied.Applied ? $"HTTPS enabled for {site.Name}." : $"Re-applying {site.Name} failed: {applied.Error}");
-                }
-            }
-
             return true;
-        });
+        }
+
+        var record = await certificates.GetOrCreateAsync(await CertificateDomainsAsync(site, kind), kind);
+        await db.SaveChangesAsync(cancellationToken);
+
+        return await IssueAndApplyAsync(record.Id, log, cancellationToken);
+    }
+
+    /// <summary>Issues a certificate, then re-applies every site it covers so they switch to HTTPS.</summary>
+    private async Task<bool> IssueAndApplyAsync(int certificateId, Action<string> log, CancellationToken cancellationToken)
+    {
+        var certificate = await db.Certificates.FirstAsync(c => c.Id == certificateId, cancellationToken);
+
+        if (!await certificates.IssueAsync(certificate, log, cancellationToken))
+        {
+            return false;
+        }
+
+        foreach (var site in await GetAllAsync())
+        {
+            if (site.Enabled && site.TlsMode != TlsMode.None && site.Domains.All(d => CertificateService.Covers(certificate.Domains, d)))
+            {
+                var applied = await ApplyAsync(site, user: null, requestCertificate: false, cancellationToken);
+                log(applied.Applied ? $"HTTPS enabled for {site.Name}." : $"Re-applying {site.Name} failed: {applied.Error}");
+            }
+        }
+
+        return true;
     }
 }
 

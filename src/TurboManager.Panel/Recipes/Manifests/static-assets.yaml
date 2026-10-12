@@ -30,3 +30,7 @@ site:
 notes:
   - "Upload the files to {{ site.dir }} as {{ user }} (add your SSH key for {{ user }} on the SSH keys page, then use SFTP or rsync)."
   - "Use https://{{ site.domain }} as the \"Assets address\" of the client and the imager."
+
+exports:
+  url: "{{ site.url }}"
+  badgeUrl: "{{ site.url }}/images/badges/%badgename%.gif"

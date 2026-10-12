@@ -765,6 +765,26 @@ an unconfirmed change reverting) but has still not been run. Deferred from M1: c
   broke Yarn's binary wrappers (builds now get a private TMPDIR); an nginx reload race where old
   workers still answered (the agent now waits until they stop accepting); nitro-next's lockfile
   lists the untracked nitro-studio workspace, so its recipes install non-strictly.
+- *M6 status (2026-10-12):* hotels implemented. A stack (hotel) comes from a preset
+  (Recipes/Presets/turbo-nitro.yaml: role → recipe → default subdomain, plus hotel-wide settings)
+  and keeps the answers: domain, host per role, settings, pinned values, sources, database.
+  Wiring: recipes export values built only from their site and ports (so the graph can't loop);
+  inputs say `from: <role>.<export>` or `settings.<key>`; a left-out role (e.g. assets on another
+  host) is replaced by settings. Re-rendering is a three-way merge against what the recipe last
+  rendered (kept encrypted with the generated secrets): untouched values follow the hotel,
+  values edited by hand stay and are reported, sites edited by hand are left alone. A domain
+  change is previewed per member (nginx reload / restart / rebuild) and applied as one job. The
+  install job: runtimes → database engine → apps and sites (emulator first, its ports feed the
+  others) → certificates one at a time → repository access (stops with the deploy keys to add;
+  running it again continues) → deploys in order → the owner's admin setup link (found in the
+  emulator's log). UI: the hotel wizard (basics, domains, sources, database, hotel, review), the
+  hotel map (role cards with domain, app health, ports, wired values) and the domain editor with
+  its preview. Unattended: `install.sh --config hotel.yaml` (the hotel page's "Answers file")
+  sets the hotel up at first start; the owner still claims the panel with the setup link.
+  `test-env/dev hotel` runs the whole flow from the local turbo-cloud + nitro-next commits.
+  Not yet: adding or removing a role from an existing hotel, a graphical stack map with live
+  connectivity checks per edge, wizard steps for the panel address and server basics (those
+  pages exist separately).
 - *Deviations / later:* ACME DNS-01 (wildcards without Cloudflare Origin) and Pebble in the
   Docker env are not done yet; fail2ban still bans in UFW even for proxied traffic (banning via
   the Cloudflare API, plan 6.8, comes with the WAF work); Authenticated Origin Pulls not yet.

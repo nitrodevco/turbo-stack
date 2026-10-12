@@ -92,6 +92,9 @@ namespace TurboManager.Panel.Data.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("RecipeStateProtected")
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("RepositoryId")
                         .HasColumnType("INTEGER");
 
@@ -107,6 +110,12 @@ namespace TurboManager.Panel.Data.Migrations
 
                     b.Property<int?>("ServicePort")
                         .HasColumnType("INTEGER");
+
+                    b.Property<int?>("StackId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("StackRole")
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("StaticOutput")
                         .HasColumnType("TEXT");
@@ -848,10 +857,22 @@ namespace TurboManager.Panel.Data.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("RecipeId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RecipeRendered")
+                        .HasColumnType("TEXT");
+
                     b.Property<bool>("SecurityHeaders")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("ServerSnippet")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("StackId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("StackRole")
                         .HasColumnType("TEXT");
 
                     b.Property<bool>("System")
@@ -952,6 +973,72 @@ namespace TurboManager.Panel.Data.Migrations
                     b.HasIndex("SiteId");
 
                     b.ToTable("SiteRoute");
+                });
+
+            modelBuilder.Entity("TurboManager.Panel.Data.Stack", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("AdminSetupLinkProtected")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("CloudflareDns")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("DatabaseEngine")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Domain")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Hosts")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("InstallJobId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Overrides")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Preset")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Settings")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Sources")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SystemUser")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TlsMode")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Stacks");
                 });
 
             modelBuilder.Entity("TurboManager.Panel.Data.WebhookDelivery", b =>
