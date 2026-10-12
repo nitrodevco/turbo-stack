@@ -814,6 +814,63 @@ an unconfirmed change reverting) but has still not been run. Deferred from M1: c
     checks, console via the FIFO, root and app-user shells over websocat, files, sftp/ssh).
   - Not yet: custom roles from a permission matrix, passkeys, OpenAPI docs, Monaco editor,
     per-unit sandboxing beyond NoNewPrivileges/PrivateTmp/ProtectSystem=full.
+- *M8 plan (polish), in three parts:*
+  1. **Signed releases + panel self-update + upgrade tests.** Channel files
+     (`channels/<channel>.json`) are signed with an ECDSA P-256 key (`.sig`, verified with
+     `openssl` in install.sh and with .NET's ECDsa in the agent — no extra tooling; replaces
+     the minisign idea). The public key is embedded in install.sh and kept in
+     `/etc/turbo-manager/release-key.pem`. The panel checks its channel every 6 h; the
+     update itself is done by the agent: it fetches and verifies the channel file and bundle
+     on its own (it never trusts the panel's copy), then starts the new bundle's `tm-update`
+     as a transient systemd unit. `tm-update` keeps the previous binaries and a copy of the
+     panel database, swaps, health-checks, and rolls back automatically if the new version
+     doesn't come up. Upgrade E2E: install N, build state (apps, site, database, sessions),
+     update to N+1 and assert nothing changed; a tampered channel file is refused; a broken
+     N+2 rolls back on its own.
+  2. **Backup targets** with restic (encrypted, deduplicated; local, S3-compatible and SFTP
+     repositories): backup plans of databases, app folders and panel state on a schedule,
+     retention (daily/weekly/monthly), snapshots list, restore of database dumps (into the
+     database backups list) and folders (next to the original, never over it). MinIO and an
+     SFTP server join the Docker test network.
+  3. **Docs site** (VitePress, served from the install domain under `/docs`): install,
+     wizard, hotels, deploys, backups, updates, security, troubleshooting, and the manual
+     24.04 → 26.04 `do-release-upgrade` checklist (that stays a VPS-only check).
+- *M8 status (2026-10-12):* polish implemented.
+  - *Releases:* `scripts/package.sh` signs every channel file (`scripts/release-key.sh`: the key
+    from `RELEASE_SIGNING_KEY`, or a gitignored development key for the test env), embeds the
+    public key in install.sh, writes absolute download URLs for GitHub Releases
+    (`--download-base`), several channels at once (a stable release also goes to beta) and
+    optionally the docs (`--docs`). `.github/workflows/release.yml` builds, signs and publishes
+    on a `v*` tag. install.sh refuses an unsigned or wrongly signed channel and keeps the key in
+    `/etc/turbo-manager/release-key.pem`.
+  - *Self-update:* the agent checks and verifies (UpdateManager), unpacks the bundle in-process
+    and starts the new bundle's `tm-update` with `systemd-run` (unit `tm-update`). tm-update keeps
+    the previous binaries, units, scripts and a copy of the panel database
+    (`/var/lib/turbo-manager-updates/rollback`), waits up to two minutes for the agent socket and
+    the panel's `/api/health` to report the new version, and otherwise restores everything.
+    `tm-update status|rollback` by hand. The panel checks every six hours, records each
+    outcome once in the activity log, and raises alerts (update available; update rolled back).
+    `/api/health` reports the installed release (`/opt/turbo-manager/VERSION`).
+  - *Agent errors:* a failed system command or a program that can't start now reaches the panel
+    as a readable error (program, exit code, its last lines; never its arguments) instead of an
+    opaque 502. The command runner can pass environment variables (secrets never in argv).
+  - *Backups:* restic from Ubuntu's archive (installed on first use), targets local / S3 / SFTP
+    (own ed25519 key per target, host key fingerprint confirmed then pinned), repository
+    password generated and shown once (revealable with sudo), plans with databases, app folders
+    and panel state (VACUUM INTO + keys + /etc/turbo-manager), daily schedule, retention via
+    `forget --group-by tags --prune`, a manifest in each snapshot, restores that never overwrite
+    (dumps join the database's backups list; folders go to `~/restored-<time>/`, root-only while
+    copying, then chowned without following links; panel state is unpacked for a manual restore).
+    The Docker env adds SeaweedFS (S3; MinIO no longer publishes images) and an SFTP server.
+  - *Docs:* VitePress site in `docs/site` (install, setup, hotels, deploys, sites, databases,
+    backups, files/terminal/SFTP, updates, team, security, alerts, troubleshooting, restoring
+    the panel, the Ubuntu 24.04 → 26.04 checklist), built in CI.
+  - *Tests:* `test-env/dev upgrade` installs 0.1.0, builds state, updates to 0.1.1 through the
+    panel (same session, token, apps, sites), refuses a tampered channel file and rolls back a
+    0.1.2 whose panel doesn't start; it runs in CI as its own job. The full E2E gains a backups
+    stage (three targets, three plans, a restore) on 24.04 and 26.04.
+  - *Not yet:* hosting of the install domain (needs the product name), panel-state restore as a
+    one-click action, backup alerts for "no successful run in N days", key rotation for releases.
 - *Deviations / later:* ACME DNS-01 (wildcards without Cloudflare Origin) and Pebble in the
   Docker env are not done yet; fail2ban still bans in UFW even for proxied traffic (banning via
   the Cloudflare API, plan 6.8, comes with the WAF work); Authenticated Origin Pulls not yet.

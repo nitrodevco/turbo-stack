@@ -10,14 +10,22 @@ public sealed class FakeCommandRunner : ICommandRunner
     /// <summary>Everything passed on stdin to RunAsync (e.g. SQL), in order.</summary>
     public List<string> Stdins { get; } = [];
 
+    /// <summary>The extra environment of each call that had one, keyed like <see cref="Calls"/>.</summary>
+    public List<(string Call, IReadOnlyDictionary<string, string> Environment)> Environments { get; } = [];
+
     public Func<string, IReadOnlyList<string>, CommandResult> Handler { get; set; } = (_, _) => new CommandResult(0, "", "");
 
     public Task<CommandResult> RunAsync(string fileName, IReadOnlyList<string> arguments, string? stdin = null,
-        TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+        TimeSpan? timeout = null, CancellationToken cancellationToken = default, IReadOnlyDictionary<string, string>? environment = null)
     {
         lock (Calls)
         {
             Calls.Add($"{fileName} {string.Join(' ', arguments)}");
+
+            if (environment is not null)
+            {
+                Environments.Add((Calls[^1], environment));
+            }
 
             if (stdin is not null)
             {
@@ -54,9 +62,9 @@ public sealed class FakeCommandRunner : ICommandRunner
     }
 
     public async Task<int> StreamAsync(string fileName, IReadOnlyList<string> arguments, Func<string, ValueTask> onLine,
-        bool mergeStdErr = true, CancellationToken cancellationToken = default)
+        bool mergeStdErr = true, CancellationToken cancellationToken = default, IReadOnlyDictionary<string, string>? environment = null)
     {
-        var result = await RunAsync(fileName, arguments, cancellationToken: cancellationToken);
+        var result = await RunAsync(fileName, arguments, cancellationToken: cancellationToken, environment: environment);
 
         foreach (var line in result.StdOut.Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {

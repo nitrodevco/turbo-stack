@@ -34,12 +34,15 @@ public static class Permissions
     public const string TerminalRoot = "terminal.root";
     public const string UsersManage = "users.manage";
     public const string AlertsManage = "alerts.manage";
+    public const string PanelUpdate = "panel.update";
+    public const string BackupsView = "backups.view";
+    public const string BackupsManage = "backups.manage";
 
     public static readonly string[] All =
     [
         SystemView, ServicesView, ServicesControl, LogsView, FirewallView, FirewallManage, SshView, SshManage, PackagesView, PackagesManage,
         ServerReboot, AuditView, SitesView, SitesManage, DatabasesView, DatabasesManage, AppsView, AppsDeploy, AppsManage, AppsConsole,
-        FilesManage, TerminalApp, TerminalRoot, UsersManage, AlertsManage,
+        FilesManage, TerminalApp, TerminalRoot, UsersManage, AlertsManage, PanelUpdate, BackupsView, BackupsManage,
     ];
 
     /// <summary>Claim type of a token's permissions (a principal without any is a full session).</summary>
@@ -50,7 +53,7 @@ public static class Permissions
         [PanelRole.Owner] = [.. All],
         // A root shell is the owner's alone.
         [PanelRole.Admin] = [.. All.Where(p => p != TerminalRoot)],
-        [PanelRole.Operator] = [SystemView, ServicesView, ServicesControl, LogsView, FirewallView, PackagesView, SitesView, DatabasesView, AppsView, AppsDeploy,
+        [PanelRole.Operator] = [SystemView, ServicesView, ServicesControl, LogsView, FirewallView, PackagesView, SitesView, DatabasesView, BackupsView, AppsView, AppsDeploy,
             AppsConsole],
         [PanelRole.Developer] = [SystemView, ServicesView, LogsView, SitesView, DatabasesView, AppsView, AppsDeploy, AppsConsole, FilesManage, TerminalApp],
         [PanelRole.Viewer] = [SystemView, ServicesView],

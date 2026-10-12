@@ -25,3 +25,12 @@ web/.yarn/*
 test-env/artifacts/
 TestResults/
 *.tsbuildinfo
+
+# Local release signing key (scripts/release-key.sh)
+.release-dev-key.pem
+
+# Docs site
+docs/site/node_modules/
+docs/site/.vitepress/dist/
+docs/site/.vitepress/cache/
+docs/site/.yarn/*

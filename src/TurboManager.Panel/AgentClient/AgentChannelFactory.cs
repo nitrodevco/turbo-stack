@@ -48,6 +48,10 @@ public sealed class AgentChannelFactory(IOptions<PanelOptions> options) : IDispo
 
     public SftpAgent.SftpAgentClient Sftp => new(_channel.Value);
 
+    public UpdateAgent.UpdateAgentClient Updates => new(_channel.Value);
+
+    public BackupAgent.BackupAgentClient Backups => new(_channel.Value);
+
     public MetricsAgent.MetricsAgentClient Metrics => new(_channel.Value);
 
     public FirewallAgent.FirewallAgentClient Firewall => new(_channel.Value);

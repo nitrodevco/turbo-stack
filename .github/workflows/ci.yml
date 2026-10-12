@@ -34,6 +34,12 @@ jobs:
       - name: .NET tests
         run: dotnet test --configuration Release
 
+      - name: Documentation site
+        working-directory: docs/site
+        run: |
+          yarn install --immutable
+          yarn build
+
   e2e:
     name: Install + setup E2E (Ubuntu ${{ matrix.ubuntu }})
     needs: build-test
@@ -68,4 +74,34 @@ jobs:
         if: failure()
         with:
           name: e2e-${{ matrix.ubuntu }}
+          path: test-env/artifacts/
+
+  upgrade:
+    name: Self-update E2E (release N → N+1, tampered, broken)
+    needs: build-test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - run: corepack enable
+
+      - name: Install N, update through the panel
+        run: test-env/dev upgrade
+
+      - name: Collect diagnostics
+        if: failure()
+        run: test-env/dev collect
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-upgrade
           path: test-env/artifacts/

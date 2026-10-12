@@ -1,0 +1,14 @@
+{
+  "name": "turbo-manager-docs",
+  "private": true,
+  "type": "module",
+  "packageManager": "yarn@4.15.0",
+  "scripts": {
+    "dev": "vitepress dev",
+    "build": "vitepress build",
+    "preview": "vitepress preview"
+  },
+  "devDependencies": {
+    "vitepress": "1.6.3"
+  }
+}

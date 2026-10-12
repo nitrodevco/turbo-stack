@@ -23,6 +23,12 @@ public sealed class AgentOptions
     /// <summary>Database dumps and uploaded imports (root-only).</summary>
     public string DatabaseBackupRoot { get; set; } = "/var/lib/turbo-manager-backups/databases";
 
+    /// <summary>Backup work space (root-only): staging for runs, scratch space for restores, local repositories.</summary>
+    public string BackupRoot { get; set; } = "/var/lib/turbo-manager-backups";
+
+    /// <summary>Downloaded update bundles, the rollback copy and status.json of the last update (root-only).</summary>
+    public string UpdateRoot { get; set; } = $"{ManagerPaths.StateRoot}-updates";
+
     /// <summary>Filesystem root used when reading /proc, /etc etc. Overridable for tests.</summary>
     public string HostRoot { get; set; } = "/";
 }

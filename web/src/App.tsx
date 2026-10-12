@@ -32,6 +32,7 @@ import { SiteEditorPage } from './pages/SiteEditorPage';
 import { SitesPage } from './pages/SitesPage';
 import { SshPage } from './pages/SshPage';
 import { UpdatesPage } from './pages/UpdatesPage';
+import { BackupsPage } from './pages/BackupsPage';
 
 export function App() {
     const location = useLocation();
@@ -77,6 +78,7 @@ export function App() {
                 <Route path="firewall" element={<FirewallPage />} />
                 <Route path="ssh" element={<SshPage />} />
                 <Route path="updates" element={<UpdatesPage />} />
+                <Route path="backups" element={<BackupsPage />} />
                 <Route path="activity" element={<ActivityPage />} />
                 <Route path="sites" element={<SitesPage />} />
                 <Route path="sites/new" element={<SiteEditorPage />} />

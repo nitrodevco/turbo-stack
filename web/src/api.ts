@@ -200,6 +200,60 @@ export type UpgradablePackages = {
     listsUpdatedUnixMs: number;
 };
 
+export type BackupTargetKind = 'Local' | 'S3' | 'Sftp';
+
+export type BackupTarget = {
+    id: number;
+    name: string;
+    kind: BackupTargetKind;
+    path: string;
+    endpoint: string;
+    port: number;
+    user: string;
+    accessKeyId: string;
+    region: string;
+    hostKey: string | null;
+    publicKey: string | null;
+    checkedAt: string | null;
+    lastError: string | null;
+    ready: boolean;
+};
+
+export type BackupPlan = {
+    id: number;
+    name: string;
+    targetId: number;
+    databases: string[];
+    folders: string[];
+    panelState: boolean;
+    enabled: boolean;
+    timeOfDay: string;
+    keepDaily: number;
+    keepWeekly: number;
+    keepMonthly: number;
+    lastRunAt: string | null;
+    lastResult: string | null;
+    lastSnapshot: string | null;
+};
+
+export type BackupOverview = { targets: BackupTarget[]; plans: BackupPlan[] };
+
+export type BackupSnapshot = { id: string; shortId: string; time: string; hostname: string; planId: string; tags: string[] };
+
+export type BackupManifest = { planName: string; created: string; databases: string[]; folders: string[]; panelState: boolean };
+
+export type PanelUpdate = {
+    currentVersion: string;
+    channel: string;
+    latestVersion: string | null;
+    notes: string | null;
+    published: string | null;
+    available: boolean;
+    error: string | null;
+    checkedAt: string | null;
+    running: boolean;
+    last: { state: string; from: string; to: string; message: string; at: string } | null;
+};
 export type RebootStatus = { scheduled: boolean; scheduledAtUnixMs: number; supported: boolean; message: string };
 
 export type JobSummary = { id: number; kind: string; title: string; status: 'running' | 'succeeded' | 'failed'; startedAt: string; finishedAt: string | null; startedBy: string | null };

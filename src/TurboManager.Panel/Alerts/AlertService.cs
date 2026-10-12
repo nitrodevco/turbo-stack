@@ -11,6 +11,7 @@ using TurboManager.Contracts.Agent;
 using TurboManager.Core;
 using TurboManager.Panel.AgentClient;
 using TurboManager.Panel.Data;
+using TurboManager.Panel.Updates;
 
 namespace TurboManager.Panel.Alerts;
 
@@ -38,7 +39,7 @@ public sealed class AlertService(
 
     private static readonly string[] IgnoredFileSystems = ["tmpfs", "devtmpfs", "squashfs", "efivarfs", "ramfs"];
 
-    private static readonly string[] AlertedJobKinds = ["deploy-app-", "stack-", "databases", "certificates", "runtimes"];
+    private static readonly string[] AlertedJobKinds = ["deploy-app-", "stack-", "databases", "backups", "certificates", "runtimes"];
 
     public string Protect(string value) => _protector.Protect(value);
 
@@ -216,6 +217,22 @@ public sealed class AlertService(
             catch (RpcException)
             {
                 // Package lists are best effort (apt may be busy).
+            }
+        }
+
+        if (await db.PanelUpdates.FindAsync([1], cancellationToken) is { } update)
+        {
+            var current = PanelUpdateService.CurrentVersion;
+
+            if (update.LastState is "rolled-back" or "failed" && update.LastTo is { } failedTo && ReleaseVersion.Compare(current, failedTo) < 0)
+            {
+                conditions.Add(new AlertCondition("panel:update-failed", AlertSeverity.Critical, $"The update to {Branding.ProductName} {failedTo} didn't work",
+                    update.LastMessage));
+            }
+            else if (update.LatestVersion is { Length: > 0 } latest && ReleaseVersion.Compare(latest, current) > 0)
+            {
+                conditions.Add(new AlertCondition("panel:update", AlertSeverity.Warning, $"{Branding.ProductName} {latest} is available",
+                    $"{current} is installed. Update on the Updates page."));
             }
         }
 

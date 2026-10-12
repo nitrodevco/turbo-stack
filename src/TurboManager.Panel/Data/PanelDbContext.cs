@@ -58,6 +58,12 @@ public sealed class PanelDbContext(DbContextOptions<PanelDbContext> options) : D
 
     public DbSet<AlertSettings> AlertSettings => Set<AlertSettings>();
 
+    public DbSet<PanelUpdateState> PanelUpdates => Set<PanelUpdateState>();
+
+    public DbSet<BackupTarget> BackupTargets => Set<BackupTarget>();
+
+    public DbSet<BackupPlan> BackupPlans => Set<BackupPlan>();
+
     public DbSet<AlertEvent> AlertEvents => Set<AlertEvent>();
 
     protected override void OnModelCreating(ModelBuilder model)
@@ -179,6 +185,20 @@ public sealed class PanelDbContext(DbContextOptions<PanelDbContext> options) : D
         });
 
         model.Entity<BackupSchedule>().HasIndex(s => new { s.Engine, s.Database }).IsUnique();
+
+        model.Entity<BackupTarget>(target =>
+        {
+            target.HasIndex(t => t.Name).IsUnique();
+            target.Property(t => t.Kind).HasConversion<string>().HasMaxLength(16);
+        });
+
+        model.Entity<BackupPlan>(plan =>
+        {
+            plan.HasIndex(p => p.Name).IsUnique();
+            plan.HasOne<BackupTarget>().WithMany().HasForeignKey(p => p.TargetId).OnDelete(DeleteBehavior.Restrict);
+            plan.Property(p => p.Databases).HasConversion(JsonConverter<List<string>>(), JsonComparer<List<string>>());
+            plan.Property(p => p.Folders).HasConversion(JsonConverter<List<string>>(), JsonComparer<List<string>>());
+        });
 
         model.Entity<FirewallChangeRecord>(change =>
         {

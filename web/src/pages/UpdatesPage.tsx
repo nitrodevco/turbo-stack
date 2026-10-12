@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { api, errorMessage, type JobSummary, type RebootStatus, type UpgradablePackages } from '../api';
 import { usePermissions } from '../auth';
 import { JobOutput } from '../components/JobOutput';
+import { PanelUpdateCard } from '../components/PanelUpdateCard';
 import { Badge, Button, Card, ErrorNote, Notice, PageHeader, Spinner, TableWrap } from '../components/ui';
 import { formatDateTime, formatRelative } from '../format';
 
@@ -31,13 +32,14 @@ export function UpdatesPage() {
         <div className="space-y-6">
             <PageHeader
                 title="Updates"
-                description="Operating system packages from Ubuntu. Security updates are also installed automatically every day."
+                description="This panel, and the operating system packages from Ubuntu. Security updates are also installed automatically every day."
                 actions={
                     <Button variant="secondary" disabled={refresh.isPending} onClick={() => refresh.mutate()}>
                         {refresh.isPending ? 'Checking…' : 'Check for updates'}
                     </Button>
                 }
             />
+            <PanelUpdateCard />
             <RebootCard required={packages.data?.rebootRequired ?? false} packages={packages.data?.rebootRequiredPackages ?? []} />
             <ErrorNote message={[packages.error, refresh.error, upgrade.error].filter(Boolean).map(errorMessage)[0] ?? null} />
             {activeJob && (

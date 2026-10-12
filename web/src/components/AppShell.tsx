@@ -12,6 +12,7 @@ const navigation: { label: string; to?: string; permission?: string }[] = [
     { label: 'Certificates', to: '/certificates', permission: 'sites.view' },
     { label: 'Apps & deploys', to: '/apps', permission: 'apps.view' },
     { label: 'Databases', to: '/databases', permission: 'databases.view' },
+    { label: 'Backups', to: '/backups', permission: 'backups.view' },
     { label: 'Services', to: '/services', permission: 'services.view' },
     { label: 'Logs', to: '/logs', permission: 'logs.view' },
     { label: 'Terminal', to: '/terminal', permission: 'terminal.app' },

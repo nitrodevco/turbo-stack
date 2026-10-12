@@ -1,0 +1,23 @@
+#!/bin/bash
+# Test-only admin API: POST action=add-key&key=<urlencoded public key> | action=host-key
+set -uo pipefail
+
+declare -A field
+if [[ "${REQUEST_METHOD:-GET}" == "POST" ]]; then
+    IFS='&' read -r -a pairs <<<"$(head -c "${CONTENT_LENGTH:-0}")"
+    for pair in "${pairs[@]}"; do
+        key="${pair%%=*}"
+        # busybox's own URL decoder (+ and %XX).
+        field[$key]="$(httpd -d "${pair#*=}")"
+    done
+fi
+
+case "${field[action]:-}" in
+    add-key) printf '%s\n' "${field[key]}" >> /home/backup/.ssh/authorized_keys; output="added" ;;
+    host-key) output="$(awk '{print $1" "$2}' /etc/ssh/ssh_host_ed25519_key.pub)" ;;
+    *) output="unknown action"; false ;;
+esac
+status=$?
+
+[[ $status -eq 0 ]] || printf 'Status: 500 Internal Server Error\r\n'
+printf 'Content-Type: text/plain\r\n\r\n%s\n' "$output"

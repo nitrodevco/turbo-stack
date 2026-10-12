@@ -395,6 +395,65 @@ namespace TurboManager.Panel.Data.Migrations
                     b.ToTable("AuditLog");
                 });
 
+            modelBuilder.Entity("TurboManager.Panel.Data.BackupPlan", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Databases")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Folders")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("KeepDaily")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("KeepMonthly")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("KeepWeekly")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("LastResult")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("LastRunAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("LastSnapshot")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("PanelState")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("TargetId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("TimeOfDay")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.HasIndex("TargetId");
+
+                    b.ToTable("BackupPlans");
+                });
+
             modelBuilder.Entity("TurboManager.Panel.Data.BackupSchedule", b =>
                 {
                     b.Property<int>("Id")
@@ -431,6 +490,74 @@ namespace TurboManager.Panel.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("BackupSchedules");
+                });
+
+            modelBuilder.Entity("TurboManager.Panel.Data.BackupTarget", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("AccessKeyId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("CheckedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Endpoint")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("HostKey")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LastError")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PasswordProtected")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Path")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Port")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("PublicKey")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Region")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SecretProtected")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("User")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("BackupTargets");
                 });
 
             modelBuilder.Entity("TurboManager.Panel.Data.CloudflareAccount", b =>
@@ -914,6 +1041,58 @@ namespace TurboManager.Panel.Data.Migrations
                     b.ToTable("Sessions");
                 });
 
+            modelBuilder.Entity("TurboManager.Panel.Data.PanelUpdateState", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("Available")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Channel")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("CheckedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("CurrentVersion")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Error")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LastAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LastFrom")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LastMessage")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LastState")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LastTo")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LatestVersion")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Published")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("PanelUpdates");
+                });
+
             modelBuilder.Entity("TurboManager.Panel.Data.PanelUser", b =>
                 {
                     b.Property<int>("Id")
@@ -1336,6 +1515,15 @@ namespace TurboManager.Panel.Data.Migrations
                         .WithMany()
                         .HasForeignKey("AppId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("TurboManager.Panel.Data.BackupPlan", b =>
+                {
+                    b.HasOne("TurboManager.Panel.Data.BackupTarget", null)
+                        .WithMany()
+                        .HasForeignKey("TargetId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 

@@ -641,6 +641,107 @@ public sealed class FakeFilesAgent : FilesAgent.FilesAgentBase
 }
 
 /// <summary>A gRPC server on a unix socket implementing the agent services the panel tests need.</summary>
+public sealed class FakeUpdateAgent : UpdateAgent.UpdateAgentBase
+{
+    public UpdateInfo Info { get; set; } = new() { CurrentVersion = "0.1.0", Channel = "stable", LatestVersion = "0.1.0" };
+
+    public UpdateStatus Status { get; set; } = new();
+
+    public List<string> Started { get; } = [];
+
+    public string Channel { get; private set; } = "stable";
+
+    public override Task<UpdateInfo> CheckUpdate(Empty request, ServerCallContext context) => Task.FromResult(Info.Clone());
+
+    public override Task<Empty> StartUpdate(UpdateRequest request, ServerCallContext context)
+    {
+        if (request.Version != Info.LatestVersion)
+        {
+            throw new RpcException(new Status(StatusCode.FailedPrecondition, $"The channel now offers {Info.LatestVersion}, not {request.Version}."));
+        }
+
+        Started.Add(request.Version);
+
+        return Task.FromResult(new Empty());
+    }
+
+    public override Task<UpdateStatus> GetUpdateStatus(Empty request, ServerCallContext context) => Task.FromResult(Status.Clone());
+
+    public override Task<Empty> SetUpdateChannel(UpdateChannel request, ServerCallContext context)
+    {
+        Channel = request.Channel;
+        Info.Channel = request.Channel;
+
+        return Task.FromResult(new Empty());
+    }
+}
+
+public sealed class FakeBackupAgent : BackupAgent.BackupAgentBase
+{
+    public List<BackupTarget> Prepared { get; } = [];
+
+    public List<BackupRunRequest> Runs { get; } = [];
+
+    public List<RestoreSnapshotRequest> Restores { get; } = [];
+
+    /// <summary>Whether the panel's database copy existed while the run was in the agent's hands.</summary>
+    public List<bool> PanelCopySeen { get; } = [];
+
+    public string? PanelCopyPath { get; set; }
+
+    public string? FailPrepare { get; set; }
+
+    public override Task<TargetStatus> PrepareTarget(BackupTarget request, ServerCallContext context)
+    {
+        if (FailPrepare is not null)
+        {
+            throw new RpcException(new Status(StatusCode.FailedPrecondition, FailPrepare));
+        }
+
+        Prepared.Add(request);
+
+        return Task.FromResult(new TargetStatus { Created = Prepared.Count == 1, ResticVersion = "restic 0.16.4" });
+    }
+
+    public override async Task RunBackup(BackupRunRequest request, IServerStreamWriter<OutputLine> responseStream, ServerCallContext context)
+    {
+        Runs.Add(request);
+        PanelCopySeen.Add(PanelCopyPath is not null && File.Exists(PanelCopyPath));
+        await responseStream.WriteAsync(new OutputLine { Line = "Snapshot 0123abcd saved: 3 new, 0 changed, 0 unchanged files" });
+        await responseStream.WriteAsync(new OutputLine { Line = "snapshot:0123abcd4567", Finished = true });
+    }
+
+    public override Task<SnapshotList> ListSnapshots(SnapshotsRequest request, ServerCallContext context)
+    {
+        var list = new SnapshotList();
+        list.Snapshots.Add(new Snapshot { Id = "0123abcd4567", ShortId = "0123abcd", Time = "2026-10-12T03:00:00Z", PlanId = "p1" });
+
+        return Task.FromResult(list);
+    }
+
+    public override Task<BackupManifest> ReadManifest(SnapshotRef request, ServerCallContext context)
+    {
+        var manifest = new BackupManifest { PlanId = "p1", PlanName = "Nightly", PanelState = true };
+        manifest.Databases.Add(new DatabaseItem { Engine = "mariadb", Name = "turbo" });
+        manifest.Folders.Add(new FolderItem { User = "hotel", Path = "sites/assets" });
+
+        return Task.FromResult(manifest);
+    }
+
+    public override async Task RestoreSnapshot(RestoreSnapshotRequest request, IServerStreamWriter<OutputLine> responseStream, ServerCallContext context)
+    {
+        Restores.Add(request);
+        await responseStream.WriteAsync(new OutputLine { Line = "restored" });
+        await responseStream.WriteAsync(new OutputLine { Finished = true });
+    }
+
+    public override Task<TargetKey> CreateTargetKey(TargetKeyRequest request, ServerCallContext context) =>
+        Task.FromResult(new TargetKey { PublicKey = $"ssh-ed25519 AAAAC3Nz turbo-manager-backup-{request.TargetId}" });
+
+    public override Task<HostKeyReply> ScanHostKey(HostKeyRequest request, ServerCallContext context) =>
+        Task.FromResult(new HostKeyReply { HostKey = "ssh-ed25519 AAAAhost", Fingerprint = "SHA256:abc" });
+}
+
 public sealed class FakeAgent : IAsyncDisposable
 {
     private readonly WebApplication _app;
@@ -665,6 +766,10 @@ public sealed class FakeAgent : IAsyncDisposable
 
     public FakePackagesAgent Packages { get; } = new();
 
+    public FakeUpdateAgent Updates { get; } = new();
+
+    public FakeBackupAgent Backups { get; } = new();
+
     private FakeAgent(string socketPath)
     {
         var builder = WebApplication.CreateSlimBuilder();
@@ -681,6 +786,8 @@ public sealed class FakeAgent : IAsyncDisposable
         builder.Services.AddSingleton(Terminal);
         builder.Services.AddSingleton(Files);
         builder.Services.AddSingleton(Packages);
+        builder.Services.AddSingleton(Updates);
+        builder.Services.AddSingleton(Backups);
         _app = builder.Build();
         _app.MapGrpcService<FakeFirewallAgent>();
         _app.MapGrpcService<FakeServicesAgent>();
@@ -692,6 +799,8 @@ public sealed class FakeAgent : IAsyncDisposable
         _app.MapGrpcService<FakeMetricsAgent>();
         _app.MapGrpcService<FakeTerminalAgent>();
         _app.MapGrpcService<FakeFilesAgent>();
+        _app.MapGrpcService<FakeUpdateAgent>();
+        _app.MapGrpcService<FakeBackupAgent>();
     }
 
     public static async Task<FakeAgent> StartAsync(string socketPath)

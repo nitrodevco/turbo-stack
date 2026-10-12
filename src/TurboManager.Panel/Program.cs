@@ -71,6 +71,10 @@ builder.Services.AddScoped<AccessScope>();
 builder.Services.AddSingleton<AlertState>();
 builder.Services.AddScoped<AlertService>();
 builder.Services.AddHostedService<AlertMonitor>();
+builder.Services.AddScoped<TurboManager.Panel.Updates.PanelUpdateService>();
+builder.Services.AddScoped<TurboManager.Panel.Backups.BackupService>();
+builder.Services.AddHostedService<TurboManager.Panel.Backups.BackupPlanScheduler>();
+builder.Services.AddHostedService<TurboManager.Panel.Updates.PanelUpdateChecker>();
 builder.Services.AddHostedService<UnattendedHotelService>();
 builder.Services.AddHttpClient("github", client =>
 {
@@ -137,6 +141,8 @@ app.MapPackagesEndpoints();
 app.MapActivityEndpoints();
 app.MapSitesEndpoints();
 app.MapCloudflareEndpoints();
+app.MapUpdateEndpoints();
+app.MapBackupEndpoints();
 app.MapDatabaseEndpoints();
 app.MapDeployEndpoints();
 app.MapRecipeEndpoints();

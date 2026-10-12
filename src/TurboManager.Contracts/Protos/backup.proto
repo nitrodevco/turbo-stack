@@ -1,0 +1,128 @@
+syntax = "proto3";
+
+option csharp_namespace = "TurboManager.Contracts.Agent";
+
+package turbomanager.agent.v1;
+
+import "packages.proto";
+
+// Backups with restic: encrypted, deduplicated repositories on a local disk, S3-compatible storage or an SFTP server.
+// The panel keeps the targets (secrets encrypted) and sends one with every call; the agent keeps only what must be
+// files: an SFTP target's private key and pinned host key, root-only under /etc/turbo-manager/backup-keys.
+service BackupAgent {
+  // Installs restic if needed, creates the repository if it doesn't exist yet, and checks that it opens.
+  rpc PrepareTarget (BackupTarget) returns (TargetStatus);
+  rpc RunBackup (BackupRunRequest) returns (stream OutputLine);
+  rpc ListSnapshots (SnapshotsRequest) returns (SnapshotList);
+  // What a snapshot holds (its manifest.json): which databases, folders, and whether panel state is in it.
+  rpc ReadManifest (SnapshotRef) returns (BackupManifest);
+  rpc RestoreSnapshot (RestoreSnapshotRequest) returns (stream OutputLine);
+  // A key pair for an SFTP target (the public half goes into the remote account's authorized_keys).
+  rpc CreateTargetKey (TargetKeyRequest) returns (TargetKey);
+  // The SFTP server's host key, for the owner to compare before it is pinned.
+  rpc ScanHostKey (HostKeyRequest) returns (HostKeyReply);
+}
+
+message BackupTarget {
+  string id = 1;                 // the panel's id; names the key files
+  string kind = 2;               // local | s3 | sftp
+  string path = 3;               // local: absolute directory; s3: bucket[/prefix]; sftp: directory on the server
+  string endpoint = 4;           // s3: https://host[:port]; sftp: host name
+  int32 port = 5;                // sftp (default 22)
+  string user = 6;               // sftp
+  string access_key_id = 7;      // s3
+  string secret_access_key = 8;  // s3
+  string region = 9;             // s3 (optional)
+  string host_key = 10;          // sftp: pinned "type base64"
+  string password = 11;          // the repository's encryption password
+}
+
+message TargetStatus {
+  bool created = 1;              // the repository was created just now
+  string restic_version = 2;
+}
+
+message BackupRunRequest {
+  BackupTarget target = 1;
+  string plan_id = 2;            // tags the snapshots (plan:<id>) and groups them for retention
+  string plan_name = 3;
+  repeated DatabaseItem databases = 4;
+  repeated FolderItem folders = 5;
+  // The panel's database copy (it writes it into its own state directory first), its keys and /etc/turbo-manager.
+  bool panel_state = 6;
+  Retention retention = 7;
+}
+
+message DatabaseItem {
+  string engine = 1;             // mysql | mariadb | postgres
+  string name = 2;
+}
+
+message FolderItem {
+  string user = 1;               // an app user
+  string path = 2;               // relative to its home
+}
+
+message Retention {
+  int32 daily = 1;
+  int32 weekly = 2;
+  int32 monthly = 3;
+}
+
+message SnapshotsRequest {
+  BackupTarget target = 1;
+  string plan_id = 2;            // "" = all snapshots in the repository
+}
+
+message SnapshotList {
+  repeated Snapshot snapshots = 1;
+}
+
+message Snapshot {
+  string id = 1;
+  string short_id = 2;
+  string time = 3;               // ISO 8601
+  string hostname = 4;
+  repeated string tags = 5;
+  string plan_id = 6;
+}
+
+message SnapshotRef {
+  BackupTarget target = 1;
+  string snapshot_id = 2;
+}
+
+message BackupManifest {
+  string plan_id = 1;
+  string plan_name = 2;
+  string created = 3;
+  repeated DatabaseItem databases = 4;
+  repeated FolderItem folders = 5;
+  bool panel_state = 6;
+}
+
+message RestoreSnapshotRequest {
+  BackupTarget target = 1;
+  string snapshot_id = 2;
+  repeated DatabaseItem databases = 3;   // the dumps join that database's backups list (restore from there)
+  repeated FolderItem folders = 4;       // restored next to the original: ~/restored-<time>/<path>
+  bool panel_state = 5;                  // unpacked under the backups directory for a manual restore (see the docs)
+}
+
+message TargetKeyRequest {
+  string target_id = 1;
+}
+
+message TargetKey {
+  string public_key = 1;
+}
+
+message HostKeyRequest {
+  string host = 1;
+  int32 port = 2;
+}
+
+message HostKeyReply {
+  string host_key = 1;           // "type base64"
+  string fingerprint = 2;        // SHA256:…
+}

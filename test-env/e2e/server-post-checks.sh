@@ -100,6 +100,12 @@ runuser -u hotel -- test -w /home/hotel/sites/assets/bundled/upload.nitro || fai
 [[ "$(getent passwd assets-upload | cut -d: -f7)" == "/usr/sbin/nologin" ]] || fail "the SFTP account must have no shell"
 pass "SFTP: chroot root-owned, no shell, uploads usable by the app user"
 
+[[ "$(stat -c '%a %U' /var/backups/turbo-manager)" == "700 root" && -f /var/backups/turbo-manager/config ]] || fail "the local repository must be root-only"
+[[ "$(stat -c '%a' /etc/turbo-manager/backup-keys)" == "700" ]] || fail "backup keys must be root-only"
+[[ -z "$(ls -A /var/lib/turbo-manager-backups/staging 2>/dev/null)" && ! -e /var/lib/turbo-manager/backup/panel.db ]] || fail "backup staging must be cleaned up"
+[[ "$(stat -c '%U' /home/hotel/restored-*)" == "hotel" ]] || fail "restored folders belong to the app user"
+pass "backups: local repository and keys root-only, staging cleaned up, restored folder handed to the app user"
+
 [[ -z "$(find /opt/turbo-manager/runtimes ! -user root -print -quit)" ]] || fail "runtimes must be owned by root"
 [[ -z "$(find /opt/turbo-manager/runtimes ! -type l -perm /022 -print -quit)" ]] || fail "runtimes must not be group/world writable"
 pass "runtimes are root-owned and not writable by apps"

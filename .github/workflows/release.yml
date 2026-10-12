@@ -1,0 +1,59 @@
+name: Release
+
+# Tag v1.2.3 for a stable release (also offered on the beta channel), v1.2.3-beta.1 for a beta.
+# The tag message becomes the release notes the panel shows before updating.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build, sign and publish
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - run: corepack enable
+
+      - name: Tests
+        run: dotnet test --configuration Release
+
+      - name: Package and sign
+        env:
+          # PEM of the ECDSA P-256 release key (scripts/release-key.sh). Every server trusts only this key's
+          # signatures, so it is required here: a release is never signed with a throwaway key.
+          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+        run: |
+          [[ -n "$RELEASE_SIGNING_KEY" ]] || { echo "The RELEASE_SIGNING_KEY secret is not set." >&2; exit 1; }
+          version="${GITHUB_REF_NAME#v}"
+          channels=(--channel beta)
+          [[ "$version" == *-* ]] || channels+=(--channel stable)
+          git tag -l --format='%(contents)' "$GITHUB_REF_NAME" > "$RUNNER_TEMP/notes.md"
+          VERSION="$version" scripts/package.sh --arch x64 --arch arm64 "${channels[@]}" --notes "$RUNNER_TEMP/notes.md" --docs \
+            --download-base "https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME"
+
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          prerelease=()
+          [[ "$GITHUB_REF_NAME" == *-* ]] && prerelease=(--prerelease)
+          tar -czf "$RUNNER_TEMP/docs.tar.gz" -C dist docs
+          gh release create "$GITHUB_REF_NAME" "${prerelease[@]}" --title "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md" \
+            dist/files/* dist/channels/* dist/install.sh "$RUNNER_TEMP/docs.tar.gz"
+
+      # The install domain serves install.sh and channels/ from the release (its hosting is set up once the product
+      # name and domain are chosen; see docs/PLAN.md, open question 1).

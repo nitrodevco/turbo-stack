@@ -32,9 +32,20 @@ builder.Services.AddSingleton<DatabaseManager>();
 builder.Services.AddSingleton<DeployManager>();
 builder.Services.AddSingleton<TurboManager.Agent.Files.FilesManager>();
 builder.Services.AddSingleton<TurboManager.Agent.Ssh.SftpManager>();
+builder.Services.AddSingleton<TurboManager.Agent.Backups.BackupManager>();
+builder.Services.AddSingleton<TurboManager.Agent.Update.UpdateManager>();
+builder.Services.AddHttpClient(TurboManager.Agent.Update.UpdateManager.HttpClientName, client =>
+{
+    client.Timeout = TimeSpan.FromMinutes(15);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd(TurboManager.Core.Branding.Slug);
+});
 builder.Services.AddSingleton<MetricsSampler>();
 builder.Services.AddHostedService(services => services.GetRequiredService<MetricsSampler>());
-builder.Services.AddGrpc(grpc => grpc.EnableDetailedErrors = false);
+builder.Services.AddGrpc(grpc =>
+{
+    grpc.EnableDetailedErrors = false;
+    grpc.Interceptors.Add<CommandErrorInterceptor>();
+});
 
 var agentOptions = builder.Configuration.GetSection(AgentOptions.Section).Get<AgentOptions>() ?? new AgentOptions();
 var socketPath = Path.GetFullPath(agentOptions.SocketPath);
@@ -86,6 +97,8 @@ app.MapGrpcService<DeployAgentService>();
 app.MapGrpcService<TurboManager.Agent.Terminal.TerminalAgentService>();
 app.MapGrpcService<TurboManager.Agent.Files.FilesAgentService>();
 app.MapGrpcService<TurboManager.Agent.Ssh.SftpAgentService>();
+app.MapGrpcService<TurboManager.Agent.Update.UpdateAgentService>();
+app.MapGrpcService<TurboManager.Agent.Backups.BackupAgentService>();
 
 try
 {

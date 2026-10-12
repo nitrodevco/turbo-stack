@@ -1,0 +1,164 @@
+#!/usr/bin/env bash
+# Installs a verified release bundle and puts the previous version back on its own if the new one doesn't come up.
+# tm-agent checks the bundle (signed channel file, checksum) and starts this script from the bundle itself in a
+# transient unit (tm-update), so it survives the agent's own restart.
+#
+#   tm-update apply <bundle-dir>   install it, health-check, roll back on failure
+#   tm-update rollback             put back the version from before the last update (binaries and panel database)
+#   tm-update status               the last update's outcome (JSON)
+#
+# Everything runs inside main(): bash has read the whole script before any file is replaced.
+set -euo pipefail
+
+main() {
+    SHORT="tm"
+    SLUG="turbo-manager"
+    INSTALL_ROOT="/opt/$SLUG"
+    STATE_ROOT="/var/lib/$SLUG"
+    CONFIG_ROOT="/etc/$SLUG"
+    UPDATE_ROOT="/var/lib/$SLUG-updates"
+    ROLLBACK="$UPDATE_ROOT/rollback"
+    STATUS_FILE="$UPDATE_ROOT/status.json"
+    PANEL_PORT="$(sed -n 's/^TM_PANEL_PORT=//p' "$CONFIG_ROOT/install.env" 2>/dev/null || true)"
+    PANEL_PORT="${PANEL_PORT:-7800}"
+    HEALTH_TIMEOUT="${TM_UPDATE_HEALTH_TIMEOUT:-120}"
+
+    [[ $EUID -eq 0 ]] || { echo "Run as root." >&2; exit 1; }
+
+    case "${1:-}" in
+        apply) apply "${2:?Usage: $SHORT-update apply <bundle-dir>}" ;;
+        rollback) manual_rollback ;;
+        status) cat "$STATUS_FILE" 2>/dev/null || echo '{}' ;;
+        *) sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
+    esac
+}
+
+# status <state> <from> <to> <message>: what the panel shows about the last update.
+status() {
+    install -d -m 0700 "$UPDATE_ROOT"
+    jq -n --arg state "$1" --arg from "$2" --arg to "$3" --arg message "$4" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        '{state: $state, from: $from, to: $to, message: $message, at: $at}' > "$STATUS_FILE.tmp"
+    mv "$STATUS_FILE.tmp" "$STATUS_FILE"
+    echo "[$1] $4"
+}
+
+set_version() { sed -i "s/^TM_VERSION=.*/TM_VERSION=$1/" "$CONFIG_ROOT/install.env"; }
+
+# Up means: the agent answers on its socket and the panel reports the expected version.
+healthy() {
+    local deadline=$(( $(date +%s) + HEALTH_TIMEOUT ))
+
+    while (( $(date +%s) < deadline )); do
+        if systemctl is-active --quiet "$SHORT-agent.service" && [[ -S "/run/$SLUG/agent.sock" ]] \
+            && [[ "$(curl -fsS --max-time 3 "http://127.0.0.1:$PANEL_PORT/api/health" 2>/dev/null | jq -r .version 2>/dev/null)" == "$1" ]]; then
+            return 0
+        fi
+        sleep 2
+    done
+
+    return 1
+}
+
+# The running version, kept for rollback. The panel is stopped first so its database copy is consistent.
+save_current() {
+    rm -rf "$ROLLBACK"
+    install -d -m 0700 "$ROLLBACK" "$ROLLBACK/db" "$ROLLBACK/bin" "$ROLLBACK/systemd"
+    cp -a "$INSTALL_ROOT/panel" "$INSTALL_ROOT/agent" "$INSTALL_ROOT/VERSION" "$ROLLBACK/"
+    cp -a /usr/local/sbin/"$SHORT"-* "$ROLLBACK/bin/"
+    cp -a "/etc/systemd/system/$SHORT-agent.service" "/etc/systemd/system/$SHORT-panel.service" "$ROLLBACK/systemd/"
+    cp -a "$STATE_ROOT"/panel.db* "$ROLLBACK/db/" 2>/dev/null || true
+}
+
+# install_tree <dir>: a bundle, or the rollback copy (same layout).
+install_tree() {
+    local source="$1" component
+
+    for component in panel agent; do
+        rm -rf "${INSTALL_ROOT:?}/$component.new"
+        cp -a "$source/$component" "$INSTALL_ROOT/$component.new"
+        rm -rf "${INSTALL_ROOT:?}/$component"
+        mv "$INSTALL_ROOT/$component.new" "$INSTALL_ROOT/$component"
+    done
+
+    cp "$source/VERSION" "$INSTALL_ROOT/VERSION"
+    chown -R root:root "$INSTALL_ROOT"
+    chmod 0755 "$INSTALL_ROOT/panel/$SHORT-panel" "$INSTALL_ROOT/agent/$SHORT-agent"
+    install -m 0755 "$source/bin/"* /usr/local/sbin/
+    install -m 0644 "$source/systemd/$SHORT-agent.service" "$source/systemd/$SHORT-panel.service" /etc/systemd/system/
+    systemctl daemon-reload
+}
+
+start_all() { systemctl start "$SHORT-agent.service" "$SHORT-panel.service" || true; }
+
+restore() {
+    systemctl stop "$SHORT-panel.service" "$SHORT-agent.service" || true
+    install_tree "$ROLLBACK"
+    rm -f "$STATE_ROOT"/panel.db*
+    # File by file: copying the directory itself ("db/.") would give the state directory the rollback copy's
+    # root-only mode, and the panel couldn't open its database any more.
+    cp -a "$ROLLBACK/db/"panel.db* "$STATE_ROOT/" 2>/dev/null || true
+    set_version "$(cat "$ROLLBACK/VERSION")"
+    start_all
+}
+
+recent_errors() { journalctl -u "$SHORT-panel" -u "$SHORT-agent" --since "-5min" --no-pager -o cat 2>/dev/null | tail -n 12 || true; }
+
+apply() {
+    local bundle="$1" from to reason
+
+    if [[ ! -f "$bundle/VERSION" || ! -d "$bundle/panel" || ! -d "$bundle/agent" ]]; then
+        status failed "" "" "Not a release bundle: $bundle"
+        exit 1
+    fi
+
+    from="$(cat "$INSTALL_ROOT/VERSION" 2>/dev/null || echo unknown)"
+    to="$(cat "$bundle/VERSION")"
+    status running "$from" "$to" "Updating from $from to $to"
+    # The panel is still answering the request that started this.
+    sleep 3
+
+    systemctl stop "$SHORT-panel.service"
+    save_current
+    systemctl stop "$SHORT-agent.service"
+    install_tree "$bundle"
+    set_version "$to"
+    start_all
+
+    if healthy "$to"; then
+        status done "$from" "$to" "Updated from $from to $to."
+        # The downloaded bundle is no longer needed; the rollback copy stays until the next update.
+        [[ "$(dirname "$bundle")" == "$UPDATE_ROOT/"* ]] && rm -rf "$(dirname "$bundle")"
+        return 0
+    fi
+
+    reason="$(recent_errors)"
+    echo "$to did not come up; putting $from back"
+    restore
+
+    if healthy "$from"; then
+        status rolled-back "$from" "$to" "$to didn't start, so $from was put back (with the panel database from before the update). Last log lines:
+$reason"
+    else
+        status failed "$from" "$to" "$to didn't start, and $from didn't come back either. Run '$SHORT-update rollback' and check 'journalctl -u $SHORT-panel'. Last log lines:
+$reason"
+        exit 1
+    fi
+}
+
+manual_rollback() {
+    local from to
+    [[ -f "$ROLLBACK/VERSION" ]] || { echo "Nothing to roll back to: no update has been applied yet." >&2; exit 1; }
+    from="$(cat "$INSTALL_ROOT/VERSION" 2>/dev/null || echo unknown)"
+    to="$(cat "$ROLLBACK/VERSION")"
+    status running "$from" "$to" "Rolling back from $from to $to"
+    restore
+
+    if healthy "$to"; then
+        status rolled-back "$from" "$to" "Rolled back from $from to $to by hand."
+    else
+        status failed "$from" "$to" "Rolled back to $to, but it didn't come up. Check 'journalctl -u $SHORT-panel'."
+        exit 1
+    fi
+}
+
+main "$@"

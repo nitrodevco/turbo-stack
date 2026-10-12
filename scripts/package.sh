@@ -1,31 +1,47 @@
 #!/usr/bin/env bash
 # Builds release bundles the way the install domain serves them:
 #
-#   dist/install.sh
-#   dist/channels/<channel>.json
+#   dist/install.sh                              (with the release public key embedded)
+#   dist/channels/<channel>.json (+ .sig)        version, notes, per-arch download and checksum; signed
 #   dist/files/tm-<version>-linux-<arch>.tar.gz
 #
-# Usage: scripts/package.sh [--arch x64|arm64]... [--channel stable|beta]
-# Environment: VERSION overrides the version from Directory.Build.props.
+# Usage: scripts/package.sh [--arch x64|arm64]... [--channel stable|beta]... [--notes <file>] [--download-base <url>]
+#   --channel        each channel file to write (default: stable); a stable release also goes to beta
+#   --download-base  absolute address of the bundles (e.g. the GitHub release); default: files/ next to install.sh
+#   --docs           also build the documentation site into dist/docs (served from the install domain)
+# Environment: VERSION overrides the version from Directory.Build.props; RELEASE_SIGNING_KEY(_FILE) is the signing
+# key (see scripts/release-key.sh).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$ROOT/dist"
-CHANNEL="stable"
+CHANNELS=()
+DOWNLOAD_BASE="files"
+DOCS=0
+NOTES=""
 ARCHES=()
+
+# shellcheck source=release-key.sh
+source "$ROOT/scripts/release-key.sh"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --arch) ARCHES+=("$2"); shift 2 ;;
-        --channel) CHANNEL="$2"; shift 2 ;;
+        --channel) CHANNELS+=("$2"); shift 2 ;;
+        --download-base) DOWNLOAD_BASE="${2%/}"; shift 2 ;;
+        --docs) DOCS=1; shift ;;
+        --notes) NOTES="$(cat "$2")"; shift 2 ;;
         *) echo "Unknown option: $1" >&2; exit 1 ;;
     esac
 done
 
+resolve_signing_key "$ROOT"
+
 [[ ${#ARCHES[@]} -gt 0 ]] || ARCHES=(x64 arm64)
 VERSION="${VERSION:-$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' "$ROOT/Directory.Build.props")}"
 
-echo "==> Packaging $VERSION ($CHANNEL) for ${ARCHES[*]}"
+[[ ${#CHANNELS[@]} -gt 0 ]] || CHANNELS=(stable)
+echo "==> Packaging $VERSION (${CHANNELS[*]}) for ${ARCHES[*]}"
 rm -rf "$OUT"
 mkdir -p "$OUT/files" "$OUT/channels"
 
@@ -48,21 +64,32 @@ for arch in "${ARCHES[@]}"; do
     mkdir -p "$stage/bin" "$stage/systemd"
     cp "$ROOT/install/bin/"* "$stage/bin/"
     cp "$ROOT/install/systemd/"*.service "$stage/systemd/"
+    chmod 0755 "$stage/bin/"*
     echo "$VERSION" > "$stage/VERSION"
+    # For installs from a bundle (--bundle): the key later updates are checked with.
+    public_key > "$stage/release-key.pem"
 
     file="tm-$VERSION-linux-$arch.tar.gz"
     tar -czf "$OUT/files/$file" -C "$stage" .
     sha="$(sha256sum "$OUT/files/$file" | awk '{print $1}')"
 
     [[ -n "$ARTIFACTS_JSON" ]] && ARTIFACTS_JSON+=","
-    ARTIFACTS_JSON+="\"$arch\":{\"url\":\"files/$file\",\"sha256\":\"$sha\"}"
+    ARTIFACTS_JSON+="\"$arch\":{\"url\":\"$DOWNLOAD_BASE/$file\",\"sha256\":\"$sha\"}"
 done
 
-cat > "$OUT/channels/$CHANNEL.json" <<EOF
-{"version":"$VERSION","channel":"$CHANNEL","artifacts":{$ARTIFACTS_JSON}}
-EOF
+for channel in "${CHANNELS[@]}"; do
+    write_channel "$OUT/channels/$channel.json" "$VERSION" "$channel" "{$ARTIFACTS_JSON}" "$NOTES"
+    sign_file "$OUT/channels/$channel.json"
+done
 
 cp "$ROOT/install/install.sh" "$OUT/install.sh"
+embed_public_key "$OUT/install.sh"
+
+if [[ $DOCS -eq 1 ]]; then
+    echo "==> Building the documentation site"
+    (cd "$ROOT/docs/site" && corepack yarn install --immutable && corepack yarn build)
+    cp -r "$ROOT/docs/site/.vitepress/dist" "$OUT/docs"
+fi
 rm -rf "$OUT/stage"
 
 echo "==> Done: $OUT"

@@ -37,6 +37,13 @@ ROOT_TERMINAL=1
 FORCE=0
 HOTEL_CONFIG=""
 
+# The release signing key's public half (scripts/package.sh puts it here). Channel files must carry a valid signature
+# from it, and it is kept in $CONFIG_ROOT/release-key.pem so the panel's self-updates are checked the same way.
+RELEASE_PUBLIC_KEY="$(cat <<'KEY'
+__RELEASE_PUBLIC_KEY__
+KEY
+)"
+
 log() { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m!!\033[0m %s\n' "$*" >&2; }
 die() { printf '\033[1;31mxx\033[0m %s\n' "$*" >&2; exit 1; }
@@ -125,7 +132,14 @@ trap 'rm -rf "$WORK_DIR"' EXIT
 
 if [[ -z "$BUNDLE" ]]; then
     log "Fetching $CHANNEL release information from $BASE_URL"
+    [[ "$RELEASE_PUBLIC_KEY" == *"BEGIN PUBLIC KEY"* ]] \
+        || die "This copy of install.sh has no release key: use the one from the install domain, or --bundle."
     curl -fsSL "$BASE_URL/channels/$CHANNEL.json" -o "$WORK_DIR/release.json" || die "Could not download release information."
+    curl -fsSL "$BASE_URL/channels/$CHANNEL.json.sig" -o "$WORK_DIR/release.json.sig" || die "Could not download the release signature."
+    printf '%s\n' "$RELEASE_PUBLIC_KEY" > "$WORK_DIR/release-key.pem"
+    base64 -d "$WORK_DIR/release.json.sig" > "$WORK_DIR/release.json.der" 2>/dev/null || die "The release signature is malformed."
+    openssl dgst -sha256 -verify "$WORK_DIR/release-key.pem" -signature "$WORK_DIR/release.json.der" "$WORK_DIR/release.json" >/dev/null 2>&1 \
+        || die "The $CHANNEL release information is not signed with the release key. Nothing was installed."
     VERSION="$(jq -r '.version' "$WORK_DIR/release.json")"
     ARTIFACT_URL="$(jq -r --arg a "$ARCH" '.artifacts[$a].url' "$WORK_DIR/release.json")"
     ARTIFACT_SHA="$(jq -r --arg a "$ARCH" '.artifacts[$a].sha256' "$WORK_DIR/release.json")"
@@ -136,7 +150,6 @@ if [[ -z "$BUNDLE" ]]; then
     BUNDLE="$WORK_DIR/bundle.tar.gz"
     curl -fsSL "$ARTIFACT_URL" -o "$BUNDLE" || die "Download failed: $ARTIFACT_URL"
     echo "$ARTIFACT_SHA  $BUNDLE" | sha256sum --check --quiet || die "Checksum mismatch for the downloaded bundle."
-    # TODO(M8): verify the release signature (minisign) with the embedded public key.
 fi
 
 [[ -f "$BUNDLE" ]] || die "Bundle not found: $BUNDLE"
@@ -174,6 +187,14 @@ chmod 0755 "$INSTALL_ROOT/panel/tm-panel" "$INSTALL_ROOT/agent/tm-agent"
 echo "$VERSION" > "$INSTALL_ROOT/VERSION"
 
 install -m 0755 "$WORK_DIR/bundle/bin/"* /usr/local/sbin/
+
+# Self-updates are checked against this key: the embedded one, or for a bundle install the one it brought along.
+if [[ "$RELEASE_PUBLIC_KEY" == *"BEGIN PUBLIC KEY"* ]]; then
+    printf '%s\n' "$RELEASE_PUBLIC_KEY" > "$CONFIG_ROOT/release-key.pem"
+elif [[ ! -f "$CONFIG_ROOT/release-key.pem" && -f "$WORK_DIR/bundle/release-key.pem" ]]; then
+    install -m 0644 "$WORK_DIR/bundle/release-key.pem" "$CONFIG_ROOT/release-key.pem"
+fi
+chmod 0644 "$CONFIG_ROOT/release-key.pem" 2>/dev/null || true
 install -m 0644 "$WORK_DIR/bundle/systemd/$SHORT-agent.service" /etc/systemd/system/
 install -m 0644 "$WORK_DIR/bundle/systemd/$SHORT-panel.service" /etc/systemd/system/
 

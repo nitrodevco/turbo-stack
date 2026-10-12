@@ -1,0 +1,9 @@
+{
+  "identities": [
+    {
+      "name": "backup",
+      "credentials": [{ "accessKey": "tm-backup", "secretKey": "tm-backup-secret-key-for-tests" }],
+      "actions": ["Admin", "Read", "Write", "List", "Tagging"]
+    }
+  ]
+}

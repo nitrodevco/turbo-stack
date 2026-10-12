@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+option csharp_namespace = "TurboManager.Contracts.Agent";
+
+package turbomanager.agent.v1;
+
+import "google/protobuf/empty.proto";
+
+// Panel self-update. The agent reads the release channel from the install domain itself and verifies its signature
+// with the release key from install time (/etc/turbo-manager/release-key.pem): nothing the panel says about a release
+// is trusted. The update runs in a transient systemd unit (tm-update) so it survives the agent's own restart.
+service UpdateAgent {
+  rpc CheckUpdate (google.protobuf.Empty) returns (UpdateInfo);
+  rpc StartUpdate (UpdateRequest) returns (google.protobuf.Empty);
+  rpc GetUpdateStatus (google.protobuf.Empty) returns (UpdateStatus);
+  rpc SetUpdateChannel (UpdateChannel) returns (google.protobuf.Empty);
+}
+
+message UpdateInfo {
+  string current_version = 1;
+  string channel = 2;
+  string latest_version = 3;   // "" when the channel couldn't be read (see error)
+  string notes = 4;            // release notes of the latest version (plain text / Markdown)
+  string published = 5;        // ISO 8601, may be ""
+  bool available = 6;          // latest is newer than current
+  string error = 7;            // why the channel couldn't be read or trusted
+}
+
+message UpdateRequest {
+  string version = 1;          // must be the channel's latest, and newer than the installed one
+}
+
+message UpdateStatus {
+  string state = 1;            // "", running, done, rolled-back, failed
+  string from_version = 2;
+  string to_version = 3;
+  string message = 4;
+  string updated_at = 5;       // ISO 8601
+  bool running = 6;            // the tm-update unit is active right now
+}
+
+message UpdateChannel {
+  string channel = 1;          // stable | beta
+}

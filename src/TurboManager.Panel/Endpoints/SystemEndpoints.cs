@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using TurboManager.Contracts.Agent;
+using TurboManager.Core;
 using TurboManager.Panel.AgentClient;
 using TurboManager.Panel.Auth;
 using TurboManager.Panel.Data;
@@ -17,12 +18,15 @@ public static class SystemEndpoints
         ["7d"] = (TimeSpan.FromDays(7), 1_800_000),
     };
 
+    private static readonly string InstalledVersion = ReleaseVersion.Installed();
+
     public static void MapSystemEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapGet("/api/health", () => Results.Ok(new
         {
             status = "ok",
-            version = typeof(SystemEndpoints).Assembly.GetName().Version?.ToString(3),
+            // The release this process belongs to (tm-update waits for the new one to answer here).
+            version = InstalledVersion,
         }));
 
         var group = app.MapGroup("/api").WithAgentErrors().RequirePermission(Permissions.SystemView);

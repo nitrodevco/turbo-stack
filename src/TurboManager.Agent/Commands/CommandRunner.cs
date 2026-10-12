@@ -14,6 +14,8 @@ public sealed record CommandResult(int ExitCode, string StdOut, string StdErr)
 public sealed class CommandFailedException(string command, CommandResult result)
     : Exception($"{command} failed with exit code {result.ExitCode}: {result.ErrorText}")
 {
+    public string Command { get; } = command;
+
     public CommandResult Result { get; } = result;
 }
 
@@ -23,12 +25,14 @@ public sealed class CommandFailedException(string command, CommandResult result)
 /// </summary>
 public interface ICommandRunner
 {
+    /// <param name="environment">Extra variables, e.g. secrets a tool reads from its environment (never put them in arguments:
+    /// every local user can read those in /proc).</param>
     Task<CommandResult> RunAsync(string fileName, IReadOnlyList<string> arguments, string? stdin = null,
-        TimeSpan? timeout = null, CancellationToken cancellationToken = default);
+        TimeSpan? timeout = null, CancellationToken cancellationToken = default, IReadOnlyDictionary<string, string>? environment = null);
 
     /// <summary>Streams output lines (stdout, plus stderr when <paramref name="mergeStdErr"/>) and returns the exit code.</summary>
     Task<int> StreamAsync(string fileName, IReadOnlyList<string> arguments, Func<string, ValueTask> onLine,
-        bool mergeStdErr = true, CancellationToken cancellationToken = default);
+        bool mergeStdErr = true, CancellationToken cancellationToken = default, IReadOnlyDictionary<string, string>? environment = null);
 
     /// <summary>
     /// Feeds <paramref name="stdin"/> to the command and/or copies its stdout into <paramref name="stdout"/>
@@ -41,9 +45,10 @@ public interface ICommandRunner
 public static class CommandRunnerExtensions
 {
     public static async Task<CommandResult> RunCheckedAsync(this ICommandRunner runner, string fileName,
-        IReadOnlyList<string> arguments, string? stdin = null, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+        IReadOnlyList<string> arguments, string? stdin = null, TimeSpan? timeout = null, CancellationToken cancellationToken = default,
+        IReadOnlyDictionary<string, string>? environment = null)
     {
-        var result = await runner.RunAsync(fileName, arguments, stdin, timeout, cancellationToken);
+        var result = await runner.RunAsync(fileName, arguments, stdin, timeout, cancellationToken, environment);
 
         return result.Success ? result : throw new CommandFailedException($"{fileName} {string.Join(' ', arguments)}", result);
     }
@@ -54,9 +59,9 @@ public sealed class ProcessCommandRunner : ICommandRunner
     public static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(60);
 
     public async Task<CommandResult> RunAsync(string fileName, IReadOnlyList<string> arguments, string? stdin = null,
-        TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+        TimeSpan? timeout = null, CancellationToken cancellationToken = default, IReadOnlyDictionary<string, string>? environment = null)
     {
-        using var process = Start(fileName, arguments, redirectStdin: stdin is not null);
+        using var process = Start(fileName, arguments, redirectStdin: stdin is not null, environment);
         using var timeoutSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutSource.CancelAfter(timeout ?? DefaultTimeout);
 
@@ -83,9 +88,9 @@ public sealed class ProcessCommandRunner : ICommandRunner
     }
 
     public async Task<int> StreamAsync(string fileName, IReadOnlyList<string> arguments, Func<string, ValueTask> onLine,
-        bool mergeStdErr = true, CancellationToken cancellationToken = default)
+        bool mergeStdErr = true, CancellationToken cancellationToken = default, IReadOnlyDictionary<string, string>? environment = null)
     {
-        using var process = Start(fileName, arguments, redirectStdin: false);
+        using var process = Start(fileName, arguments, redirectStdin: false, environment);
         var gate = new SemaphoreSlim(1, 1);
 
         async Task Pump(StreamReader reader)
@@ -167,7 +172,8 @@ public sealed class ProcessCommandRunner : ICommandRunner
         }
     }
 
-    private static Process Start(string fileName, IReadOnlyList<string> arguments, bool redirectStdin)
+    private static Process Start(string fileName, IReadOnlyList<string> arguments, bool redirectStdin,
+        IReadOnlyDictionary<string, string>? environment = null)
     {
         var info = new ProcessStartInfo(fileName)
         {
@@ -196,6 +202,11 @@ public sealed class ProcessCommandRunner : ICommandRunner
         info.Environment.Remove("NOTIFY_SOCKET");
         info.Environment.Remove("WATCHDOG_PID");
         info.Environment.Remove("WATCHDOG_USEC");
+
+        foreach (var (name, value) in environment ?? new Dictionary<string, string>())
+        {
+            info.Environment[name] = value;
+        }
         info.Environment.Remove("LISTEN_FDS");
         info.Environment.Remove("LISTEN_PID");
 

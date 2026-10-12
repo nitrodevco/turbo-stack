@@ -501,6 +501,68 @@ pass "SFTP account is chrooted to its folder and can't run commands"
 
 echo "SFTP passed."
 echo
+echo "Backups (restic: local disk, S3, SFTP)"
+
+response="$(call POST /api/backups/targets '{"name":"Local disk","kind":"Local","path":"/var/backups/turbo-manager"}')"
+[[ "$(status_of "$response")" == "200" && "$(body_of "$response" | jq -r .target.ready)" == "true" ]] || fail "the local target should be created: $response"
+[[ "$(body_of "$response" | jq -r '.password | length')" -ge 32 ]] || fail "a repository password should be generated and shown once"
+LOCAL_TARGET="$(body_of "$response" | jq -r .target.id)"
+
+response="$(call POST /api/backups/targets '{"name":"S3","kind":"S3","endpoint":"http://s3:8333","path":"hotel-backups/server-1","accessKeyId":"tm-backup","secretAccessKey":"tm-backup-secret-key-for-tests"}')"
+[[ "$(body_of "$response" | jq -r .target.ready)" == "true" ]] || fail "the S3 target should be created: $response"
+S3_TARGET="$(body_of "$response" | jq -r .target.id)"
+[[ "$(body_of "$(call GET /api/backups)" | jq -r '.targets[] | select(.kind == "S3") | .accessKeyId')" == "tm-backup" ]] || fail "the S3 target should be listed"
+[[ "$(body_of "$(call GET /api/backups)")" != *"tm-backup-secret-key-for-tests"* ]] || fail "the S3 secret must never be shown again"
+
+response="$(call POST /api/backups/targets '{"name":"Storage box","kind":"Sftp","endpoint":"backup-sftp","port":22,"user":"backup","path":"restic"}')"
+SFTP_TARGET="$(body_of "$response" | jq -r .target.id)"
+[[ "$(body_of "$response" | jq -r .target.ready)" == "false" ]] || fail "an SFTP target waits for its host key: $response"
+curl -sf http://backup-sftp:8081/cgi-bin/admin --data action=add-key --data-urlencode "key=$(body_of "$response" | jq -r .target.publicKey)" >/dev/null
+SCANNED="$(body_of "$(call GET "/api/backups/targets/$SFTP_TARGET/host-key")" | jq -r .hostKey)"
+[[ "$SCANNED" == "$(curl -sf http://backup-sftp:8081/cgi-bin/admin --data action=host-key)" ]] || fail "the scanned host key should be the server's"
+response="$(call POST "/api/backups/targets/$SFTP_TARGET/host-key" "$(jq -n --arg key "$SCANNED" '{hostKey: $key}')")"
+[[ "$(body_of "$response" | jq -r .ready)" == "true" ]] || fail "the SFTP repository should open with the pinned host key: $response"
+pass "targets: local disk, S3 and SFTP repositories created (SFTP: own key, host key compared before pinning)"
+
+call PUT /api/files/content '{"user":"hotel","path":"sites/assets/backup-me.txt","content":"version 1\n"}' >/dev/null
+response="$(call POST /api/backups/plans "$(jq -n --arg db "$SQL/turbo" --argjson target "$S3_TARGET" \
+    '{name: "Nightly", targetId: $target, databases: [$db], folders: ["hotel:sites/assets"], panelState: true}')")"
+NIGHTLY="$(body_of "$response" | jq -r .id)"
+[[ "$NIGHTLY" =~ ^[0-9]+$ ]] || fail "creating the plan failed: $response"
+OFFSITE="$(body_of "$(call POST /api/backups/plans "{\"name\":\"Offsite\",\"targetId\":$SFTP_TARGET,\"folders\":[\"hotel:notes\"],\"panelState\":false}")" | jq -r .id)"
+PANEL_PLAN="$(body_of "$(call POST /api/backups/plans "{\"name\":\"Panel\",\"targetId\":$LOCAL_TARGET,\"panelState\":true}")" | jq -r .id)"
+
+for plan in "$NIGHTLY" "$OFFSITE" "$PANEL_PLAN"; do
+    wait_for_job "$(body_of "$(call POST "/api/backups/plans/$plan/run")" | jq -r .jobId)" 600
+done
+[[ "$(body_of "$(call GET /api/backups)" | jq -r '[.plans[] | select(.lastResult == "OK")] | length')" == "3" ]] || fail "all three plans should have succeeded"
+SNAPSHOT="$(body_of "$(call GET "/api/backups/targets/$S3_TARGET/snapshots")" | jq -r '.[0].id')"
+[[ "$SNAPSHOT" =~ ^[0-9a-f]{64}$ ]] || fail "the S3 repository should list the snapshot"
+[[ "$(body_of "$(call GET "/api/backups/targets/$SFTP_TARGET/snapshots")" | jq length)" == "1" ]] || fail "the SFTP repository should hold one snapshot"
+pass "plans ran: database dump + app folder + panel state to S3, a folder over SFTP, the panel's state to the local disk"
+
+MANIFEST="$(body_of "$(call GET "/api/backups/targets/$S3_TARGET/snapshots/$SNAPSHOT")")"
+[[ "$(jq -r '.databases[0]' <<<"$MANIFEST")" == "$SQL/turbo" && "$(jq -r '.folders[0]' <<<"$MANIFEST")" == "hotel:sites/assets" \
+    && "$(jq -r .panelState <<<"$MANIFEST")" == "true" ]] || fail "the snapshot's manifest should list what it holds: $MANIFEST"
+
+call PUT /api/files/content '{"user":"hotel","path":"sites/assets/backup-me.txt","content":"version 2\n"}' >/dev/null
+DUMPS_BEFORE="$(body_of "$(call GET "/api/databases/backups?engine=$SQL")" | jq '[.[] | select(.database == "turbo")] | length')"
+RESTORE="$(jq -n --arg db "$SQL/turbo" '{databases: [$db], folders: ["hotel:sites/assets"], panelState: false}')"
+wait_next_totp_window
+[[ "$(status_of "$(call POST /api/account/sudo "{\"code\":\"$(oathtool --totp -b "$SECRET")\"}")")" == "200" ]] || fail "re-authenticating failed"
+wait_for_job "$(body_of "$(call POST "/api/backups/targets/$S3_TARGET/snapshots/$SNAPSHOT/restore" "$RESTORE")" | jq -r .jobId)" 300
+RESTORED="$(body_of "$(call GET '/api/files?user=hotel&path=')" | jq -r '.entries[].name | select(startswith("restored-"))')"
+[[ -n "$RESTORED" ]] || fail "the folder should be restored next to the original"
+[[ "$(body_of "$(call GET "/api/files/content?user=hotel&path=$RESTORED/sites/assets/backup-me.txt")" | jq -r .content)" == "version 1" ]] \
+    || fail "the restored copy should hold the backed-up version"
+[[ "$(body_of "$(call GET '/api/files/content?user=hotel&path=sites/assets/backup-me.txt')" | jq -r .content)" == "version 2" ]] \
+    || fail "the original must be untouched"
+[[ "$(body_of "$(call GET "/api/databases/backups?engine=$SQL")" | jq '[.[] | select(.database == "turbo")] | length')" == "$(( DUMPS_BEFORE + 1 ))" ]] \
+    || fail "the restored dump should join the database's backups list"
+pass "restore: the folder came back next to the original (untouched), the dump joined the database's backups list"
+
+echo "Backups passed."
+echo
 echo "Cloudflare (fake API)"
 
 SERVER_IP="$(getent hosts server | awk '{print $1}')"

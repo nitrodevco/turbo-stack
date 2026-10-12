@@ -8,6 +8,7 @@
 #   test-env/dev all         package + reset + install + e2e (what CI runs)
 #   test-env/dev recipes     Deploy the Turbo/Nitro recipes from the real GitHub repositories (slow)
 #   test-env/dev hotel       A whole hotel via the wizard API from the local turbo-cloud + nitro-next (slow)
+#   test-env/dev upgrade     Install release N, self-update through the panel to N+1, then a tampered and a broken release
 #   test-env/dev try         package + reset + install, then open the setup page in your browser
 #   test-env/dev shell       Root shell on the server
 #   test-env/dev logs        Follow panel + agent logs
@@ -43,7 +44,7 @@ cmd_package() { "$ROOT/scripts/package.sh" --arch "$ARCH"; }
 
 cmd_up() {
     [[ -f "$ROOT/dist/install.sh" ]] || { echo "No bundle in dist/. Run: test-env/dev package" >&2; exit 1; }
-    compose up -d --build install-host fake-cloudflare fake-github server
+    compose up -d --build install-host fake-cloudflare fake-github s3 backup-sftp server
     wait_for_systemd
     echo "Server is up (Ubuntu $UBUNTU). Setup address will be https://localhost:8443"
 }
@@ -130,6 +131,37 @@ cmd_hotel() {
     compose --profile test run --rm --build tester /e2e/hotel-flow.sh "$url"
 }
 
+# Self-update: the tester keeps one session across the phases while test releases are published in between.
+cmd_upgrade() {
+    local url tester="tm-test-upgrade-tester"
+    VERSION=0.1.0 cmd_package
+    cmd_reset
+    cmd_install
+    url="$(setup_url)"
+
+    docker rm -f "$tester" >/dev/null 2>&1 || true
+    compose --profile test run -d --build --name "$tester" --entrypoint sleep tester infinity >/dev/null
+    trap 'docker rm -f "'"$tester"'" >/dev/null 2>&1 || true' RETURN
+    in_tester() { MSYS_NO_PATHCONV=1 docker exec "$tester" bash /e2e/upgrade-flow.sh "$@"; }
+
+    in_tester prepare "$url"
+    "$HERE/release.sh" 0.1.1
+    in_tester update 0.1.1
+    on_server bash -c '[[ "$(cat /opt/turbo-manager/VERSION)" == 0.1.1 ]] && grep -qx TM_VERSION=0.1.1 /etc/turbo-manager/install.env \
+        && [[ "$(cat /var/lib/turbo-manager-updates/rollback/VERSION)" == 0.1.0 ]] && systemctl is-active --quiet tm-app-api' \
+        || { echo "server: 0.1.1 installed, 0.1.0 kept for rollback, apps running — expected" >&2; return 1; }
+
+    "$HERE/release.sh" 0.1.2 --tamper
+    in_tester tampered 0.1.2
+
+    "$HERE/release.sh" 0.1.2 --broken-panel
+    in_tester broken 0.1.2
+    on_server bash -c '[[ "$(cat /opt/turbo-manager/VERSION)" == 0.1.1 ]] && grep -qx TM_VERSION=0.1.1 /etc/turbo-manager/install.env \
+        && systemctl is-active --quiet tm-panel tm-agent tm-app-api' \
+        || { echo "server: 0.1.1 should be back and running after the rollback" >&2; return 1; }
+    echo "Upgrade passed."
+}
+
 cmd_collect() {
     mkdir -p "$ARTIFACTS"
     on_server journalctl --no-pager -u tm-agent -u tm-panel -u nginx > "$ARTIFACTS/journal.log" 2>&1 || true
@@ -168,6 +200,7 @@ case "${1:-}" in
     up) cmd_up ;;
     install) cmd_install ;;
     e2e) cmd_e2e ;;
+    upgrade) cmd_upgrade ;;
     # Separate statements (not &&) so set -e stops at the first failing step.
     all) cmd_package; cmd_reset; cmd_install; cmd_e2e ;;
     recipes) cmd_recipes ;;
@@ -179,5 +212,5 @@ case "${1:-}" in
     token) on_server tm-setup-token ;;
     reset) cmd_reset ;;
     down) compose down --volumes --remove-orphans ;;
-    *) sed -n '2,20p' "$0"; exit 1 ;;
+    *) sed -n '2,21p' "$0"; exit 1 ;;
 esac

@@ -20,6 +20,19 @@ services:
     build: ./fake-github
     networks: [hotel]
 
+  # S3-compatible storage for backup targets (SeaweedFS's S3 gateway; MinIO no longer publishes images).
+  s3:
+    image: chrislusf/seaweedfs:3.97
+    command: ["server", "-dir=/data", "-s3", "-s3.port=8333", "-s3.config=/etc/seaweedfs/s3.json", "-volume.max=5", "-master.volumeSizeLimitMB=64"]
+    volumes:
+      - ./backup-targets/s3.json:/etc/seaweedfs/s3.json:ro
+    networks: [hotel]
+
+  # An SFTP server for backup targets, like a storage box (backup-targets/sftp/).
+  backup-sftp:
+    build: ./backup-targets/sftp
+    networks: [hotel]
+
   # The fresh Ubuntu server under test.
   server:
     build:
@@ -40,7 +53,7 @@ services:
     networks:
       hotel:
         aliases: [server]
-    depends_on: [install-host, fake-cloudflare, fake-github]
+    depends_on: [install-host, fake-cloudflare, fake-github, s3, backup-sftp]
 
   # Runs the e2e scripts against the server over the network.
   tester:

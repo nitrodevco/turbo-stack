@@ -272,6 +272,32 @@ public sealed partial class DatabaseManager(ICommandRunner commands, IOptions<Ag
         SetPrivate(BackupRoot);
 
         var file = Path.Combine(directory, $"{name}-{time.GetLocalNow():yyyyMMdd-HHmmss}.sql.gz");
+        await DumpAsync(request, file, cancellationToken);
+
+        return Describe(file);
+    }
+
+    /// <summary>A restored dump (from a backup snapshot) joins the database's backups list, named after when it was made.</summary>
+    public BackupFile ImportDump(DatabaseEngine engine, string database, string source, DateTimeOffset made)
+    {
+        var spec = Spec(engine);
+        var name = DatabaseSql.Name(database, "database");
+        var directory = Path.Combine(BackupRoot, spec.Slug, name);
+        Directory.CreateDirectory(directory);
+        SetPrivate(BackupRoot);
+
+        var file = Path.Combine(directory, $"{name}-{made.ToLocalTime():yyyyMMdd-HHmmss}.sql.gz");
+        File.Copy(source, file, overwrite: true);
+        SetPrivate(file);
+
+        return Describe(file);
+    }
+
+    /// <summary>Dumps a database into <paramref name="file"/> (gzip), written in full or not at all.</summary>
+    public async Task DumpAsync(DatabaseRequest request, string file, CancellationToken cancellationToken)
+    {
+        var spec = Spec(request.Engine);
+        var name = DatabaseSql.Name(request.Name, "database");
         var temp = file + ".partial";
         CommandResult result;
 
@@ -292,8 +318,6 @@ public sealed partial class DatabaseManager(ICommandRunner commands, IOptions<Ag
         SetPrivate(temp);
         File.Move(temp, file, overwrite: true);
         logger.LogInformation("Backed up {Engine} database {Database} to {File}", spec.Slug, name, file);
-
-        return Describe(file);
     }
 
     public BackupList ListBackups(DatabaseEngine engine)
