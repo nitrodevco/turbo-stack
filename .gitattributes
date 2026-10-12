@@ -6,3 +6,4 @@
 install/** text eol=lf
 test-env/** text eol=lf
 scripts/** text eol=lf
+*.cmd text eol=crlf

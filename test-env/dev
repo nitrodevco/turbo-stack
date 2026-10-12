@@ -6,6 +6,7 @@
 #   test-env/dev install     Run install.sh on the server, exactly like a user would (curl | bash)
 #   test-env/dev e2e         Run the end-to-end checks (needs a fresh install)
 #   test-env/dev all         package + reset + install + e2e (what CI runs)
+#   test-env/dev try         package + reset + install, then open the setup page in your browser
 #   test-env/dev shell       Root shell on the server
 #   test-env/dev logs        Follow panel + agent logs
 #   test-env/dev token       Print a new setup link
@@ -13,6 +14,7 @@
 #   test-env/dev down        Stop everything
 #
 # UBUNTU=26.04 selects the server image version (default 24.04).
+# On Windows you can double-click test-env\try.cmd and test-env\stop.cmd instead.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -56,11 +58,18 @@ cmd_install() {
         && for _ in $(seq 1 60); do curl -fsS http://127.0.0.1:7800/api/health >/dev/null 2>&1 && break; sleep 1; done'
 }
 
+# The setup link install.sh printed (colour codes stripped).
+setup_url() {
+    local url
+    url="$(grep -oE 'https://[^ ]+/setup\?token=[0-9a-f]+' "$ARTIFACTS/install.log" | tail -n1 | sed 's/\x1b\[[0-9;]*m//g')"
+    [[ -n "$url" ]] || { echo "No setup URL in $ARTIFACTS/install.log; run 'install' first." >&2; exit 1; }
+    echo "$url"
+}
+
 cmd_e2e() {
     local url
     on_server bash -s < "$HERE/e2e/server-checks.sh"
-    url="$(grep -oE 'https://[^ ]+/setup\?token=[0-9a-f]+' "$ARTIFACTS/install.log" | tail -n1 | sed 's/\x1b\[[0-9;]*m//g')"
-    [[ -n "$url" ]] || { echo "No setup URL in $ARTIFACTS/install.log; run 'install' first." >&2; exit 1; }
+    url="$(setup_url)"
     compose --profile test run --rm --build tester /e2e/setup-flow.sh "$url"
     on_server bash -s < "$HERE/e2e/server-post-checks.sh"
 }
@@ -71,6 +80,26 @@ cmd_collect() {
     on_server cat /etc/nginx/sites-enabled/tm-setup.conf > "$ARTIFACTS/nginx-tm-setup.conf" 2>&1 || true
     on_server ufw status verbose > "$ARTIFACTS/ufw.txt" 2>&1 || true
     echo "Collected diagnostics in $ARTIFACTS"
+}
+
+# A fresh server with the panel installed, ready to click through in a browser.
+cmd_try() {
+    local url
+    cmd_package
+    cmd_reset
+    cmd_install
+    url="$(setup_url)"
+
+    printf '\nThe test server is ready. Setup link:\n\n    %s\n\n' "$url"
+    printf 'Your browser will warn about the certificate: continue (this is your own test server).\n'
+    printf 'In Docker Desktop it is under Containers as "tm-test": view logs, open a terminal, or stop it there.\n'
+    printf 'Cloudflare here talks to a fake API: connect it with the token "test-token".\n\n'
+
+    case "$(uname -s)" in
+        MINGW* | MSYS* | CYGWIN*) cmd.exe //c start "" "$url" > /dev/null 2>&1 || true ;;
+        Darwin) open "$url" || true ;;
+        *) command -v xdg-open > /dev/null && xdg-open "$url" > /dev/null 2>&1 || true ;;
+    esac
 }
 
 cmd_reset() {
@@ -85,11 +114,12 @@ case "${1:-}" in
     e2e) cmd_e2e ;;
     # Separate statements (not &&) so set -e stops at the first failing step.
     all) cmd_package; cmd_reset; cmd_install; cmd_e2e ;;
+    try) cmd_try ;;
     collect) cmd_collect ;;
     shell) compose exec server bash ;;
     logs) compose exec server journalctl -f -u tm-agent -u tm-panel ;;
     token) on_server tm-setup-token ;;
     reset) cmd_reset ;;
     down) compose down --volumes --remove-orphans ;;
-    *) sed -n '2,16p' "$0"; exit 1 ;;
+    *) sed -n '2,18p' "$0"; exit 1 ;;
 esac
