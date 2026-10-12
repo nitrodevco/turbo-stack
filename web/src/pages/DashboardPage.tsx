@@ -1,3 +1,5 @@
+import { Link } from 'react-router';
+import { AlertRow, type AlertEventView } from './AlertsPage';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { api, errorMessage, type MetricPoint, type MetricsHistory, type MetricsSnapshot, type SystemInfo } from '../api';
@@ -9,6 +11,7 @@ type Range = '1h' | '6h' | '24h' | '7d';
 
 export function DashboardPage() {
     const [range, setRange] = useState<Range>('1h');
+    const alerts = useQuery({ queryKey: ['alerts'], queryFn: () => api.get<{ open: AlertEventView[] }>('/api/alerts'), refetchInterval: 30_000 });
     const info = useQuery({ queryKey: ['system-info'], queryFn: () => api.get<SystemInfo>('/api/system/info'), retry: false });
     const current = useQuery({
         queryKey: ['metrics-current'],
@@ -27,6 +30,11 @@ export function DashboardPage() {
     return (
         <div className="space-y-6">
             <PageHeader title="Dashboard" />
+            {alerts.data?.open.map((a) => (
+                <Link key={a.id} to="/alerts" className="block">
+                    <AlertRow alert={a} />
+                </Link>
+            ))}
             {info.isError && (
                 <Notice tone="warning">
                     <p className="font-medium">System agent unavailable</p>

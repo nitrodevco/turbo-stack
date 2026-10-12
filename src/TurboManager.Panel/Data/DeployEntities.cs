@@ -113,6 +113,9 @@ public sealed class App
 
     public int StopTimeoutSeconds { get; set; } = 30;
 
+    /// <summary>The service reads commands from a console the panel can type into (stdin).</summary>
+    public bool Console { get; set; }
+
     public int KeepReleases { get; set; } = 5;
 
     public bool AutoDeploy { get; set; }

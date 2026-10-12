@@ -16,16 +16,23 @@ public static class DeployEndpoints
 {
     public sealed record RuntimeInstallRequest(string? Channel);
 
+    public sealed record ConsoleRequest(string? Line);
+
     public static void MapDeployEndpoints(this IEndpointRouteBuilder app)
     {
-        var view = app.MapGroup("/api").WithAgentErrors().RequirePermission(Permissions.AppsView);
-        var deploy = app.MapGroup("/api").WithAgentErrors().RequirePermission(Permissions.AppsDeploy);
+        var view = app.MapGroup("/api").WithAgentErrors().RequirePermission(Permissions.AppsView).RequireScope();
+        var deploy = app.MapGroup("/api").WithAgentErrors().RequirePermission(Permissions.AppsDeploy).RequireScope();
         var manage = app.MapGroup("/api").WithAgentErrors().RequirePermission(Permissions.AppsManage);
 
         // ----- Repositories -----
 
-        view.MapGet("/repositories", async (HttpContext http, PanelDbContext db) =>
-            Results.Ok((await db.Repositories.OrderBy(r => r.Name).ToListAsync()).Select(r => RepositoryView(r, http.Request))));
+        view.MapGet("/repositories", async (HttpContext http, PanelDbContext db, AccessScope scope) =>
+        {
+            var limits = await scope.GetAsync();
+
+            return Results.Ok((await db.Repositories.OrderBy(r => r.Name).ToListAsync())
+                .Where(r => limits.All || limits.AllowedApps.Any(a => a.RepositoryId == r.Id)).Select(r => RepositoryView(r, http.Request)));
+        });
 
         view.MapGet("/repositories/{id:int}", async (int id, HttpContext http, PanelDbContext db) =>
         {
@@ -159,9 +166,10 @@ public static class DeployEndpoints
 
         // ----- Apps -----
 
-        view.MapGet("/apps", async (PanelDbContext db) =>
+        view.MapGet("/apps", async (PanelDbContext db, AccessScope scope) =>
         {
-            var apps = await db.Apps.Include(a => a.Repository).OrderBy(a => a.Name).ToListAsync();
+            var limits = await scope.GetAsync();
+            var apps = (await db.Apps.Include(a => a.Repository).OrderBy(a => a.Name).ToListAsync()).Where(limits.App).ToList();
             var latest = await db.Releases.GroupBy(r => r.AppId).Select(g => g.OrderByDescending(r => r.Id).First()).ToListAsync();
 
             return Results.Ok(apps.Select(a => new
@@ -205,7 +213,7 @@ public static class DeployEndpoints
                     found.Id, found.Name, found.SystemUser, found.RepositoryId, repository = found.Repository!.FullName, found.WorkingDirectory,
                     found.BuildScript, found.Runtimes, sharedPaths = found.SharedPaths.Select(p => new { p.Path, p.Directory }), found.StaticOutput,
                     found.ServiceCommand, found.ServicePort, found.HealthPath, found.MemoryMaxMb, found.StopTimeoutSeconds, found.KeepReleases,
-                    found.AutoDeploy, found.DeployPaths, found.PurgeCloudflare, found.CurrentRelease, found.ServiceDirectory, found.RecipeId,
+                    found.AutoDeploy, found.DeployPaths, found.PurgeCloudflare, found.CurrentRelease, found.ServiceDirectory, found.Console, found.RecipeId,
                     found.RecipeInputs, found.Ports,
                     staticPath = StaticPath(found), unit = found.ServiceCommand is null ? null : $"tm-app-{found.Name}.service",
                 },
@@ -381,6 +389,33 @@ public static class DeployEndpoints
             await agent.Services.ControlServiceAsync(new ControlServiceRequest { Name = $"tm-app-{found.Name}.service", Action = ServiceAction.Restart },
                 cancellationToken: cancellationToken);
             audit.Record("app.restarted", await CurrentUser.GetAsync(http, db), target: found.Name);
+            await db.SaveChangesAsync(cancellationToken);
+
+            return Results.NoContent();
+        });
+
+        // One line into the service's console; the output appears in its log (GET /api/logs/stream?unit=tm-app-<name>.service).
+        var console = app.MapGroup("/api").WithAgentErrors().RequirePermission(Permissions.AppsConsole).RequireScope();
+
+        console.MapPost("/apps/{id:int}/console", async (int id, ConsoleRequest request, HttpContext http, PanelDbContext db, AgentChannelFactory agent,
+            AuditLog audit, CancellationToken cancellationToken) =>
+        {
+            var found = await db.Apps.FindAsync([id], cancellationToken);
+
+            if (found is null)
+            {
+                return Results.NotFound();
+            }
+
+            if (!found.Console)
+            {
+                return Results.Problem($"{found.Name} has no console. Turn it on in its settings.", statusCode: StatusCodes.Status409Conflict);
+            }
+
+            var line = (request.Line ?? "").Trim();
+            await agent.Deploy.SendConsoleInputAsync(new ConsoleInput { App = found.Name, Line = line }, cancellationToken: cancellationToken);
+            // Console commands can be powerful (Turbo: shutdown, perm …): every one is audited.
+            audit.Record("app.console", await CurrentUser.GetAsync(http, db), target: found.Name, details: line);
             await db.SaveChangesAsync(cancellationToken);
 
             return Results.NoContent();

@@ -26,7 +26,8 @@ public sealed record StackRequest(
     Dictionary<string, string>? Settings = null,
     Dictionary<string, string>? Overrides = null,
     List<StackSource>? Sources = null,
-    string? DatabaseEngine = null);
+    string? DatabaseEngine = null,
+    bool Isolated = false);
 
 public sealed class StackException(string message) : Exception(message);
 
@@ -57,6 +58,9 @@ public sealed partial class StackService(
     public static string JobKind(int stackId) => $"stack-{stackId}";
 
     public static string MemberName(Stack stack, string role) => $"{stack.Name}-{role}";
+
+    /// <summary>The Linux user a member runs as: one per hotel, or one per part when the hotel isolates them.</summary>
+    public static string MemberUser(Stack stack, string role) => stack.Isolated ? $"{stack.Name}-{role}" : stack.SystemUser;
 
     public StackPreset Preset(Stack stack) => catalog.FindPreset(stack.Preset) ?? throw new StackException($"Unknown preset {stack.Preset}.");
 
@@ -98,6 +102,7 @@ public sealed partial class StackService(
             Overrides = Clean(request.Overrides),
             Sources = request.Sources ?? [],
             DatabaseEngine = string.IsNullOrWhiteSpace(request.DatabaseEngine) ? null : request.DatabaseEngine.Trim(),
+            Isolated = request.Isolated,
         };
 
         await ValidateAsync(stack, preset, cancellationToken);
@@ -298,7 +303,7 @@ public sealed partial class StackService(
             var exports = await ExportsAsync(stack, cancellationToken);
             var request = new RecipeRequest(
                 MemberName(stack, role.Role),
-                stack.SystemUser,
+                MemberUser(stack, role.Role),
                 Repository: source.Repository,
                 Branch: source.Branch,
                 Private: source.Private,
@@ -359,7 +364,7 @@ public sealed partial class StackService(
             var state = app is null ? null : recipes.GetState(app);
             var domains = new List<string> { stack.Hosts[role.Role] };
             var rendered = RecipeService.Render(recipe, new RecipeService.RenderState(
-                app?.Name ?? site!.Name, stack.SystemUser, domains, stack.TlsMode, stack.CloudflareDns, inputs, app?.Ports ?? [],
+                app?.Name ?? site!.Name, app?.SystemUser ?? MemberUser(stack, role.Role), domains, stack.TlsMode, stack.CloudflareDns, inputs, app?.Ports ?? [],
                 state?.Secrets ?? [], state?.Database, state?.DatabasePassword));
 
             var envChanges = new List<EnvChange>();

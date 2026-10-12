@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { api, errorMessage, type AuthorizedKey, type LoginUser, type SshdSettings } from '../api';
 import { usePermissions } from '../auth';
+import { SftpAccounts } from '../components/SftpAccounts';
 import { Badge, Button, Card, ErrorNote, Notice, PageHeader, Spinner } from '../components/ui';
 
 export function SshPage() {
@@ -36,6 +37,7 @@ export function SshPage() {
                     {user && <KeysCard user={user} />}
                 </div>
             )}
+            <SftpAccounts />
         </div>
     );
 }

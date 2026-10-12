@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+option csharp_namespace = "TurboManager.Contracts.Agent";
+
+package turbomanager.agent.v1;
+
+import "google/protobuf/empty.proto";
+import "databases.proto";
+
+// Files in an app user's home, always handled as that user (runuser), so the system's permissions apply exactly as
+// in their own shell. Paths are relative to the home directory; ".." is refused.
+service FilesAgent {
+  rpc ListDirectory (FilePath) returns (DirectoryListing);
+  rpc ReadFile (FilePath) returns (FileContent);          // up to 2 MB
+  rpc WriteFile (FileContent) returns (google.protobuf.Empty);
+  rpc DeletePath (FilePath) returns (google.protobuf.Empty);
+  rpc MakeDirectory (FilePath) returns (google.protobuf.Empty);
+  rpc MovePath (FileMove) returns (google.protobuf.Empty);
+  // Uploads: the first chunk's name is "<user>:<path>"; then data chunks.
+  rpc UploadFile (stream FileChunk) returns (google.protobuf.Empty);
+  rpc DownloadFile (FilePath) returns (stream FileChunk);
+}
+
+message FilePath {
+  string user = 1;
+  string path = 2;   // relative to the home directory; "" = the home itself
+}
+
+message FileEntry {
+  string name = 1;
+  string type = 2;   // d (directory), f (file), l (symbolic link), o (other)
+  int64 size = 3;
+  string mode = 4;   // octal, e.g. "644"
+  int64 modified_unix_ms = 5;
+}
+
+message DirectoryListing {
+  string path = 1;
+  repeated FileEntry entries = 2;
+}
+
+message FileContent {
+  string user = 1;
+  string path = 2;
+  bytes content = 3;
+}
+
+message FileMove {
+  string user = 1;
+  string from = 2;
+  string to = 3;
+}

@@ -31,6 +31,8 @@ service DeployAgent {
 
   rpc WriteAppService (AppServiceRequest) returns (google.protobuf.Empty);
   rpc RemoveAppService (AppRef) returns (google.protobuf.Empty);
+  // One line into the service's console (stdin); its output is in the journal.
+  rpc SendConsoleInput (ConsoleInput) returns (google.protobuf.Empty);
 
   // /home/<user>/sites/<name>: files a site serves directly (uploaded over SFTP, not deployed).
   rpc EnsureSiteDirectory (AppRef) returns (SiteDirectory);
@@ -154,6 +156,8 @@ message AppServiceRequest {
   repeated string runtimes = 6;
   int32 memory_max_mb = 7;          // 0 = unlimited
   int32 stop_timeout_seconds = 8;
+  // stdin from a FIFO that systemd keeps open (tm-app-<app>-console.socket), so the panel can type into it
+  bool console = 9;
 }
 
 message Runtimes {
@@ -170,4 +174,9 @@ message RuntimeInfo {
 message RuntimeRequest {
   string name = 1;      // dotnet | node
   string channel = 2;   // dotnet: "10.0"; node: "24"
+}
+
+message ConsoleInput {
+  string app = 1;
+  string line = 2;   // one line, printable, up to 1000 characters
 }

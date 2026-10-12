@@ -39,6 +39,21 @@ public sealed class PanelUser
     public DateTimeOffset? LastLoginAt { get; set; }
 
     public List<RecoveryCode> RecoveryCodes { get; set; } = [];
+
+    /// <summary>SHA-256 of a pending invite (or reset) link; cleared once the user has set up 2FA.</summary>
+    public string? InviteHash { get; set; }
+
+    public DateTimeOffset? InviteExpiresAt { get; set; }
+
+    public string? InvitedBy { get; set; }
+
+    /// <summary>
+    /// Limits a user to these hotels and apps (both empty = everything their role allows). Owners and admins
+    /// are never limited.
+    /// </summary>
+    public List<int> ScopeStacks { get; set; } = [];
+
+    public List<int> ScopeApps { get; set; } = [];
 }
 
 public sealed class RecoveryCode

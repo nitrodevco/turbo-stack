@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+option csharp_namespace = "TurboManager.Contracts.Agent";
+
+package turbomanager.agent.v1;
+
+import "google/protobuf/empty.proto";
+
+// SFTP-only accounts: no shell, locked (chroot) into one folder of an app user's home, e.g. the game assets host's
+// upload folder. The folder is bind-mounted into /srv/tm-sftp/<account>/files; ACLs keep it readable and writable for
+// the app user (and nginx) whatever the account uploads.
+service SftpAgent {
+  rpc ListSftpAccounts (google.protobuf.Empty) returns (SftpAccounts);
+  rpc CreateSftpAccount (SftpAccountRequest) returns (google.protobuf.Empty);
+  rpc SetSftpPassword (SftpCredentials) returns (google.protobuf.Empty);
+  rpc SetSftpKeys (SftpCredentials) returns (google.protobuf.Empty);
+  rpc DeleteSftpAccount (SftpAccountRef) returns (google.protobuf.Empty);
+}
+
+message SftpAccountRequest {
+  string name = 1;       // the login, [a-z][a-z0-9-]{1,31}
+  string app_user = 2;   // whose folder
+  string path = 3;       // relative to the app user's home
+}
+
+message SftpAccountRef {
+  string name = 1;
+}
+
+message SftpCredentials {
+  string name = 1;
+  string password = 2;            // SetSftpPassword ("" = password login off)
+  repeated string public_keys = 3; // SetSftpKeys (replaces them)
+}
+
+message SftpAccounts {
+  repeated SftpAccount accounts = 1;
+}
+
+message SftpAccount {
+  string name = 1;
+  string folder = 2;        // the real folder (absolute)
+  bool mounted = 3;
+  bool password = 4;
+  int32 keys = 5;
+}

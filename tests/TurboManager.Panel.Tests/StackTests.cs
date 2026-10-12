@@ -271,6 +271,23 @@ public sealed class StackApiTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task An_isolated_hotel_runs_each_part_as_its_own_user()
+    {
+        var hotel = JsonSerializer.SerializeToNode(Hotel())!.AsObject();
+        hotel["isolated"] = true;
+        var stackId = await CreateAsync(hotel);
+        await InstallAsync(stackId);
+
+        var apps = await _client.GetFromJsonAsync<JsonElement[]>("/api/apps");
+        Assert.Equal(["hotel-admin", "hotel-client", "hotel-emulator", "hotel-imager", "hotel-web"],
+            apps!.Select(a => a.GetProperty("systemUser").GetString()).Order());
+        // Repositories belong to a user: each part has its own checkout (and, if private, its own deploy key).
+        Assert.Equal(5, (await _client.GetFromJsonAsync<JsonElement[]>("/api/repositories"))!.Length);
+        Assert.Contains("root /home/hotel-client/apps/hotel-client/current/packages/nitro-react/dist;", _agent.Nginx.Sites["hotel-client"]);
+        Assert.True((await _client.GetFromJsonAsync<JsonElement>($"/api/stacks/{stackId}")).GetProperty("isolated").GetBoolean());
+    }
+
+    [Fact]
     public async Task Answers_download_round_trips_to_the_same_hotel()
     {
         var stackId = await CreateAsync(Hotel(overrides: new Dictionary<string, string> { ["imager.maxLibraries"] = "100" }));

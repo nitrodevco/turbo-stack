@@ -47,6 +47,7 @@ function Wizard({ preset }: { preset: PresetView }) {
         })),
     );
     const [databaseEngine, setDatabaseEngine] = useState('');
+    const [isolated, setIsolated] = useState(false);
     const [settings, setSettings] = useState<Record<string, string>>(() => Object.fromEntries(preset.settings.map((s) => [s.key, s.default])));
 
     const hosts = useMemo(() => {
@@ -72,6 +73,7 @@ function Wizard({ preset }: { preset: PresetView }) {
         },
         sources,
         databaseEngine: databaseEngine || null,
+        isolated,
     };
 
     const create = useMutation({
@@ -141,6 +143,11 @@ function Wizard({ preset }: { preset: PresetView }) {
                             </option>
                         </SelectField>
                         {cloudflare.data?.connected && <Check label="Create the DNS records on Cloudflare" checked={cloudflareDns} onChange={setCloudflareDns} />}
+                        <Check
+                            label={`A separate Linux user for each part (${name}-emulator, ${name}-client, ...): one compromised app can't touch the others' files. Private repositories then need a deploy key per part.`}
+                            checked={isolated}
+                            onChange={setIsolated}
+                        />
                     </Card>
                 )}
 

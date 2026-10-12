@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authentication;
 ﻿using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
@@ -8,6 +9,7 @@ using Microsoft.Extensions.Options;
 using TurboManager.Core;
 using TurboManager.Panel;
 using TurboManager.Panel.AgentClient;
+using TurboManager.Panel.Alerts;
 using TurboManager.Panel.Audit;
 using TurboManager.Panel.Cloudflare;
 using TurboManager.Panel.Auth;
@@ -65,6 +67,10 @@ builder.Services.AddScoped<DeployService>();
 builder.Services.AddSingleton(_ => new RecipeCatalog());
 builder.Services.AddScoped<RecipeService>();
 builder.Services.AddScoped<StackService>();
+builder.Services.AddScoped<AccessScope>();
+builder.Services.AddSingleton<AlertState>();
+builder.Services.AddScoped<AlertService>();
+builder.Services.AddHostedService<AlertMonitor>();
 builder.Services.AddHostedService<UnattendedHotelService>();
 builder.Services.AddHttpClient("github", client =>
 {
@@ -72,6 +78,7 @@ builder.Services.AddHttpClient("github", client =>
     client.DefaultRequestHeaders.UserAgent.ParseAdd("turbo-manager");
 });
 builder.Services.AddHttpClient("health", client => client.Timeout = TimeSpan.FromSeconds(3));
+builder.Services.AddHttpClient("alerts", client => client.Timeout = TimeSpan.FromSeconds(10));
 builder.Services.AddHttpClient("detect-ip", client => client.Timeout = TimeSpan.FromSeconds(5));
 builder.Services.AddHttpClient(CertificateService.AcmeHttpClientName)
     .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
@@ -91,7 +98,8 @@ builder.Services.Configure<ForwardedHeadersOptions>(forwarded =>
 builder.Services.AddAuthentication(AuthSchemes.Session)
     .AddCookie(AuthSchemes.Session, cookie => ConfigureCookie(cookie, "tm_session", TimeSpan.FromHours(12), sliding: true, validate: true))
     .AddCookie(AuthSchemes.MfaPending, cookie => ConfigureCookie(cookie, "tm_mfa", TimeSpan.FromMinutes(5), sliding: false, validate: false))
-    .AddCookie(AuthSchemes.Setup, cookie => ConfigureCookie(cookie, "tm_setup", TimeSpan.FromMinutes(30), sliding: true, validate: false));
+    .AddCookie(AuthSchemes.Setup, cookie => ConfigureCookie(cookie, "tm_setup", TimeSpan.FromMinutes(30), sliding: true, validate: false))
+    .AddScheme<AuthenticationSchemeOptions, ApiTokenAuthenticationHandler>(AuthSchemes.Token, _ => { });
 builder.Services.AddAuthorization(authorization => authorization.AddPermissionPolicies());
 
 var app = builder.Build();
@@ -117,6 +125,7 @@ app.UseRateLimiter();
 app.UseCsrfHeaderCheck();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(20) });
 
 app.MapSetupEndpoints();
 app.MapAuthEndpoints();
@@ -132,6 +141,11 @@ app.MapDatabaseEndpoints();
 app.MapDeployEndpoints();
 app.MapRecipeEndpoints();
 app.MapStackEndpoints();
+app.MapTeamEndpoints();
+app.MapAlertEndpoints();
+app.MapTerminalEndpoints();
+app.MapFilesEndpoints();
+app.MapSftpEndpoints();
 app.MapFallback("/api/{**path}", () => Results.NotFound());
 app.MapFallbackToFile("index.html");
 

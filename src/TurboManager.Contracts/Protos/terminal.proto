@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+option csharp_namespace = "TurboManager.Contracts.Agent";
+
+package turbomanager.agent.v1;
+
+// Interactive shells in a pseudo-terminal: as an app user (runuser -l), or as root. The panel decides who may
+// open which; the agent only refuses users that aren't app users (or root, when asked for explicitly).
+service TerminalAgent {
+  // The first message must be `open`; then keystrokes and resizes. Output streams back until the shell exits.
+  rpc OpenTerminal (stream TerminalInput) returns (stream TerminalOutput);
+}
+
+message TerminalInput {
+  oneof kind {
+    TerminalOpen open = 1;
+    bytes data = 2;
+    TerminalSize resize = 3;
+  }
+}
+
+message TerminalOpen {
+  string user = 1;    // an app user, or "root"
+  TerminalSize size = 2;
+}
+
+message TerminalSize {
+  int32 cols = 1;
+  int32 rows = 2;
+}
+
+message TerminalOutput {
+  oneof kind {
+    bytes data = 1;
+    int32 exit_code = 2;   // the shell ended
+  }
+}

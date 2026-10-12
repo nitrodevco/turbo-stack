@@ -30,6 +30,8 @@ builder.Services.AddSingleton<Fail2banManager>();
 builder.Services.AddSingleton<NginxManager>();
 builder.Services.AddSingleton<DatabaseManager>();
 builder.Services.AddSingleton<DeployManager>();
+builder.Services.AddSingleton<TurboManager.Agent.Files.FilesManager>();
+builder.Services.AddSingleton<TurboManager.Agent.Ssh.SftpManager>();
 builder.Services.AddSingleton<MetricsSampler>();
 builder.Services.AddHostedService(services => services.GetRequiredService<MetricsSampler>());
 builder.Services.AddGrpc(grpc => grpc.EnableDetailedErrors = false);
@@ -81,6 +83,9 @@ app.MapGrpcService<PackagesAgentService>();
 app.MapGrpcService<NginxAgentService>();
 app.MapGrpcService<DatabaseAgentService>();
 app.MapGrpcService<DeployAgentService>();
+app.MapGrpcService<TurboManager.Agent.Terminal.TerminalAgentService>();
+app.MapGrpcService<TurboManager.Agent.Files.FilesAgentService>();
+app.MapGrpcService<TurboManager.Agent.Ssh.SftpAgentService>();
 
 try
 {

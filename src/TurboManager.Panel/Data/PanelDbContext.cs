@@ -50,6 +50,16 @@ public sealed class PanelDbContext(DbContextOptions<PanelDbContext> options) : D
 
     public DbSet<Stack> Stacks => Set<Stack>();
 
+    public DbSet<PanelSession> Sessions => Set<PanelSession>();
+
+    public DbSet<ApiToken> ApiTokens => Set<ApiToken>();
+
+    public DbSet<AlertChannel> AlertChannels => Set<AlertChannel>();
+
+    public DbSet<AlertSettings> AlertSettings => Set<AlertSettings>();
+
+    public DbSet<AlertEvent> AlertEvents => Set<AlertEvent>();
+
     protected override void OnModelCreating(ModelBuilder model)
     {
         model.Entity<PanelUser>(user =>
@@ -137,6 +147,26 @@ public sealed class PanelDbContext(DbContextOptions<PanelDbContext> options) : D
         });
 
         model.Entity<WebhookDelivery>().HasIndex(d => d.ReceivedAt);
+
+        model.Entity<AlertChannel>().Property(c => c.Kind).HasConversion<string>().HasMaxLength(16);
+        model.Entity<AlertEvent>(alert =>
+        {
+            alert.Property(a => a.Severity).HasConversion<string>().HasMaxLength(16);
+            alert.HasIndex(a => new { a.Key, a.ResolvedAt });
+            alert.HasIndex(a => a.FiredAt);
+        });
+
+        model.Entity<PanelSession>(session =>
+        {
+            session.HasIndex(s => s.UserId);
+            session.HasOne<PanelUser>().WithMany().HasForeignKey(s => s.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        model.Entity<ApiToken>(token =>
+        {
+            token.HasIndex(t => t.Hash).IsUnique();
+            token.HasOne<PanelUser>().WithMany().HasForeignKey(t => t.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
 
         model.Entity<Stack>(stack =>
         {

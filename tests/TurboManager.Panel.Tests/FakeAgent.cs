@@ -125,10 +125,14 @@ public sealed class FakeServicesAgent : ServicesAgent.ServicesAgentBase
 {
     public List<ControlServiceRequest> Controls { get; } = [];
 
+    /// <summary>Units listed besides nginx.service.</summary>
+    public List<ServiceUnit> Units { get; } = [];
+
     public override Task<ListServicesReply> ListServices(ListServicesRequest request, ServerCallContext context)
     {
         var reply = new ListServicesReply();
         reply.Services.Add(new ServiceUnit { Name = "nginx.service", ActiveState = "active", SubState = "running", UnitFileState = "enabled" });
+        reply.Services.AddRange(Units);
 
         return Task.FromResult(reply);
     }
@@ -143,8 +147,25 @@ public sealed class FakeServicesAgent : ServicesAgent.ServicesAgentBase
     }
 }
 
+public sealed class FakeMetricsAgent : MetricsAgent.MetricsAgentBase
+{
+    public MetricsSnapshot Snapshot { get; set; } = new() { MemoryTotalBytes = 8L << 30, MemoryAvailableBytes = 6L << 30, Disks = { new DiskUsage { Mount = "/", FsType = "ext4", TotalBytes = 100L << 30, FreeBytes = 60L << 30 } } };
+
+    public override Task<MetricsSnapshot> GetMetrics(MetricsRequest request, ServerCallContext context) => Task.FromResult(Snapshot);
+}
+
 public sealed class FakePackagesAgent : PackagesAgent.PackagesAgentBase
 {
+    public int SecurityUpdates { get; set; }
+
+    public override Task<UpgradablePackages> ListUpgradable(ListUpgradableRequest request, ServerCallContext context)
+    {
+        var reply = new UpgradablePackages();
+        reply.Packages.AddRange(Enumerable.Range(0, SecurityUpdates).Select(i => new UpgradablePackage { Name = $"lib{i}", Security = true }));
+
+        return Task.FromResult(reply);
+    }
+
     public override async Task UpgradePackages(UpgradeRequest request, IServerStreamWriter<OutputLine> responseStream, ServerCallContext context)
     {
         await responseStream.WriteAsync(new OutputLine { Line = "Reading package lists..." });
@@ -462,6 +483,15 @@ public sealed class FakeDeployAgent : DeployAgent.DeployAgentBase
         return Task.FromResult(new Google.Protobuf.WellKnownTypes.Empty());
     }
 
+    public List<ConsoleInput> ConsoleInput { get; } = [];
+
+    public override Task<Google.Protobuf.WellKnownTypes.Empty> SendConsoleInput(ConsoleInput request, ServerCallContext context)
+    {
+        ConsoleInput.Add(request);
+
+        return Task.FromResult(new Google.Protobuf.WellKnownTypes.Empty());
+    }
+
     public HashSet<string> InstalledRuntimes { get; } = [];
 
     public override Task<Runtimes> ListRuntimes(Google.Protobuf.WellKnownTypes.Empty request, ServerCallContext context)
@@ -512,6 +542,104 @@ public sealed class FakeLogsAgent : LogsAgent.LogsAgentBase
     }
 }
 
+/// <summary>Echoes keystrokes back; "exit" ends the shell with code 0.</summary>
+public sealed class FakeTerminalAgent : TerminalAgent.TerminalAgentBase
+{
+    public List<string> OpenedAs { get; } = [];
+
+    public List<TerminalSize> Resizes { get; } = [];
+
+    public override async Task OpenTerminal(IAsyncStreamReader<TerminalInput> requestStream, IServerStreamWriter<TerminalOutput> responseStream,
+        ServerCallContext context)
+    {
+        await requestStream.MoveNext();
+        OpenedAs.Add(requestStream.Current.Open.User);
+
+        while (await requestStream.MoveNext())
+        {
+            var input = requestStream.Current;
+
+            if (input.KindCase == TerminalInput.KindOneofCase.Resize)
+            {
+                Resizes.Add(input.Resize);
+                continue;
+            }
+
+            if (input.Data.ToStringUtf8() == "exit\n")
+            {
+                await responseStream.WriteAsync(new TerminalOutput { ExitCode = 0 });
+
+                return;
+            }
+
+            await responseStream.WriteAsync(new TerminalOutput { Data = input.Data });
+        }
+    }
+}
+
+/// <summary>An in-memory home folder per user ("user:path" → content).</summary>
+public sealed class FakeFilesAgent : FilesAgent.FilesAgentBase
+{
+    public Dictionary<string, byte[]> Files { get; } = [];
+
+    private static readonly Google.Protobuf.WellKnownTypes.Empty Done = new();
+
+    public override Task<DirectoryListing> ListDirectory(FilePath request, ServerCallContext context)
+    {
+        var prefix = $"{request.User}:{(request.Path.Length > 0 ? request.Path + "/" : "")}";
+        var reply = new DirectoryListing { Path = request.Path };
+        reply.Entries.AddRange(Files.Where(f => f.Key.StartsWith(prefix, StringComparison.Ordinal) && !f.Key[prefix.Length..].Contains('/'))
+            .Select(f => new FileEntry { Name = f.Key[prefix.Length..], Type = "f", Size = f.Value.Length, Mode = "644" }));
+
+        return Task.FromResult(reply);
+    }
+
+    public override Task<FileContent> ReadFile(FilePath request, ServerCallContext context) =>
+        Files.TryGetValue($"{request.User}:{request.Path}", out var content)
+            ? Task.FromResult(new FileContent { User = request.User, Path = request.Path, Content = Google.Protobuf.ByteString.CopyFrom(content) })
+            : throw new RpcException(new Status(StatusCode.FailedPrecondition, "No such file or directory"));
+
+    public override Task<Google.Protobuf.WellKnownTypes.Empty> WriteFile(FileContent request, ServerCallContext context)
+    {
+        Files[$"{request.User}:{request.Path}"] = request.Content.ToByteArray();
+
+        return Task.FromResult(Done);
+    }
+
+    public override Task<Google.Protobuf.WellKnownTypes.Empty> DeletePath(FilePath request, ServerCallContext context)
+    {
+        Files.Remove($"{request.User}:{request.Path}");
+
+        return Task.FromResult(Done);
+    }
+
+    public override async Task<Google.Protobuf.WellKnownTypes.Empty> UploadFile(IAsyncStreamReader<FileChunk> requestStream, ServerCallContext context)
+    {
+        await requestStream.MoveNext();
+        var name = requestStream.Current.Name;
+        using var content = new MemoryStream();
+
+        while (await requestStream.MoveNext())
+        {
+            content.Write(requestStream.Current.Data.Span);
+        }
+
+        Files[name] = content.ToArray();
+
+        return Done;
+    }
+
+    public override async Task DownloadFile(FilePath request, IServerStreamWriter<FileChunk> responseStream, ServerCallContext context)
+    {
+        var content = Files[$"{request.User}:{request.Path}"];
+
+        foreach (var chunk in content.Chunk(4))
+        {
+            await responseStream.WriteAsync(new FileChunk { Data = Google.Protobuf.ByteString.CopyFrom(chunk) });
+        }
+    }
+}
+
 /// <summary>A gRPC server on a unix socket implementing the agent services the panel tests need.</summary>
 public sealed class FakeAgent : IAsyncDisposable
 {
@@ -529,6 +657,14 @@ public sealed class FakeAgent : IAsyncDisposable
 
     public FakeLogsAgent Logs { get; } = new();
 
+    public FakeMetricsAgent Metrics { get; } = new();
+
+    public FakeTerminalAgent Terminal { get; } = new();
+
+    public FakeFilesAgent Files { get; } = new();
+
+    public FakePackagesAgent Packages { get; } = new();
+
     private FakeAgent(string socketPath)
     {
         var builder = WebApplication.CreateSlimBuilder();
@@ -541,6 +677,10 @@ public sealed class FakeAgent : IAsyncDisposable
         builder.Services.AddSingleton(Databases);
         builder.Services.AddSingleton(Deploy);
         builder.Services.AddSingleton(Logs);
+        builder.Services.AddSingleton(Metrics);
+        builder.Services.AddSingleton(Terminal);
+        builder.Services.AddSingleton(Files);
+        builder.Services.AddSingleton(Packages);
         _app = builder.Build();
         _app.MapGrpcService<FakeFirewallAgent>();
         _app.MapGrpcService<FakeServicesAgent>();
@@ -549,6 +689,9 @@ public sealed class FakeAgent : IAsyncDisposable
         _app.MapGrpcService<FakeDatabaseAgent>();
         _app.MapGrpcService<FakeDeployAgent>();
         _app.MapGrpcService<FakeLogsAgent>();
+        _app.MapGrpcService<FakeMetricsAgent>();
+        _app.MapGrpcService<FakeTerminalAgent>();
+        _app.MapGrpcService<FakeFilesAgent>();
     }
 
     public static async Task<FakeAgent> StartAsync(string socketPath)

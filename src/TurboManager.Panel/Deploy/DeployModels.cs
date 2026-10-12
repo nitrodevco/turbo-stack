@@ -31,7 +31,8 @@ public sealed record AppRequest(
     bool AutoDeploy = false,
     List<string>? DeployPaths = null,
     bool PurgeCloudflare = true,
-    string? ServiceDirectory = null);
+    string? ServiceDirectory = null,
+    bool Console = false);
 
 /// <summary>Validation and normalisation for repository and app input (the agent validates again).</summary>
 public static partial class DeployModels
@@ -164,6 +165,7 @@ public static partial class DeployModels
         app.DeployPaths = (request.DeployPaths ?? []).Select(Clean).OfType<string>().ToList();
         app.PurgeCloudflare = request.PurgeCloudflare;
         app.ServiceDirectory = Clean(request.ServiceDirectory);
+        app.Console = request.Console && app.ServiceCommand is not null;
     }
 
     public static bool IsRelativePath(string path)

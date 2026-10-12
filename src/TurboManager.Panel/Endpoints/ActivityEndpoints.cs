@@ -12,15 +12,34 @@ public static class ActivityEndpoints
 {
     public static void MapActivityEndpoints(this IEndpointRouteBuilder app)
     {
-        var jobs = app.MapGroup("/api/jobs").RequirePermission(Permissions.SystemView);
+        var jobs = app.MapGroup("/api/jobs").RequirePermission(Permissions.SystemView)
+            .AddEndpointFilter(async (context, next) =>
+            {
+                var http = context.HttpContext;
+                var limits = await http.RequestServices.GetRequiredService<AccessScope>().GetAsync();
 
-        jobs.MapGet("/", async (string? kind, PanelDbContext db) =>
-            Results.Ok(await db.Jobs
-                .Where(j => kind == null || j.Kind == kind)
-                .OrderByDescending(j => j.Id)
-                .Take(50)
-                .Select(j => new { j.Id, j.Kind, j.Title, status = j.Status.ToString().ToLowerInvariant(), j.StartedAt, j.FinishedAt, j.StartedBy })
-                .ToListAsync()));
+                if (limits.All || !long.TryParse(http.GetRouteValue("id")?.ToString(), out var id))
+                {
+                    return await next(context);
+                }
+
+                var job = await http.RequestServices.GetRequiredService<PanelDbContext>().Jobs.FindAsync(id);
+
+                return job is not null && limits.Job(job.Kind) ? await next(context) : AccessScope.Denied();
+            });
+
+        jobs.MapGet("/", async (string? kind, PanelDbContext db, AccessScope scope) =>
+        {
+            var limits = await scope.GetAsync();
+
+            return Results.Ok((await db.Jobs
+                    .Where(j => kind == null || j.Kind == kind)
+                    .OrderByDescending(j => j.Id)
+                    .Take(limits.All ? 50 : 500)
+                    .Select(j => new { j.Id, j.Kind, j.Title, status = j.Status.ToString().ToLowerInvariant(), j.StartedAt, j.FinishedAt, j.StartedBy })
+                    .ToListAsync())
+                .Where(j => limits.Job(j.Kind)).Take(50));
+        });
 
         jobs.MapGet("/{id:long}", async (long id, PanelDbContext db, JobRunner runner) =>
         {

@@ -36,6 +36,9 @@ public sealed class Stack
 
     public string? DatabaseEngine { get; set; }
 
+    /// <summary>Each part runs as its own Linux user (&lt;hotel&gt;-&lt;role&gt;) instead of sharing SystemUser.</summary>
+    public bool Isolated { get; set; }
+
     /// <summary>The owner's one-time admin panel setup link, once the emulator has logged it (encrypted).</summary>
     public string? AdminSetupLinkProtected { get; set; }
 

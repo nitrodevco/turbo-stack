@@ -182,6 +182,81 @@ public sealed class DeployManagerTests : IDisposable
     }
 
     [Fact]
+    public async Task Turning_the_console_on_for_a_running_app_starts_the_socket_first()
+    {
+        Directory.CreateDirectory(Path.Combine(_host.Path, "etc/systemd/system"));
+        // The app runs; its console socket doesn't yet (systemd ≥ 258 then refuses to start the socket).
+        _commands.Handler = (_, args) => new CommandResult(args is ["is-active", "--quiet", "tm-app-turbo-console.socket"] ? 3 : 0, "", "");
+
+        await _deploy.WriteServiceAsync(new AppServiceRequest { User = "hotel", App = "turbo", Command = "dotnet Turbo.Main.dll", Console = true },
+            CancellationToken.None);
+
+        var stop = _commands.Calls.IndexOf("systemctl stop tm-app-turbo.service");
+        var socket = _commands.Calls.IndexOf("systemctl enable --now tm-app-turbo-console.socket");
+        var start = _commands.Calls.IndexOf("systemctl start tm-app-turbo.service");
+        Assert.True(stop >= 0 && stop < socket && socket < start, string.Join('\n', _commands.Calls));
+    }
+
+    [Fact]
+    public void A_console_is_a_fifo_systemd_keeps_open_as_stdin()
+    {
+        var unit = DeployManager.RenderUnit(new PasswdEntry("hotel", 1001, 1001, "/home/hotel", "/bin/bash"), "turbo", "out",
+            new AppServiceRequest { Console = true });
+        var socket = DeployManager.RenderConsoleSocket("turbo");
+
+        Assert.Contains("Requires=tm-app-turbo-console.socket", unit);
+        Assert.Contains("Sockets=tm-app-turbo-console.socket\nStandardInput=fd:console\nStandardOutput=journal", unit);
+        Assert.Contains("ListenFIFO=/run/turbo-manager/console/turbo", socket);
+        Assert.Contains("SocketMode=0600", socket);
+        Assert.Contains("FileDescriptorName=console", socket);
+        Assert.DoesNotContain("StandardInput", DeployManager.RenderUnit(new PasswdEntry("hotel", 1001, 1001, "/home/hotel", "/bin/bash"), "web", "",
+            new AppServiceRequest()));
+    }
+
+    [Theory]
+    [InlineData("say hi\nshutdown")]
+    [InlineData("\u001b[2J")]
+    [InlineData("")]
+    public async Task Console_input_is_one_printable_line(string line) =>
+        await Assert.ThrowsAsync<RpcException>(() => _deploy.SendConsoleInputAsync(new ConsoleInput { App = "turbo", Line = line }, CancellationToken.None));
+
+    [Fact]
+    public async Task Console_input_needs_the_app_to_have_a_console()
+    {
+        var error = await Assert.ThrowsAsync<RpcException>(() =>
+            _deploy.SendConsoleInputAsync(new ConsoleInput { App = "turbo", Line = "about" }, CancellationToken.None));
+
+        Assert.Equal(StatusCode.FailedPrecondition, error.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("apps/web/shared", "/home/hotel/apps/web/shared")]
+    [InlineData("/apps//web/", "/home/hotel/apps/web")]
+    [InlineData("", "/home/hotel")]
+    public void File_paths_stay_in_the_home_folder(string path, string expected) =>
+        Assert.Equal(expected, new TurboManager.Agent.Files.FilesManager(_deploy, _commands).Resolve("hotel", path).Absolute);
+
+    [Theory]
+    [InlineData("../other")]
+    [InlineData("apps/../../etc")]
+    [InlineData("./x")]
+    public void File_paths_cannot_climb_out(string path) =>
+        Assert.Throws<RpcException>(() => new TurboManager.Agent.Files.FilesManager(_deploy, _commands).Resolve("hotel", path));
+
+    [Fact]
+    public async Task File_operations_run_as_the_app_user_and_spare_the_home_folder()
+    {
+        var files = new TurboManager.Agent.Files.FilesManager(_deploy, _commands);
+
+        await files.DeleteAsync(new FilePath { User = "hotel", Path = "apps/web/shared/old.log" }, CancellationToken.None);
+        Assert.StartsWith("runuser -u hotel -- env -i --chdir=/home/hotel", _commands.Calls[^1]);
+        Assert.EndsWith("rm -rf -- /home/hotel/apps/web/shared/old.log", _commands.Calls[^1]);
+
+        await Assert.ThrowsAsync<RpcException>(() => files.DeleteAsync(new FilePath { User = "hotel", Path = "" }, CancellationToken.None));
+        Assert.Throws<RpcException>(() => files.Resolve("root", "etc"));
+    }
+
+    [Fact]
     public void Node_runtime_never_prompts_for_downloads() =>
         Assert.Equal("0", DeployManager.RuntimeEnvironment(["node"])["COREPACK_ENABLE_DOWNLOAD_PROMPT"]);
 
@@ -251,4 +326,92 @@ public sealed class DeployManagerTests : IDisposable
     }
 
     public void Dispose() => _host.Dispose();
+}
+
+public sealed class SftpManagerTests : IDisposable
+{
+    private readonly FakeHostRoot _host = new FakeHostRoot()
+        .WithFile("etc/passwd", "root:x:0:0:root:/root:/bin/bash\nhotel:x:1001:1001::/home/hotel:/bin/bash\nupload:x:1002:1002::/srv/tm-sftp/upload:/usr/sbin/nologin\n")
+        .WithFile("etc/group", "root:x:0:\ntm-apps:x:999:hotel\ntm-sftp:x:998:upload\n")
+        .WithFile("etc/shadow", "upload:$6$hash:19000:0:99999:7:::\n");
+
+    private readonly FakeCommandRunner _commands = new();
+    private readonly TurboManager.Agent.Ssh.SftpManager _sftp;
+
+    public SftpManagerTests()
+    {
+        var options = Options.Create(new AgentOptions { HostRoot = _host.Path });
+        var deploy = new DeployManager(_commands, options, NullLogger<DeployManager>.Instance);
+        _sftp = new TurboManager.Agent.Ssh.SftpManager(_commands, new TurboManager.Agent.Files.FilesManager(deploy, _commands), options,
+            NullLogger<TurboManager.Agent.Ssh.SftpManager>.Instance);
+    }
+
+    public void Dispose() => _host.Dispose();
+
+    [Fact]
+    public void Account_comments_are_valid_passwd_fields()
+    {
+        // useradd refuses a comment with a colon (exit 3); a comma would split the GECOS field.
+        var comment = TurboManager.Agent.Ssh.SftpManager.Comment("hotel", "sites/a:b,c\nd");
+
+        Assert.Equal("Turbo Manager SFTP for hotel (sites/a b c d)", comment);
+    }
+
+    [Fact]
+    public void Accounts_are_chrooted_sftp_only_without_tunnels_or_a_terminal()
+    {
+        var config = TurboManager.Agent.Ssh.SftpManager.RenderDropIn();
+
+        Assert.Contains("Match Group tm-sftp", config);
+        Assert.Contains("ChrootDirectory /srv/tm-sftp/%u", config);
+        Assert.Contains("ForceCommand internal-sftp -d /files", config);
+        Assert.Contains("PermitTTY no", config);
+        Assert.Contains("AllowTcpForwarding no", config);
+        Assert.Contains("AuthorizedKeysFile /etc/turbo-manager/sftp-keys/%u", config);
+    }
+
+    [Fact]
+    public async Task Keys_are_checked_and_written_where_the_account_cannot_change_them()
+    {
+        await Assert.ThrowsAsync<RpcException>(() =>
+            _sftp.SetKeysAsync(new SftpCredentials { Name = "upload", PublicKeys = { "command=\"sh\" ssh-ed25519 AAAA" } }, CancellationToken.None));
+        await _sftp.SetKeysAsync(new SftpCredentials { Name = "upload", PublicKeys = { "ssh-ed25519 AAAAC3Nz me@laptop" } }, CancellationToken.None);
+
+        Assert.Equal("ssh-ed25519 AAAAC3Nz me@laptop\n", File.ReadAllText(Path.Combine(_host.Path, "etc/turbo-manager/sftp-keys/upload")));
+        Assert.Equal(1, Assert.Single(_sftp.List().Accounts).Keys);
+        Assert.True(_sftp.List().Accounts[0].Password);
+    }
+
+    [Fact]
+    public async Task Deleting_never_touches_a_folder_that_is_still_mounted()
+    {
+        _host.WithFile("proc/self/mountinfo", "1 2 0:1 / /srv/tm-sftp/upload/files rw - ext4 /dev/sda1 rw\n");
+
+        await Assert.ThrowsAsync<RpcException>(() => _sftp.DeleteAsync(new SftpAccountRef { Name = "upload" }, CancellationToken.None));
+        Assert.DoesNotContain(_commands.Calls, c => c.StartsWith("userdel", StringComparison.Ordinal) || c.StartsWith("rm", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Accounts_act_as_the_app_user_and_deleting_one_spares_the_apps_processes()
+    {
+        _commands.Handler = (file, _) => new CommandResult(0, file == "systemd-escape" ? "srv-tm_sftp-assets-files.mount\n" : "", "");
+        Directory.CreateDirectory(Path.Combine(_host.Path, "etc/systemd/system"));
+
+        await _sftp.CreateAsync(new SftpAccountRequest { Name = "assets", AppUser = "hotel", Path = "sites/assets" }, CancellationToken.None);
+
+        // Uploads belong to the app user whatever modes the client picks: same uid and gid, no group of its own.
+        Assert.Contains(_commands.Calls, c => c.StartsWith("useradd --non-unique --uid 1001 --gid 1001 --no-user-group ", StringComparison.Ordinal)
+            && c.EndsWith(" assets", StringComparison.Ordinal));
+
+        _host.WithFile("etc/group", "root:x:0:\ntm-apps:x:999:hotel\ntm-sftp:x:998:upload,assets\n");
+        await _sftp.DeleteAsync(new SftpAccountRef { Name = "assets" }, CancellationToken.None);
+
+        Assert.DoesNotContain(_commands.Calls, c => c.StartsWith("pkill", StringComparison.Ordinal) && c.Contains(" -u ", StringComparison.Ordinal));
+        Assert.Contains("pkill -KILL -f ^sshd(-session|-auth)?: assets( |@|$)", _commands.Calls);
+        Assert.Contains("userdel --force assets", _commands.Calls);
+    }
+
+    [Fact]
+    public async Task Only_tm_sftp_members_are_accounts() =>
+        await Assert.ThrowsAsync<RpcException>(() => _sftp.SetPasswordAsync(new SftpCredentials { Name = "hotel", Password = "a long enough one" }, CancellationToken.None));
 }

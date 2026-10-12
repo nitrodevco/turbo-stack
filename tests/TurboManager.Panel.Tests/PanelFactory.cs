@@ -28,6 +28,9 @@ public sealed class PanelFactory : WebApplicationFactory<PanelEntryPoint>
     /// <summary>Extra configuration (e.g. Panel:CloudflareApiBase) applied before the host starts.</summary>
     public Dictionary<string, string> Settings { get; } = [];
 
+    /// <summary>Replaces services before the host starts (e.g. an HTTP handler that records requests).</summary>
+    public Action<IServiceCollection>? ConfigureTestServices { get; set; }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         foreach (var (key, value) in Settings)
@@ -41,7 +44,11 @@ public sealed class PanelFactory : WebApplicationFactory<PanelEntryPoint>
         builder.UseSetting("Panel:AgentSocket", AgentSocket);
         builder.UseSetting("Panel:AuthLogFile", Path.Combine(_dataDirectory, "auth.log"));
         builder.UseSetting("Panel:SecureCookies", "false");
-        builder.ConfigureServices(services => services.Replace(ServiceDescriptor.Singleton<TimeProvider>(Time)));
+        builder.ConfigureServices(services =>
+        {
+            services.Replace(ServiceDescriptor.Singleton<TimeProvider>(Time));
+            ConfigureTestServices?.Invoke(services);
+        });
     }
 
     /// <summary>Writes a setup token hash the way install.sh does and returns the plain token.</summary>

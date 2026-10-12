@@ -153,6 +153,9 @@ public sealed class RecipeDaemon
     public string MemoryMaxMb { get; set; } = "";
 
     public int StopTimeoutSeconds { get; set; } = 30;
+
+    /// <summary>Commands can be typed into the service (its stdin), e.g. Turbo's console.</summary>
+    public bool Console { get; set; }
 }
 
 public sealed class RecipeSite

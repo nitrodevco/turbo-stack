@@ -104,8 +104,13 @@ public static class AuthEndpoints
             return Results.Ok(Me(user));
         }).RequireRateLimiting(RateLimits.Auth);
 
-        group.MapPost("/logout", async (HttpContext http) =>
+        group.MapPost("/logout", async (HttpContext http, PanelDbContext db) =>
         {
+            if ((await http.AuthenticateAsync(AuthSchemes.Session)).Principal?.FindFirst(AuthSchemes.SessionIdClaim)?.Value is { } sessionId)
+            {
+                await db.Sessions.Where(s => s.Id == sessionId).ExecuteDeleteAsync();
+            }
+
             await http.SignOutAsync(AuthSchemes.Session);
 
             return Results.NoContent();
@@ -125,6 +130,7 @@ public static class AuthEndpoints
         role = user.Role.ToString(),
         remainingRecoveryCodes = user.RecoveryCodes.Count(c => c.UsedAt is null),
         permissions = Permissions.For(user.Role),
+        limited = user.Role is not (PanelRole.Owner or PanelRole.Admin) && (user.ScopeStacks.Count > 0 || user.ScopeApps.Count > 0),
     };
 
     private static void RegisterFailure(PanelUser user, DateTimeOffset now)

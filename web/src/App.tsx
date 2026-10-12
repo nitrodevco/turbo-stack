@@ -8,6 +8,13 @@ import { AppDetailPage } from './pages/AppDetailPage';
 import { RecipePage } from './pages/RecipePage';
 import { HotelPage, HotelsPage } from './pages/HotelPage';
 import { HotelWizardPage } from './pages/HotelWizardPage';
+import { AccountPage } from './pages/AccountPage';
+import { AlertsPage } from './pages/AlertsPage';
+import { TerminalPage } from './pages/TerminalPage';
+import { FilesPage } from './pages/FilesPage';
+import { InvitePage } from './pages/InvitePage';
+import { TeamPage } from './pages/TeamPage';
+import { SudoProvider } from './components/Sudo';
 import { AppsPage } from './pages/AppsPage';
 import { CertificatesPage } from './pages/CertificatesPage';
 import { CloudflarePage } from './pages/CloudflarePage';
@@ -58,9 +65,11 @@ export function App() {
     }
 
     return (
+        <SudoProvider>
         <Routes>
             <Route path="/login" element={me.data ? <Navigate to="/" replace /> : <LoginPage />} />
             <Route path="/setup" element={<Navigate to="/" replace />} />
+            <Route path="/invite" element={<InvitePage />} />
             <Route element={me.data ? <AppShell me={me.data} /> : <Navigate to="/login" replace />}>
                 <Route index element={<DashboardPage />} />
                 <Route path="services" element={<ServicesPage />} />
@@ -77,6 +86,11 @@ export function App() {
                 <Route path="cloudflare" element={<CloudflarePage />} />
                 <Route path="databases" element={<DatabasesPage />} />
                 <Route path="apps" element={<AppsPage />} />
+                <Route path="team" element={<TeamPage />} />
+                <Route path="alerts" element={<AlertsPage />} />
+                <Route path="terminal" element={<TerminalPage />} />
+                <Route path="files" element={<FilesPage />} />
+                <Route path="account" element={me.data ? <AccountPage me={me.data} /> : null} />
                 <Route path="hotel" element={<HotelsPage />} />
                 <Route path="hotel/new" element={<HotelWizardPage />} />
                 <Route path="hotel/:id" element={<HotelPage />} />
@@ -86,5 +100,6 @@ export function App() {
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
         </Routes>
+        </SudoProvider>
     );
 }

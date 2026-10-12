@@ -325,6 +325,7 @@ public sealed class DeployService(
             Command = app.ServiceCommand!,
             MemoryMaxMb = app.MemoryMaxMb,
             StopTimeoutSeconds = app.StopTimeoutSeconds,
+            Console = app.Console,
         };
         request.Environment.Add(GetEnvironment(app));
         request.Runtimes.AddRange(app.Runtimes);

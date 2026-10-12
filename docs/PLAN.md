@@ -785,6 +785,35 @@ an unconfirmed change reverting) but has still not been run. Deferred from M1: c
   Not yet: adding or removing a role from an existing hotel, a graphical stack map with live
   connectivity checks per edge, wizard steps for the panel address and server basics (those
   pages exist separately).
+- *M7 status (2026-10-12):* hardening and operations implemented.
+  - *Team:* invite links (password + TOTP on first visit), roles (Owner, Admin, Developer, Operator,
+    Viewer; terminal.root is the owner's alone), members limited to some hotels/apps (apps, deploys,
+    hotels, app services, logs, sites and jobs are filtered; server-wide pages follow the role),
+    sessions as rows (listed, revoked; role changes sign people out), "sudo mode" (the second
+    factor again, 10 minutes) for team changes, API tokens and the root terminal.
+  - *API tokens:* `Authorization: Bearer tm_…`, SHA-256 stored, a subset of the user's
+    permissions, optional expiry, last-used; never for team management or root.
+  - *Alerts:* every minute — disk, memory, failed or crash-looping services, certificates
+    (expiring/failed), security updates, failed jobs (deploys, installs, backups, certificates);
+    announced when they start and when they clear, to Discord, webhooks or email (SMTP).
+  - *Emulator console:* a service can read commands from a FIFO systemd keeps open as its stdin
+    (tm-app-<app>-console.socket); the panel types into it (audited) and shows the journal.
+    The Turbo recipe turns it on.
+  - *Terminal:* xterm.js over a WebSocket to the agent's pseudo-terminal (openpty + setsid -c),
+    as an app user (runuser -l) or root (owner, sudo mode); same-origin check; audited.
+  - *Files:* app users' homes, every operation as that user (runuser), ".." refused; edit, upload,
+    download, rename, delete; audited.
+  - *Isolation:* a hotel can give each part its own Linux user (<hotel>-<role>).
+  - *SFTP accounts:* group tm-sftp, sshd Match block (chroot /srv/tm-sftp/<user>, internal-sftp,
+    no TTY/forwarding), the folder bind-mounted by a systemd mount unit. The account shares the app
+    user's uid/gid (useradd --non-unique), so uploads belong to the app whatever modes the client
+    sets (ACL masks broke this; sftp-server has no forced-mode option on 24.04/26.04). Deleting
+    one kills only its sshd sessions and uses userdel --force (the uid is busy with the app).
+    Password (shown once) and/or keys (root-owned file).
+  - All of it is covered by the Docker E2E on the real server (bearer token through nginx, alert
+    checks, console via the FIFO, root and app-user shells over websocat, files, sftp/ssh).
+  - Not yet: custom roles from a permission matrix, passkeys, OpenAPI docs, Monaco editor,
+    per-unit sandboxing beyond NoNewPrivileges/PrivateTmp/ProtectSystem=full.
 - *Deviations / later:* ACME DNS-01 (wildcards without Cloudflare Origin) and Pebble in the
   Docker env are not done yet; fail2ban still bans in UFW even for proxied traffic (banning via
   the Cloudflare API, plan 6.8, comes with the WAF work); Authenticated Origin Pulls not yet.

@@ -14,7 +14,7 @@ public static class StackEndpoints
 {
     public static void MapStackEndpoints(this IEndpointRouteBuilder app)
     {
-        var view = app.MapGroup("/api").WithAgentErrors().RequirePermission(Permissions.AppsView);
+        var view = app.MapGroup("/api").WithAgentErrors().RequirePermission(Permissions.AppsView).RequireScope();
         // A hotel creates apps, sites and a database.
         var manage = app.MapGroup("/api").WithAgentErrors().RequirePermission(Permissions.AppsManage).RequirePermission(Permissions.SitesManage)
             .RequirePermission(Permissions.DatabasesManage);
@@ -46,8 +46,13 @@ public static class StackEndpoints
             databaseEngines = p.Roles.Select(r => catalog.Find(r.Recipe)!.Database).FirstOrDefault(d => d is not null)?.Engines,
         })));
 
-        view.MapGet("/stacks", async (PanelDbContext db) =>
-            Results.Ok(await db.Stacks.OrderBy(s => s.Name).Select(s => new { s.Id, s.Name, s.Domain, s.Preset }).ToListAsync()));
+        view.MapGet("/stacks", async (PanelDbContext db, AccessScope scope) =>
+        {
+            var limits = await scope.GetAsync();
+
+            return Results.Ok((await db.Stacks.OrderBy(s => s.Name).Select(s => new { s.Id, s.Name, s.Domain, s.Preset }).ToListAsync())
+                .Where(s => limits.Stack(s.Id)));
+        });
 
         view.MapGet("/stacks/{id:int}", async (int id, PanelDbContext db, StackService stacks, RecipeCatalog recipes, AgentChannelFactory agent,
             CancellationToken cancellationToken) =>
@@ -192,6 +197,7 @@ public static class StackEndpoints
             stack.Overrides,
             stack.Sources,
             stack.DatabaseEngine,
+            stack.Isolated,
             stack.InstallJobId,
             roles = preset.Roles.Select(role =>
             {

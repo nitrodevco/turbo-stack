@@ -273,3 +273,63 @@ public sealed class DeployApiTests : IAsyncLifetime
         return await client.SendAsync(request);
     }
 }
+
+public sealed class ConsoleApiTests : IAsyncLifetime
+{
+    private readonly PanelFactory _panel = new();
+    private FakeAgent _agent = null!;
+    private HttpClient _client = null!;
+
+    public async Task InitializeAsync()
+    {
+        _agent = await FakeAgent.StartAsync(_panel.AgentSocket);
+        _client = _panel.CreateApiClient();
+        await _panel.CompleteSetupAsync(_client);
+    }
+
+    public async Task DisposeAsync()
+    {
+        _panel.Dispose();
+        await _agent.DisposeAsync();
+    }
+
+    private async Task<int> CreateAppAsync(string name, bool console)
+    {
+        var repository = await (await _client.PostAsJsonAsync("/api/repositories", new
+        {
+            name = $"{name}-repo", systemUser = "hotel", repository = $"billsonnn/{name}", branch = "main", @private = false,
+        })).EnsureSuccessStatusCode().Content.ReadFromJsonAsync<JsonElement>();
+
+        return (await (await _client.PostAsJsonAsync("/api/apps", new
+        {
+            name, repositoryId = repository.GetProperty("id").GetInt32(), serviceCommand = "dotnet Turbo.Main.dll", servicePort = 9001, console,
+        })).EnsureSuccessStatusCode().Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetInt32();
+    }
+
+    [Fact]
+    public async Task Commands_go_to_the_apps_console_and_are_audited()
+    {
+        var turbo = await CreateAppAsync("turbo", console: true);
+        var web = await CreateAppAsync("web", console: false);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await _client.PostAsJsonAsync($"/api/apps/{turbo}/console", new { line = "  about " })).StatusCode);
+        var sent = Assert.Single(_agent.Deploy.ConsoleInput);
+        Assert.Equal(("turbo", "about"), (sent.App, sent.Line));
+
+        Assert.Equal(HttpStatusCode.Conflict, (await _client.PostAsJsonAsync($"/api/apps/{web}/console", new { line = "about" })).StatusCode);
+
+        var activity = await _client.GetStringAsync("/api/audit?action=app.console");
+        Assert.Contains("app.console", activity);
+        Assert.True((await _client.GetFromJsonAsync<JsonElement>($"/api/apps/{turbo}")).GetProperty("app").GetProperty("console").GetBoolean());
+    }
+
+    [Fact]
+    public async Task The_emulator_recipe_turns_the_console_on()
+    {
+        var created = await (await _client.PostAsJsonAsync("/api/recipes/turbo-emulator", new { name = "turbo", systemUser = "hotel" }))
+            .EnsureSuccessStatusCode().Content.ReadFromJsonAsync<JsonElement>();
+
+        var app = (await _client.GetFromJsonAsync<JsonElement>($"/api/apps/{created.GetProperty("appId").GetInt32()}")).GetProperty("app");
+        Assert.True(app.GetProperty("console").GetBoolean());
+    }
+}

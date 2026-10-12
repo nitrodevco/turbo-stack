@@ -202,6 +202,27 @@ public static class FakeCloudflareServer
         });
 
         // Test hooks.
+        // Not Cloudflare: a webhook receiver for the panel's alert tests (POSTs recorded, listed at GET).
+        var webhooks = new List<System.Text.Json.Nodes.JsonNode?>();
+        app.MapPost("/__fake/webhook", async (HttpRequest request) =>
+        {
+            var body = await System.Text.Json.Nodes.JsonNode.ParseAsync(request.Body);
+
+            lock (webhooks)
+            {
+                webhooks.Add(body);
+            }
+
+            return Results.NoContent();
+        });
+        app.MapGet("/__fake/webhooks", () =>
+        {
+            lock (webhooks)
+            {
+                return Results.Json(webhooks.Select(w => w?.DeepClone()).ToList());
+            }
+        });
+
         app.MapGet("/__fake/state", () => Results.Json(new
         {
             records = state.Records.Values.Select(r => r.DeepClone()),

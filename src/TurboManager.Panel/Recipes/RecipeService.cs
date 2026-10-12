@@ -36,7 +36,7 @@ public sealed record PlannedRepository(int? Id, string Name, string FullName, st
 
 public sealed record PlannedDatabase(string Engine, string Name, string User);
 
-public sealed record PlannedService(string Command, int? Port, string? HealthPath, int MemoryMaxMb, int StopTimeoutSeconds);
+public sealed record PlannedService(string Command, int? Port, string? HealthPath, int MemoryMaxMb, int StopTimeoutSeconds, bool Console = false);
 
 public sealed record PlannedApp(
     string WorkingDirectory,
@@ -575,7 +575,8 @@ public sealed partial class RecipeService(
                 daemon.Port.Length > 0 ? ports[daemon.Port] : null,
                 health is "" or "tcp" ? null : health,
                 int.TryParse(memory, NumberStyles.None, CultureInfo.InvariantCulture, out var mb) ? mb : 0,
-                daemon.StopTimeoutSeconds);
+                daemon.StopTimeoutSeconds,
+                daemon.Console);
 
             if (service.Command.Length == 0)
             {
@@ -663,7 +664,8 @@ public sealed partial class RecipeService(
         app.Service?.MemoryMaxMb ?? 0,
         app.Service?.StopTimeoutSeconds ?? 30,
         DeployPaths: app.DeployPaths,
-        ServiceDirectory: app.ServiceDirectory);
+        ServiceDirectory: app.ServiceDirectory,
+        Console: app.Service?.Console ?? false);
 
     private static string Render(string template, IReadOnlyDictionary<string, string> values)
     {

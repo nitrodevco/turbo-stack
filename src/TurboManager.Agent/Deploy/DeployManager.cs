@@ -24,6 +24,10 @@ public sealed class DeployManager(ICommandRunner commands, IOptions<AgentOptions
 
     private string UnitPath(string app) => HostPath($"/etc/systemd/system/tm-app-{app}.service");
 
+    private string ConsoleSocketPath(string app) => HostPath($"/etc/systemd/system/tm-app-{app}-console.socket");
+
+    public static string ConsoleFifo(string app) => $"/run/{Branding.Slug}/console/{app}";
+
     private string AppConfigDirectory => HostPath($"/etc/{Branding.Slug}/apps");
 
     public async Task<AppUserInfo> EnsureUserAsync(string user, CancellationToken cancellationToken)
@@ -364,6 +368,11 @@ public sealed class DeployManager(ICommandRunner commands, IOptions<AgentOptions
         await File.WriteAllTextAsync(envFile, RenderEnvironmentFile(environment), cancellationToken);
         await File.WriteAllTextAsync(UnitPath(app), RenderUnit(user, app, workingDirectory, request), cancellationToken);
 
+        if (request.Console)
+        {
+            await File.WriteAllTextAsync(ConsoleSocketPath(app), RenderConsoleSocket(app), cancellationToken);
+        }
+
         if (!OperatingSystem.IsWindows())
         {
             File.SetUnixFileMode(launcher, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute
@@ -373,6 +382,82 @@ public sealed class DeployManager(ICommandRunner commands, IOptions<AgentOptions
 
         await commands.RunCheckedAsync("systemctl", ["daemon-reload"], cancellationToken: cancellationToken);
         await commands.RunCheckedAsync("systemctl", ["enable", $"tm-app-{app}.service"], cancellationToken: cancellationToken);
+
+        if (request.Console)
+        {
+            var socket = $"tm-app-{app}-console.socket";
+            var service = $"tm-app-{app}.service";
+            // systemd ≥ 258 refuses to start a socket whose service already runs (24.04's 255 allowed it): turning the console
+            // on for a running app means stopping it, starting the socket, then starting the app on it.
+            var restart = !(await commands.RunAsync("systemctl", ["is-active", "--quiet", socket], cancellationToken: cancellationToken)).Success
+                && (await commands.RunAsync("systemctl", ["is-active", "--quiet", service], cancellationToken: cancellationToken)).Success;
+
+            if (restart)
+            {
+                await commands.RunCheckedAsync("systemctl", ["stop", service], timeout: TimeSpan.FromMinutes(2), cancellationToken: cancellationToken);
+            }
+
+            await commands.RunCheckedAsync("systemctl", ["enable", "--now", socket], cancellationToken: cancellationToken);
+
+            if (restart)
+            {
+                await commands.RunCheckedAsync("systemctl", ["start", service], timeout: TimeSpan.FromMinutes(2), cancellationToken: cancellationToken);
+            }
+        }
+        else if (File.Exists(ConsoleSocketPath(app)))
+        {
+            await RemoveConsoleSocketAsync(app, cancellationToken);
+            await commands.RunCheckedAsync("systemctl", ["daemon-reload"], cancellationToken: cancellationToken);
+        }
+    }
+
+    public static string RenderConsoleSocket(string app) =>
+        $"# Managed by {Branding.ProductName}: the console (stdin) of app \"{app}\".\n" +
+        "[Unit]\n" +
+        $"Description={Branding.ProductName} console for app {app}\n\n" +
+        "[Socket]\n" +
+        $"ListenFIFO={ConsoleFifo(app)}\n" +
+        "FileDescriptorName=console\n" +
+        // Only root (the agent) writes to it.
+        "SocketMode=0600\n" +
+        "RemoveOnStop=yes\n" +
+        $"Service=tm-app-{app}.service\n\n" +
+        "[Install]\nWantedBy=sockets.target\n";
+
+    private async Task RemoveConsoleSocketAsync(string app, CancellationToken cancellationToken)
+    {
+        if (!File.Exists(ConsoleSocketPath(app)))
+        {
+            return;
+        }
+
+        await commands.RunAsync("systemctl", ["disable", "--now", $"tm-app-{app}-console.socket"], timeout: TimeSpan.FromMinutes(1),
+            cancellationToken: cancellationToken);
+        File.Delete(ConsoleSocketPath(app));
+    }
+
+    /// <summary>Types one line into an app's console. The app must have its console on (and its socket running).</summary>
+    public async Task SendConsoleInputAsync(ConsoleInput request, CancellationToken cancellationToken)
+    {
+        var app = DeployValidation.App(request.App);
+        var line = request.Line ?? "";
+
+        if (line.Length is 0 or > 1000 || line.Any(char.IsControl))
+        {
+            throw Validate.Invalid("A console command is one line of up to 1000 printable characters.");
+        }
+
+        var fifo = HostPath(ConsoleFifo(app));
+
+        if (!File.Exists(ConsoleSocketPath(app)) || !File.Exists(fifo) || new FileInfo(fifo).LinkTarget is not null)
+        {
+            throw Validate.FailedPrecondition($"{app} has no console (turn it on in the app's settings, then restart it).");
+        }
+
+        // systemd holds the reading end open, so opening it for writing doesn't wait.
+        await using var stream = new FileStream(fifo, FileMode.Open, FileAccess.Write, FileShare.ReadWrite, bufferSize: 0);
+        await stream.WriteAsync(Encoding.UTF8.GetBytes(line + "\n"), cancellationToken);
+        logger.LogInformation("Console input for {App}: {Line}", app, line);
     }
 
     public async Task RemoveServiceAsync(AppRef request, CancellationToken cancellationToken)
@@ -385,6 +470,8 @@ public sealed class DeployManager(ICommandRunner commands, IOptions<AgentOptions
         }
 
         await commands.RunAsync("systemctl", ["disable", "--now", $"tm-app-{app}.service"], timeout: TimeSpan.FromMinutes(2), cancellationToken: cancellationToken);
+
+        await RemoveConsoleSocketAsync(app, cancellationToken);
 
         foreach (var file in new[] { UnitPath(app), Path.Combine(AppConfigDirectory, $"{app}.run"), Path.Combine(AppConfigDirectory, $"{app}.env") })
         {
@@ -401,13 +488,18 @@ public sealed class DeployManager(ICommandRunner commands, IOptions<AgentOptions
             .Append($"# Managed by {Branding.ProductName}: app \"{app}\". Edit it in the panel.\n")
             .Append("[Unit]\n")
             .Append($"Description={Branding.ProductName} app {app}\n")
-            .Append("After=network-online.target\nWants=network-online.target\n\n")
-            .Append("[Service]\n")
+            .Append("After=network-online.target\nWants=network-online.target\n")
+            .Append(request.Console ? $"Requires=tm-app-{app}-console.socket\nAfter=tm-app-{app}-console.socket\n" : "")
+            .Append("\n[Service]\n")
             .Append("Type=simple\n")
             .Append($"User={user.Name}\nGroup={user.Name}\n")
             .Append($"WorkingDirectory={cwd}\n")
             .Append($"EnvironmentFile=/etc/{Branding.Slug}/apps/{app}.env\n")
             .Append($"ExecStart=/etc/{Branding.Slug}/apps/{app}.run\n")
+            // The console: stdin is the FIFO systemd holds open, so the app never sees end-of-input; output stays in the journal.
+            .Append(request.Console
+                ? $"Sockets=tm-app-{app}-console.socket\nStandardInput=fd:console\nStandardOutput=journal\nStandardError=journal\n"
+                : "")
             .Append("Restart=always\nRestartSec=3\n")
             .Append($"TimeoutStopSec={(request.StopTimeoutSeconds is > 0 and <= 600 ? request.StopTimeoutSeconds : 30)}\n")
             .Append("KillSignal=SIGTERM\n")
@@ -639,10 +731,10 @@ public sealed class DeployManager(ICommandRunner commands, IOptions<AgentOptions
         return members.Contains(name) ? user : null;
     }
 
-    private PasswdEntry RequireAppUser(string name) =>
+    public PasswdEntry RequireAppUser(string name) =>
         FindAppUser(DeployValidation.User(name)) ?? throw Validate.FailedPrecondition($"{name} is not an app user created by {Branding.ProductName}.");
 
-    private (string Command, List<string> Arguments) AsUser(PasswdEntry user, string? cwd, IReadOnlyDictionary<string, string> environment, string program,
+    public (string Command, List<string> Arguments) AsUser(PasswdEntry user, string? cwd, IReadOnlyDictionary<string, string> environment, string program,
         IEnumerable<string> arguments)
     {
         List<string> result = ["-u", user.Name, "--", "env", "-i"];

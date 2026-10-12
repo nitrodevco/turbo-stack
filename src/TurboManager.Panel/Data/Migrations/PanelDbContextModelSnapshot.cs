@@ -38,6 +38,167 @@ namespace TurboManager.Panel.Data.Migrations
                     b.ToTable("AcmeAccounts");
                 });
 
+            modelBuilder.Entity("TurboManager.Panel.Data.AlertChannel", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("CriticalOnly")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LastError")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TargetProtected")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("AlertChannels");
+                });
+
+            modelBuilder.Entity("TurboManager.Panel.Data.AlertEvent", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Detail")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("FiredAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("OneOff")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("ResolvedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Severity")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FiredAt");
+
+                    b.HasIndex("Key", "ResolvedAt");
+
+                    b.ToTable("AlertEvents");
+                });
+
+            modelBuilder.Entity("TurboManager.Panel.Data.AlertSettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("CertificateDays")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("DiskPercent")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("LastJobScanAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("MemoryPercent")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("SecurityUpdates")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("SmtpFrom")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SmtpHost")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SmtpPasswordProtected")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SmtpPort")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("SmtpUser")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("AlertSettings");
+                });
+
+            modelBuilder.Entity("TurboManager.Panel.Data.ApiToken", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("ExpiresAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Hash")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("LastUsedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.PrimitiveCollection<string>("Permissions")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Prefix")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Hash")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("ApiTokens");
+                });
+
             modelBuilder.Entity("TurboManager.Panel.Data.App", b =>
                 {
                     b.Property<int>("Id")
@@ -50,6 +211,9 @@ namespace TurboManager.Panel.Data.Migrations
                     b.Property<string>("BuildScript")
                         .IsRequired()
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("Console")
+                        .HasColumnType("INTEGER");
 
                     b.Property<long>("CreatedAt")
                         .HasColumnType("INTEGER");
@@ -720,6 +884,36 @@ namespace TurboManager.Panel.Data.Migrations
                     b.ToTable("PanelAddresses");
                 });
 
+            modelBuilder.Entity("TurboManager.Panel.Data.PanelSession", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("IpAddress")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("LastSeenAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("SudoUntil")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("UserAgent")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Sessions");
+                });
+
             modelBuilder.Entity("TurboManager.Panel.Data.PanelUser", b =>
                 {
                     b.Property<int>("Id")
@@ -731,6 +925,15 @@ namespace TurboManager.Panel.Data.Migrations
 
                     b.Property<int>("FailedLoginCount")
                         .HasColumnType("INTEGER");
+
+                    b.Property<long?>("InviteExpiresAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("InviteHash")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("InvitedBy")
+                        .HasColumnType("TEXT");
 
                     b.Property<long?>("LastLoginAt")
                         .HasColumnType("INTEGER");
@@ -748,6 +951,14 @@ namespace TurboManager.Panel.Data.Migrations
                     b.Property<string>("Role")
                         .IsRequired()
                         .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.PrimitiveCollection<string>("ScopeApps")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.PrimitiveCollection<string>("ScopeStacks")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("SecurityStamp")
@@ -1004,6 +1215,9 @@ namespace TurboManager.Panel.Data.Migrations
                     b.Property<long?>("InstallJobId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("Isolated")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -1068,6 +1282,15 @@ namespace TurboManager.Panel.Data.Migrations
                     b.HasIndex("ReceivedAt");
 
                     b.ToTable("WebhookDeliveries");
+                });
+
+            modelBuilder.Entity("TurboManager.Panel.Data.ApiToken", b =>
+                {
+                    b.HasOne("TurboManager.Panel.Data.PanelUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("TurboManager.Panel.Data.App", b =>
@@ -1170,6 +1393,15 @@ namespace TurboManager.Panel.Data.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("IpList");
+                });
+
+            modelBuilder.Entity("TurboManager.Panel.Data.PanelSession", b =>
+                {
+                    b.HasOne("TurboManager.Panel.Data.PanelUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("TurboManager.Panel.Data.RecoveryCode", b =>

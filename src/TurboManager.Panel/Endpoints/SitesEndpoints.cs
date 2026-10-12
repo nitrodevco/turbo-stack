@@ -20,12 +20,13 @@ public static class SitesEndpoints
 
     public static void MapSitesEndpoints(this IEndpointRouteBuilder app)
     {
-        var view = app.MapGroup("/api").WithAgentErrors().RequirePermission(Permissions.SitesView);
+        var view = app.MapGroup("/api").WithAgentErrors().RequirePermission(Permissions.SitesView).RequireScope();
         var manage = app.MapGroup("/api").WithAgentErrors().RequirePermission(Permissions.SitesManage);
 
-        view.MapGet("/sites", async (SiteService sites, CertificateService certificates) =>
+        view.MapGet("/sites", async (SiteService sites, CertificateService certificates, AccessScope scope) =>
         {
-            var all = await sites.GetAllAsync();
+            var limits = await scope.GetAsync();
+            var all = (await sites.GetAllAsync()).Where(limits.Site);
             var result = new List<object>();
 
             foreach (var site in all)

@@ -58,7 +58,7 @@ export function errorMessage(error: unknown) {
 
 export type SetupStatus = { claimed: boolean; productName: string };
 
-export type Me = { username: string; role: string; remainingRecoveryCodes: number; permissions: string[] };
+export type Me = { username: string; role: string; remainingRecoveryCodes: number; permissions: string[]; limited?: boolean };
 
 export type SystemInfo = {
     hostname: string;
@@ -380,6 +380,7 @@ export type AppSettings = {
     staticPath: string | null;
     unit: string | null;
     serviceDirectory: string | null;
+    console: boolean;
     recipeId: string | null;
     recipeInputs: Record<string, string>;
     ports: Record<string, number>;
@@ -502,6 +503,7 @@ export type StackRequest = {
     overrides?: Record<string, string>;
     sources?: StackSourceView[];
     databaseEngine?: string | null;
+    isolated?: boolean;
 };
 
 export type StackRoleView = {

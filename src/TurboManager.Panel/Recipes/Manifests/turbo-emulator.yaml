@@ -103,6 +103,7 @@ app:
     port: ws
     health: tcp
     stopTimeoutSeconds: 60
+    console: true # Turbo reads commands from stdin
   environment:
     DOTNET_ENVIRONMENT: Production
     TURBO__Turbo__Database__ConnectionString: "server={{ db.host }};port={{ db.port }};user={{ db.user }};password={{ db.password }};database={{ db.name }}"

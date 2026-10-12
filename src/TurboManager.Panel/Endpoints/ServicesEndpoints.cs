@@ -17,13 +17,22 @@ public static class ServicesEndpoints
     {
         var services = app.MapGroup("/api/services").WithAgentErrors();
 
-        services.MapGet("/", async (AgentChannelFactory agent, CancellationToken cancellationToken) =>
-            Results.Ok((await agent.Services.ListServicesAsync(new ListServicesRequest(), cancellationToken: cancellationToken)).Services))
-            .RequirePermission(Permissions.ServicesView);
+        services.MapGet("/", async (AgentChannelFactory agent, AccessScope scope, CancellationToken cancellationToken) =>
+        {
+            var limits = await scope.GetAsync();
+
+            return Results.Ok((await agent.Services.ListServicesAsync(new ListServicesRequest(), cancellationToken: cancellationToken)).Services
+                .Where(s => limits.Unit(s.Name)));
+        }).RequirePermission(Permissions.ServicesView);
 
         services.MapPost("/{name}/{action}", async (string name, string action, HttpContext http, PanelDbContext db,
-            AgentChannelFactory agent, AuditLog audit, CancellationToken cancellationToken) =>
+            AgentChannelFactory agent, AccessScope scope, AuditLog audit, CancellationToken cancellationToken) =>
         {
+            if (!(await scope.GetAsync()).Unit(name))
+            {
+                return AccessScope.Denied();
+            }
+
             var serviceAction = action switch
             {
                 "start" => ServiceAction.Start,
@@ -49,7 +58,15 @@ public static class ServicesEndpoints
             return Results.Ok(unit);
         }).RequirePermission(Permissions.ServicesControl);
 
-        var logs = app.MapGroup("/api/logs").WithAgentErrors().RequirePermission(Permissions.LogsView);
+        var logs = app.MapGroup("/api/logs").WithAgentErrors().RequirePermission(Permissions.LogsView)
+            // A limited user reads only their apps' services' logs (and must name one).
+            .AddEndpointFilter(async (context, next) =>
+            {
+                var limits = await context.HttpContext.RequestServices.GetRequiredService<AccessScope>().GetAsync();
+                var unit = context.HttpContext.Request.Query["unit"].ToString();
+
+                return limits.All || (unit.Length > 0 && limits.Unit(unit)) ? await next(context) : AccessScope.Denied();
+            });
 
         logs.MapGet("/", async ([AsParameters] LogQuery query, AgentChannelFactory agent, CancellationToken cancellationToken) =>
         {

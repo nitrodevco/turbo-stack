@@ -169,12 +169,14 @@ function OwnerStep({ onDone }: { onDone: (result: { secret: string; otpauthUri: 
     );
 }
 
-function TotpStep({
+export function TotpStep({
     enrollment,
+    confirm = async (code) => (await api.post<{ recoveryCodes: string[] }>('/api/setup/owner/confirm', { code })).recoveryCodes,
     onBack,
     onDone,
 }: {
     enrollment: { secret: string; otpauthUri: string };
+    confirm?: (code: string) => Promise<string[]>;
     onBack: () => void;
     onDone: (codes: string[]) => void;
 }) {
@@ -206,8 +208,7 @@ function TotpStep({
                 onSubmit={(e) => {
                     e.preventDefault();
                     void run(async () => {
-                        const result = await api.post<{ recoveryCodes: string[] }>('/api/setup/owner/confirm', { code });
-                        onDone(result.recoveryCodes);
+                        onDone(await confirm(code));
                     });
                 }}
             >
@@ -226,7 +227,7 @@ function TotpStep({
     );
 }
 
-function RecoveryStep({ codes }: { codes: string[] }) {
+export function RecoveryStep({ codes }: { codes: string[] }) {
     const [saved, setSaved] = useState(false);
     const navigate = useNavigate();
     const queryClient = useQueryClient();

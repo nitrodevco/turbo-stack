@@ -58,6 +58,13 @@ public sealed class DeployAgentService(DeployManager deploy) : DeployAgent.Deplo
         return new Empty();
     }
 
+    public override async Task<Empty> SendConsoleInput(ConsoleInput request, ServerCallContext context)
+    {
+        await deploy.SendConsoleInputAsync(request, context.CancellationToken);
+
+        return new Empty();
+    }
+
     public override Task<SiteDirectory> EnsureSiteDirectory(AppRef request, ServerCallContext context) =>
         deploy.EnsureSiteDirectoryAsync(request, context.CancellationToken);
 

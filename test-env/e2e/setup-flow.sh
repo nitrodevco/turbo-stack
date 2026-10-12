@@ -356,7 +356,7 @@ wait_for_job "$(deploy_app "$(body_of "$response" | jq -r .appId)")" 300
 [[ "$(curl -sf -H "Host: landing.hotel.test" http://server/some/client/route)" == *"Hello from"* ]] || fail "SPA fallback should serve index.html"
 pass "static-site recipe: reused the repository, deployed, SPA site served"
 
-NODE_SERVER='mkdir -p dist && echo "require(\"http\").createServer((q, s) => s.end(\"recipe service on \" + process.env.PORT)).listen(process.env.PORT, process.env.HOST)" > dist/server.js'
+NODE_SERVER='mkdir -p dist && echo "require(\"http\").createServer((q, s) => s.end(\"recipe service on \" + process.env.PORT)).listen(process.env.PORT, process.env.HOST); process.stdin.on(\"data\", d => console.log(\"console got: \" + String(d).trim()))" > dist/server.js'
 response="$(call POST /api/recipes/node-service/preview "$(jq -n --arg build "$NODE_SERVER" '{
     name: "pinger", systemUser: "hotel", repository: "billsonnn/hotel-web", domains: ["pinger.hotel.test"], tlsMode: "None",
     inputs: { build: $build, start: "node dist/server.js" }}')")"
@@ -369,6 +369,20 @@ response="$(call POST /api/recipes/node-service "$(jq -n --arg build "$NODE_SERV
 wait_for_job "$(deploy_app "$(body_of "$response" | jq -r .appId)")" 300
 [[ "$(curl -sf -H "Host: pinger.hotel.test" http://server/)" == "recipe service on 3100" ]] || fail "service should answer on its allocated port behind the site"
 pass "node-service recipe: port allocated, service deployed and proxied"
+
+PINGER="$(body_of "$(call GET /api/apps)" | jq -r '.[] | select(.name == "pinger") | .id')"
+call PUT "/api/apps/$PINGER" "$(body_of "$(call GET "/api/apps/$PINGER")" | jq '.app | .console = true')" >/dev/null
+[[ "$(status_of "$(call POST "/api/apps/$PINGER/restart")")" == "204" ]] || fail "restarting with a console failed"
+sleep 2
+[[ "$(status_of "$(call POST "/api/apps/$PINGER/console" '{"line":"hello from the panel"}')")" == "204" ]] || fail "sending a console command failed"
+for _ in $(seq 1 10); do
+    LOGS="$(body_of "$(call GET '/api/logs?unit=tm-app-pinger.service&limit=50')" | jq -r '.[].message')"
+    [[ "$LOGS" == *"console got: hello from the panel"* ]] && break
+    sleep 1
+done
+[[ "$LOGS" == *"console got: hello from the panel"* ]] || fail "the service should read the console command: $LOGS"
+[[ "$(curl -sf -H "Host: pinger.hotel.test" http://server/)" == "recipe service on 3100" ]] || fail "the service should still serve after the console change"
+pass "console: a command typed in the panel reaches the service's stdin; its output is in the log"
 
 response="$(call POST /api/recipes/static-assets '{"name":"assets","systemUser":"hotel","domains":["assets.hotel.test"],"tlsMode":"None"}')"
 [[ "$(status_of "$response")" == "200" && "$(body_of "$response" | jq -r .appId)" == "null" ]] || fail "static-assets recipe failed: $response"
@@ -386,6 +400,106 @@ EMULATOR="$(body_of "$response" | jq -r .appId)"
 pass "turbo-emulator recipe: real $SQL database and user created, keys generated"
 
 echo "Recipes passed."
+echo
+echo "Team and API tokens"
+
+[[ "$(status_of "$(call POST /api/account/tokens '{"name":"ci","permissions":["apps.view"]}')")" == "403" ]] \
+    || fail "creating a token should need the second factor again"
+wait_next_totp_window
+[[ "$(status_of "$(call POST /api/account/sudo "{\"code\":\"$(oathtool --totp -b "$SECRET")\"}")")" == "200" ]] || fail "re-authenticating failed"
+API_TOKEN="$(body_of "$(call POST /api/account/tokens '{"name":"ci","permissions":["apps.view"],"expiresInDays":1}')" | jq -r .token)"
+[[ "$API_TOKEN" == tm_* ]] || fail "token should be created after re-authenticating"
+bearer() { curl -sk -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $1" "$BASE$2"; }
+[[ "$(bearer "$API_TOKEN" /api/apps)" == "200" ]] || fail "the token should list apps through nginx"
+[[ "$(bearer "$API_TOKEN" /api/firewall)" == "403" ]] || fail "the token must not do more than it was given"
+[[ "$(bearer tm_forged /api/apps)" == "401" ]] || fail "unknown tokens must be rejected"
+pass "API token: needs re-authentication, works through nginx, limited to its permissions"
+
+response="$(call POST /api/team '{"username":"deploybot","role":"Developer"}')"
+[[ "$(body_of "$response" | jq -r .inviteUrl)" == *"/invite?token="* ]] || fail "inviting a member failed: $response"
+[[ "$(body_of "$(call GET /api/team)" | jq -r '.[] | select(.username == "deploybot") | .invitePending')" == "true" ]] || fail "the invite should be pending"
+pass "member invited (pending until they set a password and 2FA)"
+
+echo "Team passed."
+echo
+echo "Alerts"
+
+response="$(call POST /api/alerts/channels '{"name":"Ops","kind":"Webhook","target":"http://fake-cloudflare:8080/__fake/webhook"}')"
+CHANNEL="$(body_of "$response" | jq -r .id)"
+[[ "$(status_of "$(call POST "/api/alerts/channels/$CHANNEL/test")")" == "204" ]] || fail "the test alert should be sent"
+[[ "$(curl -s http://fake-cloudflare:8080/__fake/webhooks | jq -r '.[-1].title')" == "Test alert" ]] || fail "the webhook should receive the test alert"
+pass "webhook channel added; test alert delivered"
+
+[[ "$(status_of "$(call POST /api/alerts/check)")" == "204" ]] || fail "an alert check should run against the real server"
+OPEN="$(body_of "$(call GET /api/alerts)" | jq -r '[.open[].key] | join(",")')"
+[[ "$OPEN" != *agent* && "$OPEN" != *"unit:"* ]] || fail "a healthy server shouldn't have agent or service alerts: $OPEN"
+pass "checks run on the real server (metrics, services, certificates, updates): ${OPEN:-nothing open}"
+
+echo "Alerts passed."
+echo
+echo "Terminal"
+
+SESSION_COOKIE="$(awk '$6 == "tm_session" { print $7 }' "$JAR")"
+# Types a few commands into a terminal over the WebSocket and prints everything the shell answered.
+terminal() {
+    { sleep 1; printf '%s\n' "$2"; sleep 2; printf 'exit\n'; sleep 2; } \
+        | timeout 20 websocat -k -b "-H=Cookie: tm_session=$SESSION_COOKIE" "-H=Origin: $BASE" "wss://server:8443/api/terminal?user=$1&cols=100&rows=30" 2>&1 || true
+}
+
+OUT="$(terminal hotel 'echo "who=$(id -un) home=$HOME tty=$(tty)"')"
+[[ "$OUT" == *"who=hotel home=/home/hotel tty=/dev/pts/"* ]] || fail "a shell as the app user should run in a real terminal: $OUT"
+[[ "$OUT" == *'{"exit":0}'* ]] || fail "the shell should end cleanly: $OUT"
+pass "terminal as the app user: a login shell in a real pseudo-terminal"
+
+[[ "$(terminal root 'id -u')" != *$'\n0'* ]] || fail "root must need re-authentication"
+[[ "$(curl -sk --http1.1 -o /dev/null -w '%{http_code}' -H "Cookie: tm_session=$SESSION_COOKIE" -H 'Origin: https://evil.example.com' \
+    -H 'Connection: Upgrade' -H 'Upgrade: websocket' -H 'Sec-WebSocket-Version: 13' -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' \
+    "$BASE/api/terminal?user=hotel")" == "403" ]] || fail "other sites must not open terminals"
+wait_next_totp_window
+[[ "$(status_of "$(call POST /api/account/sudo "{\"code\":\"$(oathtool --totp -b "$SECRET")\"}")")" == "200" ]] || fail "re-authenticating failed"
+OUT="$(terminal root 'echo "uid=$(id -u)"')"
+[[ "$OUT" == *"uid=0"* ]] || fail "the owner should get a root shell after re-authenticating: $OUT"
+pass "root terminal only after re-authenticating; other sites refused"
+
+echo "Terminal passed."
+echo
+echo "Files"
+
+[[ "$(status_of "$(call POST /api/files/folder '{"user":"hotel","path":"notes"}')")" == "204" ]] || fail "creating a folder failed"
+[[ "$(status_of "$(call PUT /api/files/content '{"user":"hotel","path":"notes/readme.txt","content":"hello from the file manager\n"}')")" == "204" ]] \
+    || fail "writing a file failed"
+[[ "$(body_of "$(call GET '/api/files/content?user=hotel&path=notes/readme.txt')" | jq -r .content)" == "hello from the file manager" ]] \
+    || fail "reading the file back failed"
+head -c 300000 /dev/urandom > /tmp/blob.bin
+[[ "$(curl -sk -b "$JAR" -o /dev/null -w '%{http_code}' -H 'X-TM-Request: 1' -H 'Content-Type: application/octet-stream' \
+    --data-binary @/tmp/blob.bin "$BASE/api/files/upload?user=hotel&path=notes/blob.bin")" == "204" ]] || fail "uploading failed"
+[[ "$(curl -sk -b "$JAR" "$BASE/api/files/download?user=hotel&path=notes/blob.bin" | sha256sum)" == "$(sha256sum < /tmp/blob.bin)" ]] \
+    || fail "the download should be byte-for-byte the upload"
+[[ "$(body_of "$(call GET '/api/files?user=hotel&path=notes')" | jq -r '[.entries[].name] | join(",")')" == "blob.bin,readme.txt" ]] || fail "listing failed"
+[[ "$(status_of "$(call GET '/api/files?user=hotel&path=../root')")" == "400" ]] || fail "climbing out of the home folder must be refused"
+[[ "$(status_of "$(call GET '/api/files?user=root')")" == "403" ]] || fail "root's files are not app files"
+pass "files: folder, write and read, 300 KB upload and identical download, .. and root refused"
+
+echo "Files passed."
+echo
+echo "SFTP"
+
+response="$(call POST /api/sftp '{"name":"assets-upload","user":"hotel","path":"sites/assets"}')"
+SFTP_PASSWORD="$(body_of "$response" | jq -r .password)"
+[[ "$(status_of "$response")" == "200" && ${#SFTP_PASSWORD} -ge 12 ]] || fail "creating an SFTP account failed: $response"
+sftp_as() { sshpass -p "$SFTP_PASSWORD" sftp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR assets-upload@server 2>&1; }
+echo "uploaded over sftp" > /tmp/upload.nitro
+printf '%s\n' '-mkdir bundled' 'put /tmp/upload.nitro bundled/upload.nitro' | sftp_as >/dev/null
+[[ "$(curl -s -H 'Host: assets.hotel.test' http://server/bundled/upload.nitro)" == "uploaded over sftp" ]] || fail "the uploaded file should be served by the assets site"
+pass "SFTP account: password login, upload lands in the assets site's folder and is served"
+
+ROOT_LISTING="$(printf '%s\n' 'ls /' | sftp_as)"
+[[ "$ROOT_LISTING" == *"/files"* && "$ROOT_LISTING" != *"/etc"* && "$ROOT_LISTING" != *"/home"* ]] || fail "the account should only see its folder: $ROOT_LISTING"
+SHELL_TRY="$(sshpass -p "$SFTP_PASSWORD" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR assets-upload@server id 2>&1 || true)"
+[[ "$SHELL_TRY" != *"uid="* ]] || fail "an SFTP account must not run commands: $SHELL_TRY"
+pass "SFTP account is chrooted to its folder and can't run commands"
+
+echo "SFTP passed."
 echo
 echo "Cloudflare (fake API)"
 

@@ -1,3 +1,4 @@
+import { AppConsole } from '../components/AppConsole';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
@@ -139,6 +140,7 @@ export function AppDetailPage() {
                 </ul>
             </Card>
 
+            {app.serviceCommand && can('logs.view') && <AppConsole appId={app.id} appName={app.name} canType={app.console && can('apps.console')} />}
             {can('apps.manage') && <SettingsCard app={app} onSaved={refresh} />}
             {can('apps.manage') && <EnvironmentCard appId={app.id} hasService={!!app.serviceCommand} />}
 
@@ -165,6 +167,7 @@ function SettingsCard({ app, onSaved }: { app: AppSettings; onSaved: () => void 
         staticOutput: a.staticOutput ?? '',
         serviceCommand: a.serviceCommand ?? '',
         serviceDirectory: a.serviceDirectory ?? '',
+        console: a.console,
         servicePort: a.servicePort?.toString() ?? '',
         healthPath: a.healthPath ?? '',
         memoryMaxMb: a.memoryMaxMb,
@@ -188,6 +191,7 @@ function SettingsCard({ app, onSaved }: { app: AppSettings; onSaved: () => void 
                 staticOutput: form.staticOutput || null,
                 serviceCommand: form.serviceCommand || null,
                 serviceDirectory: form.serviceDirectory || null,
+                console: form.console,
                 servicePort: form.servicePort ? Number(form.servicePort) : null,
                 healthPath: form.healthPath || null,
                 memoryMaxMb: Number(form.memoryMaxMb),
@@ -258,6 +262,12 @@ function SettingsCard({ app, onSaved }: { app: AppSettings; onSaved: () => void 
                     <Field label="Health path" value={form.healthPath} onChange={(e) => set('healthPath', e.target.value)} placeholder="/health" />
                 </div>
                 {form.serviceCommand && !form.servicePort && <p className="text-xs text-slate-500">Without a port the deploy can't check that the service actually started.</p>}
+                {form.serviceCommand && (
+                    <label className="flex items-center gap-2 text-sm">
+                        <input type="checkbox" className="size-4 accent-brand-600" checked={form.console} onChange={(e) => set('console', e.target.checked)} />
+                        Console: the service reads commands typed in the panel (its stdin). Applies after a restart.
+                    </label>
+                )}
                 <div className="grid gap-4 md:grid-cols-3">
                     <Field label="Memory limit (MB, 0 = none)" type="number" min={0} value={form.memoryMaxMb} onChange={(e) => set('memoryMaxMb', Number(e.target.value))} />
                     <Field label="Releases to keep" type="number" min={1} max={50} value={form.keepReleases} onChange={(e) => set('keepReleases', Number(e.target.value))} />

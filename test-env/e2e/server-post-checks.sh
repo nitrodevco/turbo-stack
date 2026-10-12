@@ -91,6 +91,15 @@ ASSET="$(curl -s -i -H 'Host: assets.hotel.test' http://127.0.0.1/bundled/figure
 [[ "$(stat -c '%U' /home/hotel/sites/assets)" == "hotel" ]] || fail "the assets folder should belong to the app user"
 pass "assets folder: uploads by the app user are served with CORS and caching"
 
+[[ "$(stat -c '%U' /home/hotel/notes/readme.txt /home/hotel/notes/blob.bin | sort -u)" == "hotel" ]] \
+    || fail "files written through the file manager must belong to the app user"
+pass "file manager writes as the app user (never root)"
+
+runuser -u hotel -- test -w /home/hotel/sites/assets/bundled/upload.nitro || fail "the app user should be able to manage what the SFTP account uploaded"
+[[ "$(stat -c '%U %a' /srv/tm-sftp/assets-upload)" == "root 755" ]] || fail "the SFTP chroot must belong to root"
+[[ "$(getent passwd assets-upload | cut -d: -f7)" == "/usr/sbin/nologin" ]] || fail "the SFTP account must have no shell"
+pass "SFTP: chroot root-owned, no shell, uploads usable by the app user"
+
 [[ -z "$(find /opt/turbo-manager/runtimes ! -user root -print -quit)" ]] || fail "runtimes must be owned by root"
 [[ -z "$(find /opt/turbo-manager/runtimes ! -type l -perm /022 -print -quit)" ]] || fail "runtimes must not be group/world writable"
 pass "runtimes are root-owned and not writable by apps"

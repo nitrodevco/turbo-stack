@@ -23,7 +23,10 @@ public static class SecurityMiddleware
         var request = context.Request;
         var unsafeMethod = !(HttpMethods.IsGet(request.Method) || HttpMethods.IsHead(request.Method) || HttpMethods.IsOptions(request.Method));
 
-        if (unsafeMethod && request.Path.StartsWithSegments("/api") && !request.Headers.ContainsKey(CsrfHeader))
+        // API tokens travel in the Authorization header, which a cross-site form can't send either.
+        var bearer = request.Headers.Authorization.ToString().StartsWith("Bearer ", StringComparison.Ordinal);
+
+        if (unsafeMethod && !bearer && request.Path.StartsWithSegments("/api") && !request.Headers.ContainsKey(CsrfHeader))
         {
             context.Response.StatusCode = StatusCodes.Status400BadRequest;
             await context.Response.WriteAsJsonAsync(new { error = $"Missing {CsrfHeader} header." });

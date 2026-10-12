@@ -35,6 +35,8 @@ public sealed class StackAnswers
 
     public string? DatabaseEngine { get; set; }
 
+    public bool Isolated { get; set; }
+
     private static readonly IDeserializer Reader = new DeserializerBuilder().WithNamingConvention(CamelCaseNamingConvention.Instance).Build();
 
     private static readonly ISerializer Writer = new SerializerBuilder().WithNamingConvention(CamelCaseNamingConvention.Instance)
@@ -45,7 +47,7 @@ public sealed class StackAnswers
     public string ToYaml() => $"# {Branding.ProductName} hotel answers. Install with: install.sh --config hotel.yaml\n" + Writer.Serialize(this);
 
     public StackRequest ToRequest() =>
-        new(Name, Preset, SystemUser, Domain, TlsMode, CloudflareDns, Hosts, Settings, Overrides, Sources, DatabaseEngine);
+        new(Name, Preset, SystemUser, Domain, TlsMode, CloudflareDns, Hosts, Settings, Overrides, Sources, DatabaseEngine, Isolated);
 
     public static StackAnswers From(Stack stack) => new()
     {
@@ -60,6 +62,7 @@ public sealed class StackAnswers
         Overrides = stack.Overrides,
         Sources = stack.Sources,
         DatabaseEngine = stack.DatabaseEngine,
+        Isolated = stack.Isolated,
     };
 }
 

@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { NavLink, Outlet, useNavigate } from 'react-router';
+import { Link, NavLink, Outlet, useNavigate } from 'react-router';
 import { api, type Me } from '../api';
 import { PendingFirewallBanner } from './PendingFirewallBanner';
 import { Logo } from './ui';
@@ -14,10 +14,14 @@ const navigation: { label: string; to?: string; permission?: string }[] = [
     { label: 'Databases', to: '/databases', permission: 'databases.view' },
     { label: 'Services', to: '/services', permission: 'services.view' },
     { label: 'Logs', to: '/logs', permission: 'logs.view' },
+    { label: 'Terminal', to: '/terminal', permission: 'terminal.app' },
+    { label: 'Files', to: '/files', permission: 'files.manage' },
     { label: 'Firewall', to: '/firewall', permission: 'firewall.view' },
     { label: 'SSH access', to: '/ssh', permission: 'ssh.view' },
     { label: 'Updates', to: '/updates', permission: 'packages.view' },
     { label: 'Cloudflare', to: '/cloudflare', permission: 'sites.view' },
+    { label: 'Alerts', to: '/alerts', permission: 'system.view' },
+    { label: 'Team', to: '/team', permission: 'users.manage' },
     { label: 'Activity', to: '/activity', permission: 'audit.view' },
     { label: 'Settings', to: '/settings', permission: 'sites.view' },
 ];
@@ -63,9 +67,9 @@ export function AppShell({ me }: { me: Me }) {
                     {me.remainingRecoveryCodes <= 3 && (
                         <span className="text-amber-700 dark:text-amber-400">{me.remainingRecoveryCodes} recovery codes left</span>
                     )}
-                    <span className="text-slate-600 dark:text-slate-400">
+                    <Link to="/account" className="text-slate-600 hover:underline dark:text-slate-400">
                         {me.username} · {me.role}
-                    </span>
+                    </Link>
                     <button onClick={() => void logout()} className="rounded-lg px-3 py-1.5 font-medium hover:bg-slate-100 dark:hover:bg-slate-800">
                         Sign out
                     </button>
