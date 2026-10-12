@@ -316,3 +316,83 @@ export type DatabaseCredentials = { engine: DatabaseEngineSlug; database: string
 export type DatabaseBackup = { id: string; engine: DatabaseEngineSlug | ''; database: string; sizeBytes: number; createdUnixMs: number; import: boolean; fileName: string };
 
 export type BackupScheduleView = { id: number; engine: DatabaseEngineSlug; database: string; enabled: boolean; timeOfDay: string; retentionCount: number; lastRunAt: string | null; lastResult: string | null };
+
+export type RepositoryView = {
+    id: number;
+    name: string;
+    systemUser: string;
+    owner: string;
+    repositoryName: string;
+    fullName: string;
+    branch: string;
+    isPrivate: boolean;
+    publicKey: string | null;
+    keyFingerprint: string | null;
+    submodules: boolean;
+    submoduleKeys: { repository: string; publicKey: string | null; fingerprint: string | null }[];
+    lastSyncedAt: string | null;
+    lastCommit: string | null;
+    lastCommitMessage: string | null;
+    lastError: string | null;
+    webhookUrl: string;
+    deployKeysUrl: string;
+    webhooksUrl: string;
+};
+
+export type WebhookDeliveryView = { id: string; receivedAt: string; event: string; ref: string | null; result: string };
+
+export type AppSummary = {
+    id: number;
+    name: string;
+    systemUser: string;
+    repository: string;
+    branch: string;
+    currentRelease: string | null;
+    autoDeploy: boolean;
+    hasService: boolean;
+    staticPath: string | null;
+    lastRelease: { name: string; status: ReleaseStatus; startedAt: string; commitMessage: string | null } | null;
+};
+
+export type ReleaseStatus = 'building' | 'active' | 'inactive' | 'failed';
+
+export type AppSettings = {
+    id: number;
+    name: string;
+    systemUser: string;
+    repositoryId: number;
+    repository: string;
+    workingDirectory: string;
+    buildScript: string;
+    runtimes: string[];
+    sharedPaths: { path: string; directory: boolean }[];
+    staticOutput: string | null;
+    serviceCommand: string | null;
+    servicePort: number | null;
+    healthPath: string | null;
+    memoryMaxMb: number;
+    stopTimeoutSeconds: number;
+    keepReleases: number;
+    autoDeploy: boolean;
+    deployPaths: string[];
+    purgeCloudflare: boolean;
+    currentRelease: string | null;
+    staticPath: string | null;
+    unit: string | null;
+};
+
+export type ReleaseView = {
+    name: string;
+    commit: string | null;
+    commitMessage: string | null;
+    commitAuthor: string | null;
+    status: ReleaseStatus;
+    trigger: string;
+    triggeredBy: string | null;
+    jobId: number | null;
+    startedAt: string;
+    finishedAt: string | null;
+    error: string | null;
+};
+
+export type RuntimeView = { name: string; installed: boolean; version: string; path: string };

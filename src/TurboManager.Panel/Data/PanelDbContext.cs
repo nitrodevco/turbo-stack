@@ -40,6 +40,14 @@ public sealed class PanelDbContext(DbContextOptions<PanelDbContext> options) : D
 
     public DbSet<BackupSchedule> BackupSchedules => Set<BackupSchedule>();
 
+    public DbSet<GitRepository> Repositories => Set<GitRepository>();
+
+    public DbSet<App> Apps => Set<App>();
+
+    public DbSet<AppRelease> Releases => Set<AppRelease>();
+
+    public DbSet<WebhookDelivery> WebhookDeliveries => Set<WebhookDelivery>();
+
     protected override void OnModelCreating(ModelBuilder model)
     {
         model.Entity<PanelUser>(user =>
@@ -100,6 +108,31 @@ public sealed class PanelDbContext(DbContextOptions<PanelDbContext> options) : D
         });
 
         model.Entity<DatabaseCredential>().HasIndex(c => new { c.Engine, c.Username }).IsUnique();
+
+        model.Entity<GitRepository>(repository =>
+        {
+            repository.HasIndex(r => new { r.SystemUser, r.Name }).IsUnique();
+            repository.Property(r => r.Auth).HasConversion<string>().HasMaxLength(16);
+            repository.OwnsMany(r => r.SubmoduleKeys, keys => keys.ToJson());
+            repository.Ignore(r => r.FullName);
+        });
+
+        model.Entity<App>(app =>
+        {
+            app.HasIndex(a => a.Name).IsUnique();
+            app.HasOne(a => a.Repository).WithMany().HasForeignKey(a => a.RepositoryId).OnDelete(DeleteBehavior.Restrict);
+            app.OwnsMany(a => a.SharedPaths, paths => paths.ToJson());
+            app.Ignore(a => a.AppDirectory);
+        });
+
+        model.Entity<AppRelease>(release =>
+        {
+            release.HasIndex(r => new { r.AppId, r.Name }).IsUnique();
+            release.Property(r => r.Status).HasConversion<string>().HasMaxLength(16);
+            release.HasOne<App>().WithMany().HasForeignKey(r => r.AppId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        model.Entity<WebhookDelivery>().HasIndex(d => d.ReceivedAt);
 
         model.Entity<BackupSchedule>().HasIndex(s => new { s.Engine, s.Database }).IsUnique();
 

@@ -13,6 +13,7 @@ using TurboManager.Panel.Cloudflare;
 using TurboManager.Panel.Auth;
 using TurboManager.Panel.Data;
 using TurboManager.Panel.Databases;
+using TurboManager.Panel.Deploy;
 using TurboManager.Panel.Endpoints;
 using TurboManager.Panel.Firewall;
 using TurboManager.Panel.Http;
@@ -57,6 +58,14 @@ builder.Services.AddScoped<PanelAddressService>();
 builder.Services.AddHostedService<CloudflareMaintenanceService>();
 builder.Services.AddScoped<DatabaseService>();
 builder.Services.AddHostedService<BackupScheduler>();
+builder.Services.AddSingleton<GitHubHostKeys>();
+builder.Services.AddScoped<DeployService>();
+builder.Services.AddHttpClient("github", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(15);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("turbo-manager");
+});
+builder.Services.AddHttpClient("health", client => client.Timeout = TimeSpan.FromSeconds(3));
 builder.Services.AddHttpClient("detect-ip", client => client.Timeout = TimeSpan.FromSeconds(5));
 builder.Services.AddHttpClient(CertificateService.AcmeHttpClientName)
     .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
@@ -114,6 +123,7 @@ app.MapActivityEndpoints();
 app.MapSitesEndpoints();
 app.MapCloudflareEndpoints();
 app.MapDatabaseEndpoints();
+app.MapDeployEndpoints();
 app.MapFallback("/api/{**path}", () => Results.NotFound());
 app.MapFallbackToFile("index.html");
 

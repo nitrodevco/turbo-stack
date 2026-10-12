@@ -1,0 +1,17 @@
+#!/bin/bash
+# commit-change <owner/name> <file> <content>: pushes a commit to main, as if a developer pushed.
+set -euo pipefail
+
+repo="$1"
+file="$2"
+content="$3"
+[[ "$repo" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ && "$file" =~ ^[A-Za-z0-9._/-]+$ ]] || { echo "bad input" >&2; exit 1; }
+
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT
+git clone -q "/home/git/$repo.git" "$work"
+printf '%s\n' "$content" > "$work/$file"
+git -C "$work" -c user.name=Developer -c user.email=dev@hotel.test commit -qam "Update $file"
+git -C "$work" push -q origin main
+chown -R git:git "/home/git/$repo.git"
+git -C "$work" rev-parse HEAD

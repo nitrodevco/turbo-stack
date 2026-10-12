@@ -70,4 +70,21 @@ pass "PostgreSQL app user can log in to its database and not to another app's"
 [[ "$(stat -c '%a' /var/lib/turbo-manager-backups/databases)" == "700" ]] || fail "backup directory must be root-only"
 pass "database backups are root-only"
 
+[[ "$(systemctl show -p User --value tm-app-api.service)" == "hotel" ]] || fail "the api service should run as the app user"
+[[ "$(ps -o user= -p "$(systemctl show -p MainPID --value tm-app-api.service)")" == "hotel" ]] || fail "the api process should run as hotel"
+id -nG hotel | grep -qw tm-apps || fail "hotel should be in tm-apps"
+if id -nG hotel | grep -qwE 'sudo|adm|turbo-manager'; then fail "the app user must not be in privileged groups"; fi
+pass "app service runs as its own unprivileged user"
+
+[[ "$(stat -c '%a %U' /home/hotel)" == "750 hotel" ]] || fail "the app home should be 750 and owned by hotel"
+KEYS="$(find /home/hotel/.ssh/tm -type f ! -name '*.pub' -printf '%m %u\n' | sort -u)"
+[[ "$KEYS" == "600 hotel" ]] || fail "deploy keys should be 600 and owned by hotel (got: $KEYS)"
+[[ -z "$(find /home/hotel/apps ! -user hotel -print -quit)" ]] || fail "nothing under the apps directory should belong to another user"
+[[ "$(stat -c '%U' /etc/turbo-manager/apps/api.run)" == "root" ]] || fail "the service launcher must be root-owned"
+pass "app files: home 750, private keys 600, launcher root-owned"
+
+[[ -z "$(find /opt/turbo-manager/runtimes ! -user root -print -quit)" ]] || fail "runtimes must be owned by root"
+[[ -z "$(find /opt/turbo-manager/runtimes ! -type l -perm /022 -print -quit)" ]] || fail "runtimes must not be group/world writable"
+pass "runtimes are root-owned and not writable by apps"
+
 echo "Server post-checks passed."

@@ -4,6 +4,8 @@ import { api, ApiError, type Me, type SetupStatus } from './api';
 import { AppShell } from './components/AppShell';
 import { CenteredPage, ErrorNote } from './components/ui';
 import { ActivityPage } from './pages/ActivityPage';
+import { AppDetailPage } from './pages/AppDetailPage';
+import { AppsPage } from './pages/AppsPage';
 import { CertificatesPage } from './pages/CertificatesPage';
 import { CloudflarePage } from './pages/CloudflarePage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -11,6 +13,7 @@ import { DatabasesPage } from './pages/DatabasesPage';
 import { FirewallPage } from './pages/FirewallPage';
 import { LoginPage } from './pages/LoginPage';
 import { LogsPage } from './pages/LogsPage';
+import { RepositoryPage } from './pages/RepositoryPage';
 import { AddressCheckPage, HandoverPage } from './pages/PublicPages';
 import { ServicesPage } from './pages/ServicesPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -70,6 +73,9 @@ export function App() {
                 <Route path="settings" element={<SettingsPage />} />
                 <Route path="cloudflare" element={<CloudflarePage />} />
                 <Route path="databases" element={<DatabasesPage />} />
+                <Route path="apps" element={<AppsPage />} />
+                <Route path="apps/:id" element={<AppDetailPage />} />
+                <Route path="repositories/:id" element={<RepositoryPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
         </Routes>

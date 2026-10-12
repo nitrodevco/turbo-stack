@@ -724,6 +724,21 @@ an unconfirmed change reverting) but has still not been run. Deferred from M1: c
   24.04 and 26.04. Later: MySQL↔MariaDB migration job, remote backup targets (M8), tuning,
   process list. Ubuntu 24.04 ships MySQL 8.0 (past Oracle's EOL), so the panel recommends
   MariaDB there and MySQL where Ubuntu's MySQL is 8.4+ (26.04); the E2E installs the recommendation.
+- *M4 status (2026-10-11):* deployments implemented. Repositories belong to a Linux user (group
+  `tm-apps`, home 750, never root); private repos and private submodules each get their own
+  deploy key (ssh alias per key, pinned GitHub host keys, submodule URLs rewritten per key).
+  Apps: build script with runtimes on PATH (dotnet via dotnet-install, Node from nodejs.org with
+  checksum check + corepack), releases under `apps/<app>/releases` with shared paths and an
+  atomic `current` swap, static output for sites, optional systemd service (`tm-app-<app>`,
+  root-owned launcher, encrypted environment, memory limit) with a health check and automatic
+  rollback, one-click rollback, pruning, Cloudflare purge after deploy. GitHub push webhooks
+  (HMAC, replay protection, branch + path filters) trigger auto-deploys. The Docker E2E adds a
+  fake GitHub (SSH git server enforcing per-repo deploy keys) and covers private repo +
+  private submodule, Node build, static site + proxied service, signed webhook, rollback,
+  unhealthy release and failed build. The first runs found that runtime archives kept their
+  builder's uid 1000 (which could be an app user) and that corepack needs `node` on PATH; the
+  agent now extracts without owners and forces `root:root` on runtimes. Not yet: GitHub App / provider-token auth (deploy keys
+  only), deploy notifications, zero-downtime (socket-activated) service swaps.
 - *Deviations / later:* ACME DNS-01 (wildcards without Cloudflare Origin) and Pebble in the
   Docker env are not done yet; fail2ban still bans in UFW even for proxied traffic (banning via
   the Cloudflare API, plan 6.8, comes with the WAF work); Authenticated Origin Pulls not yet.

@@ -1,0 +1,29 @@
+#!/bin/bash
+# Test-only admin API (not part of the real GitHub): POST form fields
+#   action=add-key&repo=owner/name&key=<urlencoded public key>
+#   action=commit&repo=owner/name&file=index.html&content=<urlencoded text>
+#   action=host-key
+# Answers 500 when the action fails, so callers using curl -f notice.
+set -uo pipefail
+
+declare -A field
+if [[ "${REQUEST_METHOD:-GET}" == "POST" ]]; then
+    IFS='&' read -r -a pairs <<<"$(head -c "${CONTENT_LENGTH:-0}")"
+    for pair in "${pairs[@]}"; do
+        key="${pair%%=*}"
+        value="${pair#*=}"
+        value="${value//+/ }"
+        field[$key]="$(printf '%b' "${value//%/\\x}")"
+    done
+fi
+
+case "${field[action]:-}" in
+    add-key) output="$(/usr/local/bin/add-deploy-key "${field[repo]}" "${field[key]}" 2>&1)" ;;
+    commit) output="$(/usr/local/bin/commit-change "${field[repo]}" "${field[file]}" "${field[content]}" 2>&1)" ;;
+    host-key) output="$(awk '{print $1" "$2}' /etc/ssh/ssh_host_ed25519_key.pub)" ;;
+    *) output="unknown action"; false ;;
+esac
+status=$?
+
+[[ $status -eq 0 ]] || printf 'Status: 500 Internal Server Error\r\n'
+printf 'Content-Type: text/plain\r\n\r\n%s\n' "$output"

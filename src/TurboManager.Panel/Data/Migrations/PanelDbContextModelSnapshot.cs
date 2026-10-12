@@ -38,6 +38,140 @@ namespace TurboManager.Panel.Data.Migrations
                     b.ToTable("AcmeAccounts");
                 });
 
+            modelBuilder.Entity("TurboManager.Panel.Data.App", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("AutoDeploy")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("BuildScript")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("CurrentRelease")
+                        .HasColumnType("TEXT");
+
+                    b.PrimitiveCollection<string>("DeployPaths")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("EnvironmentProtected")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("HealthPath")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("KeepReleases")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("MemoryMaxMb")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("PurgeCloudflare")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("RepositoryId")
+                        .HasColumnType("INTEGER");
+
+                    b.PrimitiveCollection<string>("Runtimes")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ServiceCommand")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("ServicePort")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("StaticOutput")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("StopTimeoutSeconds")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("SystemUser")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("WorkingDirectory")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.HasIndex("RepositoryId");
+
+                    b.ToTable("Apps");
+                });
+
+            modelBuilder.Entity("TurboManager.Panel.Data.AppRelease", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("AppId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Commit")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CommitAuthor")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CommitMessage")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Error")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("FinishedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("JobId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("StartedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Trigger")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TriggeredBy")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AppId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("Releases");
+                });
+
             modelBuilder.Entity("TurboManager.Panel.Data.AuditEntry", b =>
                 {
                     b.Property<long>("Id")
@@ -232,6 +366,73 @@ namespace TurboManager.Panel.Data.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("FirewallSettings");
+                });
+
+            modelBuilder.Entity("TurboManager.Panel.Data.GitRepository", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Auth")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Branch")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("KeyFingerprint")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LastCommit")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LastCommitMessage")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LastError")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("LastSyncedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Owner")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PublicKey")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RepositoryName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Submodules")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("SystemUser")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("WebhookSecretProtected")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SystemUser", "Name")
+                        .IsUnique();
+
+                    b.ToTable("Repositories");
                 });
 
             modelBuilder.Entity("TurboManager.Panel.Data.IpList", b =>
@@ -737,6 +938,118 @@ namespace TurboManager.Panel.Data.Migrations
                     b.HasIndex("SiteId");
 
                     b.ToTable("SiteRoute");
+                });
+
+            modelBuilder.Entity("TurboManager.Panel.Data.WebhookDelivery", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Event")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("ReceivedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Ref")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("RepositoryId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Result")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReceivedAt");
+
+                    b.ToTable("WebhookDeliveries");
+                });
+
+            modelBuilder.Entity("TurboManager.Panel.Data.App", b =>
+                {
+                    b.HasOne("TurboManager.Panel.Data.GitRepository", "Repository")
+                        .WithMany()
+                        .HasForeignKey("RepositoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.OwnsMany("TurboManager.Panel.Data.AppSharedPath", "SharedPaths", b1 =>
+                        {
+                            b1.Property<int>("AppId");
+
+                            b1.Property<int>("__synthesizedOrdinal")
+                                .ValueGeneratedOnAddOrUpdate();
+
+                            b1.Property<bool>("Directory");
+
+                            b1.Property<string>("Path")
+                                .IsRequired();
+
+                            b1.HasKey("AppId", "__synthesizedOrdinal");
+
+                            b1.ToTable("Apps");
+
+                            b1
+                                .ToJson("SharedPaths")
+                                .HasColumnType("TEXT");
+
+                            b1.WithOwner()
+                                .HasForeignKey("AppId");
+                        });
+
+                    b.Navigation("Repository");
+
+                    b.Navigation("SharedPaths");
+                });
+
+            modelBuilder.Entity("TurboManager.Panel.Data.AppRelease", b =>
+                {
+                    b.HasOne("TurboManager.Panel.Data.App", null)
+                        .WithMany()
+                        .HasForeignKey("AppId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("TurboManager.Panel.Data.GitRepository", b =>
+                {
+                    b.OwnsMany("TurboManager.Panel.Data.SubmoduleKey", "SubmoduleKeys", b1 =>
+                        {
+                            b1.Property<int>("GitRepositoryId");
+
+                            b1.Property<int>("__synthesizedOrdinal")
+                                .ValueGeneratedOnAddOrUpdate();
+
+                            b1.Property<string>("Fingerprint");
+
+                            b1.Property<string>("KeyName")
+                                .IsRequired();
+
+                            b1.Property<string>("Name")
+                                .IsRequired();
+
+                            b1.Property<string>("Owner")
+                                .IsRequired();
+
+                            b1.Property<string>("PublicKey");
+
+                            b1.HasKey("GitRepositoryId", "__synthesizedOrdinal");
+
+                            b1.ToTable("Repositories");
+
+                            b1
+                                .ToJson("SubmoduleKeys")
+                                .HasColumnType("TEXT");
+
+                            b1.WithOwner()
+                                .HasForeignKey("GitRepositoryId");
+                        });
+
+                    b.Navigation("SubmoduleKeys");
                 });
 
             modelBuilder.Entity("TurboManager.Panel.Data.IpListEntry", b =>

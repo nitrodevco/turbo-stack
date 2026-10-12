@@ -1,0 +1,11 @@
+#!/bin/bash
+# add-deploy-key <owner/name> <public key>: like GitHub's "Add deploy key" (read-only).
+set -euo pipefail
+
+repo="$1"
+key="$2"
+[[ "$repo" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] || { echo "bad repository" >&2; exit 1; }
+[[ "$key" =~ ^ssh-[a-z0-9-]+\ [A-Za-z0-9+/=]+ ]] || { echo "bad key" >&2; exit 1; }
+
+echo "command=\"/usr/local/bin/git-only $repo\",no-port-forwarding,no-pty,no-agent-forwarding,no-X11-forwarding $key" >> /home/git/.ssh/authorized_keys
+echo "Added deploy key to $repo"

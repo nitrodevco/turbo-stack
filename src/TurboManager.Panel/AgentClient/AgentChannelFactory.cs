@@ -54,6 +54,8 @@ public sealed class AgentChannelFactory(IOptions<PanelOptions> options) : IDispo
 
     public DatabaseAgent.DatabaseAgentClient Databases => new(_channel.Value);
 
+    public DeployAgent.DeployAgentClient Deploy => new(_channel.Value);
+
     public void Dispose()
     {
         if (_channel.IsValueCreated)

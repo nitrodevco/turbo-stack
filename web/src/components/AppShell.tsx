@@ -10,7 +10,7 @@ const navigation: { label: string; to?: string; permission?: string }[] = [
     { label: 'Hotel' },
     { label: 'Sites', to: '/sites', permission: 'sites.view' },
     { label: 'Certificates', to: '/certificates', permission: 'sites.view' },
-    { label: 'Apps & deploys' },
+    { label: 'Apps & deploys', to: '/apps', permission: 'apps.view' },
     { label: 'Databases', to: '/databases', permission: 'databases.view' },
     { label: 'Services', to: '/services', permission: 'services.view' },
     { label: 'Logs', to: '/logs', permission: 'logs.view' },

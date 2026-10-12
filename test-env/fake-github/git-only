@@ -1,0 +1,17 @@
+#!/bin/bash
+# Forced command for a deploy key: only read access, only to the repository the key belongs to.
+# Usage (from authorized_keys): command="git-only owner/name"
+set -euo pipefail
+
+allowed="$1"
+read -r verb path <<<"${SSH_ORIGINAL_COMMAND:-}"
+path="${path//\'/}"
+path="${path#/}"
+path="${path%.git}"
+
+if [[ "$verb" != "git-upload-pack" || "$path" != "$allowed" ]]; then
+    echo "ERROR: Repository not found." >&2
+    exit 1
+fi
+
+exec git-shell -c "git-upload-pack '$allowed.git'"

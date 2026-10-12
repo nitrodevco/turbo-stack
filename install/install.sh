@@ -98,7 +98,7 @@ if [[ $UPGRADE -eq 1 ]]; then
 fi
 log "Installing base packages"
 apt-get -y -qq install --no-install-recommends \
-    ca-certificates curl git unzip jq openssl acl iproute2 \
+    ca-certificates curl git unzip jq openssl acl iproute2 rsync xz-utils \
     nginx ufw fail2ban python3-systemd unattended-upgrades >/dev/null
 
 # ---------------------------------------------------------------------------------------------

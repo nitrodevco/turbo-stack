@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { api, errorMessage, type CloudflareOverview, type DnsActionView, type DnsCheck, type RouteKind, type SiteApplyResponse, type SiteDetail, type SiteModel, type SiteRouteModel } from '../api';
 import { usePermissions } from '../auth';
 import { JobOutput } from '../components/JobOutput';
@@ -54,7 +54,14 @@ function SiteEditor({ siteId, detail }: { siteId: number | null; detail: SiteDet
     const editable = can('sites.manage');
     const navigate = useNavigate();
     const queryClient = useQueryClient();
-    const [model, setModel] = useState<SiteModel>(detail?.model ?? newModel());
+    const [params] = useSearchParams();
+    // "Serve them with a site" on an app page pre-fills the route.
+    const [model, setModel] = useState<SiteModel>(() => {
+        const initial = detail?.model ?? newModel();
+        const target = params.get('target');
+
+        return !detail && target ? { ...initial, routes: [{ ...initial.routes[0], target, kind: (params.get('kind') as RouteKind) ?? 'Spa' }] } : initial;
+    });
     const [domainsText, setDomainsText] = useState((detail?.model.domains ?? []).join('\n'));
     const [tab, setTab] = useState<'preview' | 'dns' | 'history'>('preview');
     const [result, setResult] = useState<SiteApplyResponse | null>(null);

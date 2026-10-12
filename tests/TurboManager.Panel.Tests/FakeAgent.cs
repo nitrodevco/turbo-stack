@@ -364,6 +364,109 @@ public sealed class FakeDatabaseAgent : DatabaseAgent.DatabaseAgentBase
     }
 }
 
+/// <summary>In-memory app users, keys, releases and services. A build script containing "fail" fails.</summary>
+public sealed class FakeDeployAgent : DeployAgent.DeployAgentBase
+{
+    public HashSet<string> Users { get; } = [];
+
+    public Dictionary<string, string> Keys { get; } = [];
+
+    public Dictionary<string, List<string>> Releases { get; } = [];
+
+    public Dictionary<string, string> Current { get; } = [];
+
+    public Dictionary<string, AppServiceRequest> Services { get; } = [];
+
+    public List<GitSyncRequest> Syncs { get; } = [];
+
+    public List<BuildRequest> Builds { get; } = [];
+
+    public string Commit { get; set; } = "abcdef1234567890abcdef1234567890abcdef12";
+
+    public override Task<AppUserInfo> EnsureAppUser(AppUserRequest request, ServerCallContext context)
+    {
+        Users.Add(request.User);
+
+        return Task.FromResult(new AppUserInfo { User = request.User, Home = $"/home/{request.User}", Uid = 1001 });
+    }
+
+    public override Task<DeployKey> EnsureDeployKey(DeployKeyRequest request, ServerCallContext context)
+    {
+        Keys.TryAdd(request.KeyName, $"ssh-ed25519 AAAAFAKE{request.KeyName} turbo-manager {request.User}/{request.KeyName}");
+
+        return Task.FromResult(new DeployKey { KeyName = request.KeyName, PublicKey = Keys[request.KeyName], Fingerprint = $"SHA256:{request.KeyName}" });
+    }
+
+    public override Task<GitAccessResult> TestRepositoryAccess(GitSyncRequest request, ServerCallContext context) =>
+        Task.FromResult(new GitAccessResult { Ok = true, Head = Commit });
+
+    public override async Task SyncRepository(GitSyncRequest request, IServerStreamWriter<DeployOutput> responseStream, ServerCallContext context)
+    {
+        Syncs.Add(request);
+        await responseStream.WriteAsync(new DeployOutput { Line = "$ git fetch" });
+        await responseStream.WriteAsync(new DeployOutput { Finished = true, Success = true, Commit = Commit, CommitAuthor = "Bill", CommitMessage = "Update" });
+    }
+
+    public override async Task CreateRelease(ReleaseRequest request, IServerStreamWriter<DeployOutput> responseStream, ServerCallContext context)
+    {
+        if (!Releases.TryGetValue(request.App, out var list))
+        {
+            Releases[request.App] = list = [];
+        }
+
+        list.Insert(0, request.Release);
+        await responseStream.WriteAsync(new DeployOutput { Finished = true, Success = true, Release = request.Release });
+    }
+
+    public override async Task RunBuild(BuildRequest request, IServerStreamWriter<DeployOutput> responseStream, ServerCallContext context)
+    {
+        Builds.Add(request);
+        var failed = request.Script.Contains("fail", StringComparison.Ordinal);
+        await responseStream.WriteAsync(new DeployOutput { Line = failed ? "error: build broke" : "built" });
+        await responseStream.WriteAsync(new DeployOutput { Finished = true, Success = !failed });
+    }
+
+    public override Task<ReleaseState> ActivateRelease(ReleaseRequest request, ServerCallContext context)
+    {
+        Current[request.App] = request.Release;
+
+        return GetReleaseState(new AppRef { User = request.User, App = request.App }, context);
+    }
+
+    public override Task<ReleaseState> GetReleaseState(AppRef request, ServerCallContext context)
+    {
+        var state = new ReleaseState { Current = Current.GetValueOrDefault(request.App, ""), AppDir = $"/home/{request.User}/apps/{request.App}" };
+        state.Releases.AddRange(Releases.GetValueOrDefault(request.App) ?? []);
+
+        return Task.FromResult(state);
+    }
+
+    public override Task<ReleaseState> PruneReleases(PruneRequest request, ServerCallContext context)
+    {
+        if (Releases.TryGetValue(request.App, out var list))
+        {
+            list.RemoveAll(r => list.IndexOf(r) >= request.Keep && r != Current.GetValueOrDefault(request.App));
+        }
+
+        return GetReleaseState(new AppRef { User = request.User, App = request.App }, context);
+    }
+
+    public override Task<Google.Protobuf.WellKnownTypes.Empty> WriteAppService(AppServiceRequest request, ServerCallContext context)
+    {
+        Services[request.App] = request;
+
+        return Task.FromResult(new Google.Protobuf.WellKnownTypes.Empty());
+    }
+
+    public override Task<Google.Protobuf.WellKnownTypes.Empty> RemoveApp(AppRef request, ServerCallContext context)
+    {
+        Releases.Remove(request.App);
+        Services.Remove(request.App);
+
+        return Task.FromResult(new Google.Protobuf.WellKnownTypes.Empty());
+    }
+}
+
 /// <summary>A gRPC server on a unix socket implementing the agent services the panel tests need.</summary>
 public sealed class FakeAgent : IAsyncDisposable
 {
@@ -377,6 +480,8 @@ public sealed class FakeAgent : IAsyncDisposable
 
     public FakeDatabaseAgent Databases { get; } = new();
 
+    public FakeDeployAgent Deploy { get; } = new();
+
     private FakeAgent(string socketPath)
     {
         var builder = WebApplication.CreateSlimBuilder();
@@ -387,12 +492,14 @@ public sealed class FakeAgent : IAsyncDisposable
         builder.Services.AddSingleton(Services);
         builder.Services.AddSingleton(Nginx);
         builder.Services.AddSingleton(Databases);
+        builder.Services.AddSingleton(Deploy);
         _app = builder.Build();
         _app.MapGrpcService<FakeFirewallAgent>();
         _app.MapGrpcService<FakeServicesAgent>();
         _app.MapGrpcService<FakePackagesAgent>();
         _app.MapGrpcService<FakeNginxAgent>();
         _app.MapGrpcService<FakeDatabaseAgent>();
+        _app.MapGrpcService<FakeDeployAgent>();
     }
 
     public static async Task<FakeAgent> StartAsync(string socketPath)

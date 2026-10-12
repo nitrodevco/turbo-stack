@@ -25,19 +25,22 @@ public static class Permissions
     public const string SitesManage = "sites.manage";
     public const string DatabasesView = "databases.view";
     public const string DatabasesManage = "databases.manage";
+    public const string AppsView = "apps.view";
+    public const string AppsDeploy = "apps.deploy";
+    public const string AppsManage = "apps.manage";
 
     public static readonly string[] All =
     [
         SystemView, ServicesView, ServicesControl, LogsView, FirewallView, FirewallManage,
-        SshView, SshManage, PackagesView, PackagesManage, ServerReboot, AuditView, SitesView, SitesManage, DatabasesView, DatabasesManage,
+        SshView, SshManage, PackagesView, PackagesManage, ServerReboot, AuditView, SitesView, SitesManage, DatabasesView, DatabasesManage, AppsView, AppsDeploy, AppsManage,
     ];
 
     private static readonly Dictionary<PanelRole, HashSet<string>> RolePermissions = new()
     {
         [PanelRole.Owner] = [.. All],
         [PanelRole.Admin] = [.. All],
-        [PanelRole.Operator] = [SystemView, ServicesView, ServicesControl, LogsView, FirewallView, PackagesView, SitesView, DatabasesView],
-        [PanelRole.Developer] = [SystemView, ServicesView, LogsView, SitesView, DatabasesView],
+        [PanelRole.Operator] = [SystemView, ServicesView, ServicesControl, LogsView, FirewallView, PackagesView, SitesView, DatabasesView, AppsView, AppsDeploy],
+        [PanelRole.Developer] = [SystemView, ServicesView, LogsView, SitesView, DatabasesView, AppsView, AppsDeploy],
         [PanelRole.Viewer] = [SystemView, ServicesView],
     };
 

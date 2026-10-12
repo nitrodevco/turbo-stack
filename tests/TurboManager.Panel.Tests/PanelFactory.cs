@@ -87,8 +87,22 @@ public sealed class PanelFactory : WebApplicationFactory<PanelEntryPoint>
 
         if (disposing && Directory.Exists(_dataDirectory))
         {
-            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-            Directory.Delete(_dataDirectory, recursive: true);
+            // Background jobs (e.g. a webhook deploy) can hold the database for a moment after shutdown;
+            // a leftover temp directory isn't worth failing a test over.
+            for (var attempt = 0; attempt < 10; attempt++)
+            {
+                try
+                {
+                    Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+                    Directory.Delete(_dataDirectory, recursive: true);
+
+                    return;
+                }
+                catch (IOException)
+                {
+                    Thread.Sleep(100);
+                }
+            }
         }
     }
 

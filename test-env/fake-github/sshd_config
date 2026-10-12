@@ -1,0 +1,9 @@
+Port 22
+HostKey /etc/ssh/ssh_host_ed25519_key
+PermitRootLogin no
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PubkeyAuthentication yes
+AuthorizedKeysFile /home/git/.ssh/authorized_keys
+AllowUsers git
+PrintMotd no

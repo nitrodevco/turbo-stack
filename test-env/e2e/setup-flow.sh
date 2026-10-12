@@ -223,6 +223,125 @@ pass "exposure check: database ports are local only"
 
 echo "Databases passed."
 echo
+echo "Deploys (fake GitHub)"
+
+GITHUB_ADMIN="http://fake-github:8081/cgi-bin/admin"
+
+# Waits for a job and prints its final status (for jobs that are expected to fail).
+job_status() {
+    for _ in $(seq 1 "${2:-120}"); do
+        [[ "$(body_of "$(call GET "/api/jobs/$1")" | jq -r .status)" != "running" ]] && break
+        sleep 1
+    done
+    body_of "$(call GET "/api/jobs/$1")" | jq -r .status
+}
+
+deploy_app() {
+    local response
+    response="$(call POST "/api/apps/$1/deploy")"
+    [[ "$(status_of "$response")" == "202" ]] || fail "deploy of app $1 did not start: $response"
+    body_of "$response" | jq -r .jobId
+}
+
+response="$(call POST /api/runtimes/node/install '{"channel":"24"}')"
+wait_for_job "$(body_of "$response" | jq -r .jobId)" 300
+[[ "$(body_of "$(call GET /api/runtimes)" | jq -r '[.[] | select(.name == "node" and .installed)] | length')" -ge 1 ]] || fail "node should be listed as installed"
+pass "Node.js 24 runtime installed (checksum verified)"
+
+response="$(call POST /api/repositories '{"name":"hotel-web","systemUser":"hotel","repository":"https://github.com/billsonnn/hotel-web","branch":"main","private":true,"submodules":true,"privateSubmodules":["billsonnn/hotel-theme"]}')"
+[[ "$(status_of "$response")" == "200" ]] || fail "adding the repository failed: $response"
+REPO="$(body_of "$response" | jq -r .id)"
+WEB_KEY="$(body_of "$response" | jq -r .publicKey)"
+THEME_KEY="$(body_of "$response" | jq -r '.submoduleKeys[0].publicKey')"
+[[ "$WEB_KEY" == ssh-ed25519* && "$THEME_KEY" == ssh-ed25519* && "$WEB_KEY" != "$THEME_KEY" ]] || fail "expected one deploy key per repository: $response"
+
+[[ "$(body_of "$(call POST "/api/repositories/$REPO/test")" | jq -r .ok)" == "false" ]] || fail "access should fail before the deploy key is added"
+curl -sf "$GITHUB_ADMIN" --data action=add-key --data repo=billsonnn/hotel-web --data-urlencode "key=$WEB_KEY" >/dev/null
+curl -sf "$GITHUB_ADMIN" --data action=add-key --data repo=billsonnn/hotel-theme --data-urlencode "key=$THEME_KEY" >/dev/null
+response="$(call POST "/api/repositories/$REPO/test")"
+[[ "$(body_of "$response" | jq -r .ok)" == "true" ]] || fail "access should work once the deploy key is added: $response"
+pass "private repository: per-repository deploy keys generated, access verified"
+
+response="$(call POST /api/apps "$(jq -n --argjson repo "$REPO" '{
+    name: "web", repositoryId: $repo, runtimes: ["node"], staticOutput: "dist",
+    sharedPaths: [{path: "uploads", directory: true}],
+    buildScript: "mkdir -p dist\ncp index.html dist/\ncp theme/theme.css dist/\nnode --version > dist/node.txt"}')")"
+[[ "$(status_of "$response")" == "200" ]] || fail "creating the web app failed: $response"
+WEB="$(body_of "$response" | jq -r .id)"
+
+API_BUILD='mkdir -p dist
+cat > dist/server.js <<"JS"
+require("http").createServer((q, s) => s.end(q.url === "/health" ? "ok" : "api says " + process.env.GREETING)).listen(9500, "127.0.0.1");
+JS'
+api_request() {
+    jq -n --argjson repo "$REPO" --arg build "$1" '{
+        name: "api", repositoryId: $repo, runtimes: ["node"], buildScript: $build,
+        serviceCommand: "node dist/server.js", servicePort: 9500, healthPath: "/health"}'
+}
+response="$(call POST /api/apps "$(api_request "$API_BUILD")")"
+[[ "$(status_of "$response")" == "200" ]] || fail "creating the api app failed: $response"
+API="$(body_of "$response" | jq -r .id)"
+call PUT "/api/apps/$API/environment" '{"GREETING":"hello"}' >/dev/null
+
+wait_for_job "$(deploy_app "$WEB")" 300
+wait_for_job "$(deploy_app "$API")" 300
+STATIC="$(body_of "$(call GET "/api/apps/$WEB")" | jq -r .app.staticPath)"
+pass "web (static) and api (service) deployed"
+
+response="$(call POST /api/sites "$(jq -n --arg static "$STATIC" '{
+    name: "hotel-web", domains: ["web.hotel.test"], tlsMode: "None",
+    routes: [{path: "/", kind: "Spa", target: $static}, {path: "/api/", kind: "Proxy", target: "http://127.0.0.1:9500/"}]}')")"
+[[ "$(body_of "$response" | jq -r .applied)" == "true" ]] || fail "site for the app should apply: $response"
+web() { curl -sf -H "Host: web.hotel.test" "http://server$1"; }
+[[ "$(web /)" == *"Hello from v1"* ]] || fail "site should serve the deployed page: $(web / || true)"
+[[ "$(web /theme.css)" == *"rebeccapurple"* ]] || fail "private submodule content should be deployed: $(web /theme.css || true)"
+[[ "$(web /node.txt)" == "v24"* ]] || fail "the build should run with the Node runtime: $(web /node.txt || true)"
+[[ "$(web /api/anything)" == "api says hello" ]] || fail "service should run with its environment behind the proxy: $(web /api/anything || true)"
+pass "site serves the release (private submodule, Node build, service + environment)"
+
+# Auto-deploy: a push to GitHub sends a signed webhook.
+call PUT "/api/apps/$WEB" "$(body_of "$(call GET "/api/apps/$WEB")" | jq '.app | .autoDeploy = true')" >/dev/null
+curl -sf "$GITHUB_ADMIN" --data action=commit --data repo=billsonnn/hotel-web --data file=index.html \
+    --data-urlencode 'content=<h1>Hello from v2</h1>' >/dev/null
+SECRET_HOOK="$(body_of "$(call GET "/api/repositories/$REPO/webhook")" | jq -r .secret)"
+PAYLOAD='{"ref":"refs/heads/main","commits":[{"added":[],"removed":[],"modified":["index.html"]}]}'
+sign() { printf '%s' "$PAYLOAD" | openssl dgst -sha256 -hmac "$1" | sed 's/^.*= //'; }
+hook() {
+    curl -sk "$BASE/hooks/github/$REPO" -H 'Content-Type: application/json' -H 'X-GitHub-Event: push' \
+        -H "X-GitHub-Delivery: $1" -H "X-Hub-Signature-256: sha256=$2" --data "$PAYLOAD" -w '\n%{http_code}'
+}
+[[ "$(status_of "$(hook e2e-forged "$(sign wrong-secret)")")" == "401" ]] || fail "a forged webhook must be rejected"
+response="$(hook e2e-delivery-1 "$(sign "$SECRET_HOOK")")"
+[[ "$(status_of "$response")" == "202" ]] || fail "signed webhook should be accepted: $response"
+JOB="$(body_of "$response" | jq -r .result | sed -n 's/.*web: deploying (job \([^)]*\)).*/\1/p')"
+[[ -n "$JOB" ]] || fail "webhook should start a deploy of web (and not api, which has auto-deploy off): $response"
+[[ "$(status_of "$(hook e2e-delivery-1 "$(sign "$SECRET_HOOK")")")" == "409" ]] || fail "a replayed delivery must be rejected"
+wait_for_job "$JOB" 300
+[[ "$(web /)" == *"Hello from v2"* ]] || fail "auto-deploy should serve v2: $(web / || true)"
+pass "signed push webhook auto-deployed v2 (forged and replayed deliveries rejected)"
+
+V1="$(body_of "$(call GET "/api/apps/$WEB")" | jq -r '.releases[1].name')"
+response="$(call POST "/api/apps/$WEB/releases/$V1/activate")"
+wait_for_job "$(body_of "$response" | jq -r .jobId)"
+[[ "$(web /)" == *"Hello from v1"* ]] || fail "rollback should serve v1 again: $(web / || true)"
+pass "rolled back to the previous release instantly"
+
+# A release whose service never becomes healthy is rolled back automatically.
+GOOD_API="$(body_of "$(call GET "/api/apps/$API")" | jq -r .app.currentRelease)"
+call PUT "/api/apps/$API" "$(api_request 'mkdir -p dist && echo "process.exit(1)" > dist/server.js')" >/dev/null
+sleep 1 # release names are per second
+[[ "$(job_status "$(deploy_app "$API")" 300)" == "failed" ]] || fail "deploying a broken service should fail"
+[[ "$(body_of "$(call GET "/api/apps/$API")" | jq -r .app.currentRelease)" == "$GOOD_API" ]] || fail "the previous release should be live again"
+[[ "$(web /api/health)" == "ok" ]] || fail "the service should be healthy on the previous release"
+pass "unhealthy release rolled back automatically, service still up"
+
+call PUT "/api/apps/$API" "$(api_request 'exit 3')" >/dev/null
+[[ "$(job_status "$(deploy_app "$API")" 300)" == "failed" ]] || fail "a failing build should fail the deploy"
+[[ "$(web /api/health)" == "ok" ]] || fail "a failed build must not touch the running service"
+pass "failed build left the live release untouched"
+
+echo "Deploys passed."
+echo
 echo "Cloudflare (fake API)"
 
 SERVER_IP="$(getent hosts server | awk '{print $1}')"

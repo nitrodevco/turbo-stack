@@ -31,6 +31,21 @@ public sealed class PanelOptions
     /// <summary>Cloudflare API base URL (overridden in tests to point at a fake).</summary>
     public string CloudflareApiBase { get; set; } = "https://api.cloudflare.com/client/v4";
 
+    /// <summary>GitHub endpoints (overridden in tests to point at a fake git server).</summary>
+    public string GitHubSshHost { get; set; } = "github.com";
+
+    public int GitHubSshPort { get; set; } = 22;
+
+    public string GitHubHttpsBase { get; set; } = "https://github.com";
+
+    public string GitHubApiBase { get; set; } = "https://api.github.com";
+
+    /// <summary>Pinned SSH host keys ("type base64"); empty = fetch GitHub's published keys.</summary>
+    public string[] GitHubKnownHosts { get; set; } = [];
+
+    /// <summary>How long a service gets to answer its health check after a deploy before rolling back.</summary>
+    public int DeployHealthTimeoutSeconds { get; set; } = 60;
+
     /// <summary>Cookies are marked Secure. Disable only for plain-http local development.</summary>
     public bool SecureCookies { get; set; } = true;
 }

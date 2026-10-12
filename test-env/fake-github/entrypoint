@@ -1,0 +1,6 @@
+#!/bin/bash
+set -euo pipefail
+
+[[ -d /home/git/billsonnn ]] || /usr/local/bin/seed-repos
+httpd -p 8081 -h /www
+exec /usr/sbin/sshd -D -e

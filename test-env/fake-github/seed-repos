@@ -1,0 +1,31 @@
+#!/bin/bash
+# Creates the fixture repositories as bare repos under /home/git/<owner>/<name>.git:
+#   billsonnn/hotel-theme  private, a stylesheet
+#   billsonnn/hotel-web    private, a static page + a private submodule (hotel-theme)
+set -euo pipefail
+
+export GIT_AUTHOR_NAME=Fixture GIT_AUTHOR_EMAIL=fixture@hotel.test GIT_COMMITTER_NAME=Fixture GIT_COMMITTER_EMAIL=fixture@hotel.test
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT
+mkdir -p /home/git/billsonnn
+
+publish() {
+    git init -q --bare -b main "/home/git/$1.git"
+    git -C "$2" push -q "/home/git/$1.git" main
+}
+
+git init -q -b main "$work/theme"
+cp /fixtures/hotel-theme/* "$work/theme/"
+git -C "$work/theme" add -A && git -C "$work/theme" commit -qm "Theme"
+publish billsonnn/hotel-theme "$work/theme"
+
+git init -q -b main "$work/web"
+cp /fixtures/hotel-web/* "$work/web/"
+git -C "$work/web" -c protocol.file.allow=always submodule add -q /home/git/billsonnn/hotel-theme.git theme
+# Recorded the way a real repository would: an https GitHub URL the panel rewrites to the right key.
+git -C "$work/web" config -f .gitmodules submodule.theme.url https://fake-github/billsonnn/hotel-theme.git
+git -C "$work/web" add -A && git -C "$work/web" commit -qm "Site with theme submodule"
+publish billsonnn/hotel-web "$work/web"
+
+chown -R git:git /home/git
+echo "Seeded fixture repositories."

@@ -1,0 +1,166 @@
+syntax = "proto3";
+
+option csharp_namespace = "TurboManager.Contracts.Agent";
+
+package turbomanager.agent.v1;
+
+import "google/protobuf/empty.proto";
+import "packages.proto";
+
+// Building and running apps. Everything an app does runs as its own unprivileged Linux user (member
+// of the tm-apps group); the agent refuses root and accounts it didn't create. Paths are always
+// derived from the user and app name, never taken from the request.
+//
+// Layout: /home/<user>/repos/<repo>                      git checkout (fetched with the repo's deploy key)
+//         /home/<user>/apps/<app>/releases/<release>     one directory per deploy
+//         /home/<user>/apps/<app>/shared/...             files that survive deploys (.env, uploads, ...)
+//         /home/<user>/apps/<app>/current -> releases/<release>
+service DeployAgent {
+  rpc EnsureAppUser (AppUserRequest) returns (AppUserInfo);
+  rpc EnsureDeployKey (DeployKeyRequest) returns (DeployKey);
+
+  rpc TestRepositoryAccess (GitSyncRequest) returns (GitAccessResult);
+  rpc SyncRepository (GitSyncRequest) returns (stream DeployOutput);
+
+  rpc CreateRelease (ReleaseRequest) returns (stream DeployOutput);
+  rpc RunBuild (BuildRequest) returns (stream DeployOutput);
+  rpc ActivateRelease (ReleaseRequest) returns (ReleaseState);
+  rpc GetReleaseState (AppRef) returns (ReleaseState);
+  rpc PruneReleases (PruneRequest) returns (ReleaseState);
+  rpc RemoveApp (AppRef) returns (google.protobuf.Empty);
+
+  rpc WriteAppService (AppServiceRequest) returns (google.protobuf.Empty);
+  rpc RemoveAppService (AppRef) returns (google.protobuf.Empty);
+
+  rpc ListRuntimes (google.protobuf.Empty) returns (Runtimes);
+  rpc InstallRuntime (RuntimeRequest) returns (stream OutputLine);
+}
+
+message AppUserRequest {
+  string user = 1;   // [a-z][a-z0-9-]{1,31}
+}
+
+message AppUserInfo {
+  string user = 1;
+  string home = 2;
+  int32 uid = 3;
+  bool created = 4;
+}
+
+message DeployKeyRequest {
+  string user = 1;
+  string key_name = 2;  // [a-z0-9-]{1,48}, file ~/.ssh/tm/<key_name>
+}
+
+message DeployKey {
+  string key_name = 1;
+  string public_key = 2;
+  string fingerprint = 3;
+  bool created = 4;
+}
+
+// How to reach one repository (the main one or a submodule) over SSH.
+message RepositoryAccess {
+  string owner = 1;     // GitHub owner/organisation
+  string name = 2;      // repository name
+  string key_name = 3;  // deploy key to use; empty = public over HTTPS
+}
+
+message GitSyncRequest {
+  string user = 1;
+  string repo_dir = 2;              // directory name under ~/repos ([a-z0-9-]+)
+  RepositoryAccess repository = 3;
+  string branch = 4;
+  bool submodules = 5;
+  repeated RepositoryAccess submodule_access = 6;  // keys for private submodules
+  string ssh_host = 7;              // github.com (overridable for tests)
+  int32 ssh_port = 8;               // 22
+  string https_base = 9;            // https://github.com
+  repeated string known_hosts = 10; // pinned host keys: "<keytype> <base64>"
+}
+
+message GitAccessResult {
+  bool ok = 1;
+  string error = 2;
+  string head = 3;  // commit at the branch tip when ok
+}
+
+message DeployOutput {
+  string line = 1;
+  bool finished = 2;
+  bool success = 3;
+  // SyncRepository: commit details; CreateRelease: release id.
+  string commit = 4;
+  string commit_message = 5;
+  string commit_author = 6;
+  string release = 7;
+}
+
+message AppRef {
+  string user = 1;
+  string app = 2;   // [a-z0-9-]{1,40}
+}
+
+message SharedPath {
+  string path = 1;   // relative to the release root
+  bool directory = 2;
+}
+
+message ReleaseRequest {
+  string user = 1;
+  string app = 2;
+  string repo_dir = 3;
+  string release = 4;               // [0-9]{14}-[0-9a-f]{7}
+  repeated SharedPath shared = 5;
+  bool web_readable = 6;            // grant nginx (www-data) read access to the release
+}
+
+message BuildRequest {
+  string user = 1;
+  string app = 2;
+  string release = 3;
+  string working_directory = 4;     // relative to the release root ("" = root)
+  string script = 5;                // bash, run with -euo pipefail
+  map<string, string> environment = 6;
+  repeated string runtimes = 7;     // "dotnet", "node": prepended to PATH
+  int32 timeout_minutes = 8;
+}
+
+message ReleaseState {
+  string current = 1;
+  repeated string releases = 2;     // newest first
+  string app_dir = 3;
+}
+
+message PruneRequest {
+  string user = 1;
+  string app = 2;
+  int32 keep = 3;
+}
+
+message AppServiceRequest {
+  string user = 1;
+  string app = 2;
+  string working_directory = 3;     // relative to current/
+  string command = 4;               // ExecStart (runs as the app user)
+  map<string, string> environment = 5;
+  repeated string runtimes = 6;
+  int32 memory_max_mb = 7;          // 0 = unlimited
+  int32 stop_timeout_seconds = 8;
+}
+
+message Runtimes {
+  repeated RuntimeInfo items = 1;
+}
+
+message RuntimeInfo {
+  string name = 1;      // dotnet | node
+  bool installed = 2;
+  string version = 3;
+  string path = 4;
+}
+
+message RuntimeRequest {
+  string name = 1;      // dotnet | node
+  string channel = 2;   // dotnet: "10.0"; node: "24"
+}

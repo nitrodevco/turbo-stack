@@ -41,7 +41,7 @@ cmd_package() { "$ROOT/scripts/package.sh" --arch "$ARCH"; }
 
 cmd_up() {
     [[ -f "$ROOT/dist/install.sh" ]] || { echo "No bundle in dist/. Run: test-env/dev package" >&2; exit 1; }
-    compose up -d --build install-host fake-cloudflare server
+    compose up -d --build install-host fake-cloudflare fake-github server
     wait_for_systemd
     echo "Server is up (Ubuntu $UBUNTU). Setup address will be https://localhost:8443"
 }
@@ -51,11 +51,19 @@ cmd_install() {
     on_server bash -c "curl -fsSL http://install-host/install.sh | bash -s -- --base-url http://install-host --no-upgrade --public-host localhost" \
         | tee "$ARTIFACTS/install.log"
 
-    # Test-only: point the panel at the fake Cloudflare API instead of the real one.
-    on_server bash -c 'mkdir -p /etc/systemd/system/tm-panel.service.d \
-        && printf "[Service]\nEnvironment=Panel__CloudflareApiBase=http://fake-cloudflare:8080/client/v4\n" > /etc/systemd/system/tm-panel.service.d/test.conf \
-        && systemctl daemon-reload && systemctl restart tm-panel \
-        && for _ in $(seq 1 60); do curl -fsS http://127.0.0.1:7800/api/health >/dev/null 2>&1 && break; sleep 1; done'
+    # Test-only: point the panel at the fake Cloudflare and fake GitHub instead of the real ones.
+    local github_key
+    github_key="$(compose exec -T fake-github awk '{print $1" "$2}' /etc/ssh/ssh_host_ed25519_key.pub | tr -d '\r')"
+    on_server bash -c "mkdir -p /etc/systemd/system/tm-panel.service.d && cat > /etc/systemd/system/tm-panel.service.d/test.conf <<EOF
+[Service]
+Environment=Panel__CloudflareApiBase=http://fake-cloudflare:8080/client/v4
+Environment=Panel__GitHubSshHost=fake-github
+Environment=Panel__GitHubHttpsBase=https://fake-github
+Environment=\"Panel__GitHubKnownHosts__0=$github_key\"
+Environment=Panel__DeployHealthTimeoutSeconds=20
+EOF
+systemctl daemon-reload && systemctl restart tm-panel
+for _ in \$(seq 1 60); do curl -fsS http://127.0.0.1:7800/api/health >/dev/null 2>&1 && break; sleep 1; done"
 }
 
 # The setup link install.sh printed (colour codes stripped).
