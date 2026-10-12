@@ -83,6 +83,14 @@ KEYS="$(find /home/hotel/.ssh/tm -type f ! -name '*.pub' -printf '%m %u\n' | sor
 [[ "$(stat -c '%U' /etc/turbo-manager/apps/api.run)" == "root" ]] || fail "the service launcher must be root-owned"
 pass "app files: home 750, private keys 600, launcher root-owned"
 
+# Like an SFTP upload as the app user: new files must be readable by nginx without any extra step.
+runuser -u hotel -- sh -c 'umask 077 && mkdir -p ~/sites/assets/bundled && echo nitro-bundle > ~/sites/assets/bundled/figure.nitro'
+ASSET="$(curl -s -i -H 'Host: assets.hotel.test' http://127.0.0.1/bundled/figure.nitro)"
+[[ "$ASSET" == *"200 OK"* && "$ASSET" == *"nitro-bundle"* ]] || fail "an uploaded asset should be served: $ASSET"
+[[ "$ASSET" == *"Access-Control-Allow-Origin: *"* && "$ASSET" == *"max-age=2592000"* ]] || fail "assets need CORS and a long cache: $ASSET"
+[[ "$(stat -c '%U' /home/hotel/sites/assets)" == "hotel" ]] || fail "the assets folder should belong to the app user"
+pass "assets folder: uploads by the app user are served with CORS and caching"
+
 [[ -z "$(find /opt/turbo-manager/runtimes ! -user root -print -quit)" ]] || fail "runtimes must be owned by root"
 [[ -z "$(find /opt/turbo-manager/runtimes ! -type l -perm /022 -print -quit)" ]] || fail "runtimes must not be group/world writable"
 pass "runtimes are root-owned and not writable by apps"

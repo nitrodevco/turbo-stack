@@ -43,8 +43,11 @@ public sealed class PanelOptions
     /// <summary>Pinned SSH host keys ("type base64"); empty = fetch GitHub's published keys.</summary>
     public string[] GitHubKnownHosts { get; set; } = [];
 
-    /// <summary>How long a service gets to answer its health check after a deploy before rolling back.</summary>
-    public int DeployHealthTimeoutSeconds { get; set; } = 60;
+    /// <summary>
+    /// How long a service gets to answer its health check after a deploy before rolling back. Generous: the
+    /// imager loads all avatar data before it listens, and Turbo migrates and warms up on start.
+    /// </summary>
+    public int DeployHealthTimeoutSeconds { get; set; } = 120;
 
     /// <summary>Cookies are marked Secure. Disable only for plain-http local development.</summary>
     public bool SecureCookies { get; set; } = true;

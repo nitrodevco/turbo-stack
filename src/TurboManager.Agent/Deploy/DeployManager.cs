@@ -246,7 +246,20 @@ public sealed class DeployManager(ICommandRunner commands, IOptions<AgentOptions
         var cwd = workingDirectory.Length == 0 ? releaseDir : $"{releaseDir}/{workingDirectory}";
         var timeout = TimeSpan.FromMinutes(request.TimeoutMinutes is > 0 and <= 240 ? request.TimeoutMinutes : 30);
 
-        return await StreamAsUserAsync(user, cwd, environment, "bash", ["-euo", "pipefail", "-c", script], line => write(line), timeout, cancellationToken);
+        // A private temp directory: /tmp is shared with other users, and often mounted noexec, which breaks
+        // tools that run helper scripts from it (Yarn puts its package-binary wrappers there).
+        var temp = $"{user.Home}/.cache/tm-build/{app}";
+        environment["TMPDIR"] = temp;
+        await RunAsUserCheckedAsync(user, null, "bash", ["-c", "umask 077 && rm -rf -- \"$1\" && mkdir -p -- \"$1\"", "bash", temp], cancellationToken);
+
+        try
+        {
+            return await StreamAsUserAsync(user, cwd, environment, "bash", ["-euo", "pipefail", "-c", script], line => write(line), timeout, cancellationToken);
+        }
+        finally
+        {
+            await RunAsUserAsync(user, null, new Dictionary<string, string>(), "rm", ["-rf", "--", temp], TimeSpan.FromMinutes(2), CancellationToken.None);
+        }
     }
 
     /// <summary>Points current/ at a release in one atomic rename.</summary>
@@ -299,6 +312,24 @@ public sealed class DeployManager(ICommandRunner commands, IOptions<AgentOptions
         }
 
         return GetState(request.User, request.App);
+    }
+
+    public async Task<SiteDirectory> EnsureSiteDirectoryAsync(AppRef request, CancellationToken cancellationToken)
+    {
+        var user = RequireAppUser(request.User);
+        var directory = $"{user.Home}/sites/{DeployValidation.App(request.App)}";
+        await RunAsUserCheckedAsync(user, null, "mkdir", ["-p", directory], cancellationToken);
+
+        foreach (var parent in new[] { user.Home, $"{user.Home}/sites" })
+        {
+            await commands.RunAsync("setfacl", ["-m", "u:www-data:x", parent], cancellationToken: cancellationToken);
+        }
+
+        // Read for nginx on what's there now and (default ACL) on whatever gets uploaded later.
+        await commands.RunCheckedAsync("setfacl", ["-R", "-m", "u:www-data:rX", "-m", "d:u:www-data:rX", directory], cancellationToken: cancellationToken,
+            timeout: TimeSpan.FromMinutes(5));
+
+        return new SiteDirectory { Path = directory };
     }
 
     public async Task RemoveAppAsync(AppRef request, CancellationToken cancellationToken)
@@ -490,6 +521,8 @@ public sealed class DeployManager(ICommandRunner commands, IOptions<AgentOptions
                     break;
                 case "node":
                     path.Add($"{RuntimeRoot}/node/bin");
+                    // Corepack would otherwise ask before downloading the Yarn version a project pins.
+                    environment["COREPACK_ENABLE_DOWNLOAD_PROMPT"] = "0";
                     break;
                 default:
                     throw Validate.Invalid($"Unknown runtime \"{runtime}\".");

@@ -78,8 +78,19 @@ namespace TurboManager.Panel.Data.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Ports")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.Property<bool>("PurgeCloudflare")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("RecipeId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RecipeInputs")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
 
                     b.Property<int>("RepositoryId")
                         .HasColumnType("INTEGER");
@@ -89,6 +100,9 @@ namespace TurboManager.Panel.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("ServiceCommand")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ServiceDirectory")
                         .HasColumnType("TEXT");
 
                     b.Property<int?>("ServicePort")

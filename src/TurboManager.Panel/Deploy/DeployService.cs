@@ -321,7 +321,7 @@ public sealed class DeployService(
         {
             User = app.SystemUser,
             App = app.Name,
-            WorkingDirectory = app.WorkingDirectory,
+            WorkingDirectory = app.ServiceDirectory ?? app.WorkingDirectory,
             Command = app.ServiceCommand!,
             MemoryMaxMb = app.MemoryMaxMb,
             StopTimeoutSeconds = app.StopTimeoutSeconds,

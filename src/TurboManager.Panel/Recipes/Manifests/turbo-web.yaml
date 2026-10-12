@@ -1,0 +1,71 @@
+id: turbo-web
+name: Turbo public site
+category: turbo
+summary: The hotel's website (turbo-web), with /api/ going to Turbo and /gamedata/ served by it.
+description: >-
+  Builds the turbo-web submodule of turbo-cloud with Node and Yarn. Requests to /api/ go to the emulator's
+  public site API and /gamedata/ to its gamedata host. The page frames the client and shows avatars from
+  the imager, so their addresses go into its Content-Security-Policy.
+source:
+  repository: nitrodevco/turbo-cloud
+  branch: main
+  submodules: true
+
+inputs:
+  - key: apiPort
+    label: Emulator public site API port
+    kind: number
+    default: "8092"
+    help: The emulator's "web" port.
+  - key: gamedataPort
+    label: Emulator gamedata port
+    kind: number
+    default: "8094"
+    help: The emulator's "gamedata" port.
+  - key: clientUrl
+    label: Client address
+    kind: url
+    placeholder: https://play.example.com
+    help: Allowed as a frame on this site.
+  - key: imagerUrl
+    label: Imager address
+    kind: url
+    placeholder: https://imager.example.com
+    help: Allowed as an image source on this site.
+
+app:
+  workingDirectory: turbo-web
+  runtimes: [node]
+  build: |
+    corepack yarn install --immutable
+    corepack yarn build
+  static: turbo-web/dist
+  deployPaths: [turbo-web]
+
+site:
+  required: true
+  securityHeaders: false # the CSP below covers it
+  serverSnippet: |
+    add_header Content-Security-Policy "default-src 'self'; connect-src 'self'; img-src 'self' data: {{ input.imagerUrl | origin ?? '' }}; frame-src {{ input.clientUrl | origin ?? '' }}; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+  routes:
+    - path: /
+      kind: Spa
+      target: "{{ app.static }}"
+    - path: /assets/
+      kind: Static
+      target: "{{ app.static }}/assets"
+      cacheSeconds: 31536000
+    - path: /api/
+      kind: Proxy
+      target: "http://127.0.0.1:{{ input.apiPort }}"
+      snippet: client_max_body_size 16k;
+    - path: /gamedata/
+      kind: Proxy
+      target: "http://127.0.0.1:{{ input.gamedataPort }}"
+      snippet: client_max_body_size 1k;
+
+notes:
+  - "Set the emulator's \"Public site address\" and \"Gamedata public address\" to https://{{ site.domain }} and restart it."
+  - "Discord sign-in: add https://{{ site.domain }}/api/auth/discord/callback as a redirect in your Discord app, then set TURBO__Turbo__Web__Discord__ClientId and ClientSecret on the emulator."

@@ -30,7 +30,8 @@ public sealed record AppRequest(
     int KeepReleases = 5,
     bool AutoDeploy = false,
     List<string>? DeployPaths = null,
-    bool PurgeCloudflare = true);
+    bool PurgeCloudflare = true,
+    string? ServiceDirectory = null);
 
 /// <summary>Validation and normalisation for repository and app input (the agent validates again).</summary>
 public static partial class DeployModels
@@ -101,7 +102,7 @@ public static partial class DeployModels
             return "Name: lowercase letters, digits and dashes (up to 40).";
         }
 
-        foreach (var path in new[] { request.WorkingDirectory, request.StaticOutput }.Concat((request.SharedPaths ?? []).Select(p => p.Path))
+        foreach (var path in new[] { request.WorkingDirectory, request.ServiceDirectory, request.StaticOutput }.Concat((request.SharedPaths ?? []).Select(p => p.Path))
                      .Concat(request.DeployPaths ?? []).Where(p => !string.IsNullOrWhiteSpace(p)))
         {
             if (!IsRelativePath(path!))
@@ -162,6 +163,7 @@ public static partial class DeployModels
         app.AutoDeploy = request.AutoDeploy;
         app.DeployPaths = (request.DeployPaths ?? []).Select(Clean).OfType<string>().ToList();
         app.PurgeCloudflare = request.PurgeCloudflare;
+        app.ServiceDirectory = Clean(request.ServiceDirectory);
     }
 
     public static bool IsRelativePath(string path)

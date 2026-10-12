@@ -1,0 +1,43 @@
+id: node-service
+name: Node.js service
+category: general
+summary: A Node.js server run as a service on a local port, behind its own domain.
+description: >-
+  Installs and builds with the commands below, then runs the start command as a service. The app gets
+  PORT (and HOST=127.0.0.1) in its environment; it must listen there.
+
+inputs:
+  - key: build
+    label: Build commands
+    default: corepack yarn install --immutable && corepack yarn build
+  - key: start
+    label: Start command
+    required: true
+    default: node dist/index.js
+  - key: healthPath
+    label: Health check path
+    placeholder: /health
+    help: Leave empty to only check that the port accepts connections.
+
+ports:
+  - name: http
+    default: 3100
+    label: HTTP
+
+app:
+  runtimes: [node]
+  build: "{{ input.build }}"
+  service:
+    command: "{{ input.start }}"
+    port: http
+    health: "{{ input.healthPath ?? 'tcp' }}"
+  environment:
+    NODE_ENV: production
+    HOST: 127.0.0.1
+    PORT: "{{ port.http }}"
+
+site:
+  routes:
+    - path: /
+      kind: Proxy
+      target: "http://127.0.0.1:{{ port.http }}"

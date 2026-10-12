@@ -17,6 +17,9 @@ public sealed class FakeFirewallState
 
     public string DefaultIncoming { get; set; } = "deny";
 
+    /// <summary>Extra TCP ports reported as listening (on 127.0.0.1).</summary>
+    public List<int> ListeningPorts { get; } = [];
+
     public List<FirewallRuleSpec> Rules { get; } =
     [
         new() { Action = "limit", Protocol = "tcp", Ports = "22", Source = "any", Comment = "tm:ssh" },
@@ -112,6 +115,7 @@ public sealed class FakeFirewallAgent(FakeFirewallState state) : FirewallAgent.F
         reply.Sockets.Add(new ListeningSocket { Protocol = "tcp", Address = "0.0.0.0", Port = 22, Process = "sshd" });
         reply.Sockets.Add(new ListeningSocket { Protocol = "tcp", Address = "127.0.0.1", Port = 7800, Process = "tm-panel" });
         reply.Sockets.Add(new ListeningSocket { Protocol = "tcp", Address = "0.0.0.0", Port = 3306, Process = "mysqld" });
+        reply.Sockets.AddRange(state.ListeningPorts.Select(p => new ListeningSocket { Protocol = "tcp", Address = "127.0.0.1", Port = p, Process = "other" }));
 
         return Task.FromResult(reply);
     }
@@ -456,6 +460,16 @@ public sealed class FakeDeployAgent : DeployAgent.DeployAgentBase
         Services[request.App] = request;
 
         return Task.FromResult(new Google.Protobuf.WellKnownTypes.Empty());
+    }
+
+    public HashSet<string> SiteDirectories { get; } = [];
+
+    public override Task<SiteDirectory> EnsureSiteDirectory(AppRef request, ServerCallContext context)
+    {
+        var path = $"/home/{request.User}/sites/{request.App}";
+        SiteDirectories.Add(path);
+
+        return Task.FromResult(new SiteDirectory { Path = path });
     }
 
     public override Task<Google.Protobuf.WellKnownTypes.Empty> RemoveApp(AppRef request, ServerCallContext context)

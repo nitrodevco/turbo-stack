@@ -379,6 +379,10 @@ export type AppSettings = {
     currentRelease: string | null;
     staticPath: string | null;
     unit: string | null;
+    serviceDirectory: string | null;
+    recipeId: string | null;
+    recipeInputs: Record<string, string>;
+    ports: Record<string, number>;
 };
 
 export type ReleaseView = {
@@ -396,3 +400,69 @@ export type ReleaseView = {
 };
 
 export type RuntimeView = { name: string; installed: boolean; version: string; path: string };
+
+export type RecipeInput = { key: string; label: string; help: string; kind: 'text' | 'url' | 'bool' | 'number'; default: string; placeholder: string; required: boolean };
+
+export type RecipeView = {
+    id: string;
+    name: string;
+    summary: string;
+    description: string;
+    category: 'turbo' | 'nitro' | 'general';
+    source: { repository: string; branch: string; submodules: boolean } | null;
+    inputs: RecipeInput[];
+    databaseEngines: DatabaseEngineSlug[] | null;
+    ports: { name: string; default: number; label: string }[];
+    hasApp: boolean;
+    hasService: boolean;
+    runtimes: string[];
+    site: { required: boolean; requiresTls: boolean; directory: boolean } | null;
+};
+
+export type RecipeRequest = {
+    name: string;
+    systemUser: string;
+    repositoryId?: number | null;
+    repository?: string;
+    branch?: string;
+    private?: boolean;
+    privateSubmodules?: string[];
+    domains: string[];
+    tlsMode: TlsMode;
+    cloudflareDns: boolean;
+    databaseEngine?: string | null;
+    inputs: Record<string, string>;
+};
+
+export type RecipePlanView = {
+    recipe: string;
+    name: string;
+    systemUser: string;
+    repository: { id: number | null; name: string; fullName: string; branch: string; submodules: boolean; private: boolean; reused: boolean } | null;
+    database: { engine: DatabaseEngineSlug; name: string; user: string } | null;
+    ports: Record<string, number>;
+    app: {
+        workingDirectory: string;
+        serviceDirectory: string | null;
+        runtimes: string[];
+        build: string;
+        staticOutput: string | null;
+        sharedPaths: { path: string; directory: boolean }[];
+        deployPaths: string[];
+        service: { command: string; port: number | null; healthPath: string | null; memoryMaxMb: number; stopTimeoutSeconds: number } | null;
+        environment: Record<string, string>;
+    } | null;
+    site: { name: string; domains: string[]; tlsMode: TlsMode; routes: { path: string; kind: string; target: string }[] } | null;
+    siteDirectory: string | null;
+    notes: string[];
+};
+
+export type RecipeResultView = {
+    appId: number | null;
+    siteId: number | null;
+    repositoryId: number | null;
+    repositoryCreated: boolean;
+    deployKeys: { repository: string; publicKey: string | null }[] | null;
+    site: { applied: boolean; error: string | null; certificateJobId: number | null; dnsError: string | null } | null;
+    notes: string[];
+};

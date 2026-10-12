@@ -393,8 +393,9 @@ public sealed partial class NginxManager(ICommandRunner commands, IOptions<Agent
         {
             var current = WorkerPids();
 
-            // Old workers may linger to finish open connections; new workers mean the new config is live.
-            if (current.Except(before).Any())
+            // New workers exist, and every old one has stopped accepting connections: it exited, or got the
+            // master's signal and closed its listening sockets (it then lingers only to finish open requests).
+            if (current.Except(before).Any() && before.All(IsGoneOrShuttingDown))
             {
                 return;
             }
@@ -403,6 +404,21 @@ public sealed partial class NginxManager(ICommandRunner commands, IOptions<Agent
         }
 
         logger.LogWarning("nginx workers were not replaced within 5 seconds after a reload");
+    }
+
+    /// <summary>nginx retitles a worker "nginx: worker process is shutting down" once it stops accepting.</summary>
+    private bool IsGoneOrShuttingDown(int pid)
+    {
+        try
+        {
+            var path = HostPath($"/proc/{pid}/cmdline");
+
+            return !File.Exists(path) || File.ReadAllText(path).Contains("shutting down", StringComparison.Ordinal);
+        }
+        catch (IOException)
+        {
+            return true; // exited while we looked
+        }
     }
 
     /// <summary>Child processes of the nginx master (from /run/nginx.pid); empty if unknown.</summary>

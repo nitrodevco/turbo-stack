@@ -739,6 +739,32 @@ an unconfirmed change reverting) but has still not been run. Deferred from M1: c
   builder's uid 1000 (which could be an app user) and that corepack needs `node` on PATH; the
   agent now extracts without owners and forces `root:root` on runtimes. Not yet: GitHub App / provider-token auth (deploy keys
   only), deploy notifications, zero-downtime (socket-activated) service swaps.
+- *M5 status (2026-10-11):* recipes implemented. YAML manifests embedded in the panel
+  (Recipes/Manifests), validated at start-up: inputs, database (allowed engines), ports, generated
+  secrets, the app (build, static output, service, shared paths, environment) and the site.
+  A deliberately small template language (`{{ input.x | origin ?? '' }}`, `{{ x ? 'a' : 'b' }}`);
+  environment entries that use an empty input are left out so the app's own default applies.
+  Creating from a recipe plans everything first (the UI preview shows it, secrets excepted), then
+  creates or reuses the repository (one checkout for turbo-cloud's three apps), the database and
+  user, the app and its site. Recipes: turbo-emulator (fresh RSA e=3 keys, shared assets/camera/
+  plugins, `migrate` in the build so a failed migration never goes live, WebSocket site),
+  turbo-admin (HTTPS required, CSP, `/api/` → admin API), turbo-web (CSP with client and imager
+  origins, `/api/` and `/gamedata/`), nitro-client (socket baked in; site-config.json layered after
+  the shipped config by rewriting `nitro.config.url`), nitro-imager (IMAGER_* from the assets and
+  gamedata addresses, memory limit, `/health`), static-assets (an upload folder owned by the app
+  user, default ACL for nginx, CORS + caching), plus generic static-site, node-service and
+  dotnet-service. Ports are allocated from the recipe default, skipping other apps' ports and
+  anything listening. In M5 the addresses between apps are typed by hand; M6 wires them.
+  `test-env/dev recipes` deploys the Turbo/Nitro recipes from the real GitHub repositories
+  (`LOCAL_NITRO=<path>` serves a local nitro-next checkout through the fake GitHub instead).
+  Real-repo runs: turbo-cloud from GitHub (emulator built, migrated on MariaDB and healthy in
+  ~100 s; admin and web built and served) and nitro-next from the local checkout (client built
+  with the hotel's config; imager healthy and rendering avatars). GitHub's nitro-next main is
+  behind the local branch (old node-canvas/gl imager), so it only deploys once that is pushed.
+  Found on the way: .NET needs ICU (installer now adds libicuNN); Docker's /tmp is noexec, which
+  broke Yarn's binary wrappers (builds now get a private TMPDIR); an nginx reload race where old
+  workers still answered (the agent now waits until they stop accepting); nitro-next's lockfile
+  lists the untracked nitro-studio workspace, so its recipes install non-strictly.
 - *Deviations / later:* ACME DNS-01 (wildcards without Cloudflare Origin) and Pebble in the
   Docker env are not done yet; fail2ban still bans in UFW even for proxied traffic (banning via
   the Cloudflare API, plan 6.8, comes with the WAF work); Authenticated Origin Pulls not yet.

@@ -47,4 +47,7 @@ fi
     || fail "setup token hash must be private to turbo-manager"
 pass "setup token hash is private"
 
+ldconfig -p | grep -q 'libicuuc\.so' || fail "ICU should be installed (.NET apps such as Turbo abort without it)"
+pass "ICU installed for .NET apps"
+
 echo "Server checks passed."

@@ -1,0 +1,55 @@
+id: turbo-admin
+name: Turbo admin panel
+category: turbo
+summary: The hotel's staff panel (turbo-admin), served as a single-page app with /api/ going to Turbo.
+description: >-
+  Builds the turbo-admin submodule of turbo-cloud with Node and Yarn, and serves it on its own domain over
+  HTTPS (it signs in with passkeys). Requests to /api/ go to the emulator's admin API. Set the emulator's
+  "Admin panel address" to this site's address.
+source:
+  repository: nitrodevco/turbo-cloud
+  branch: main
+  submodules: true
+
+inputs:
+  - key: apiPort
+    label: Emulator admin API port
+    kind: number
+    default: "8090"
+    help: The emulator's "admin" port.
+
+app:
+  workingDirectory: turbo-admin
+  runtimes: [node]
+  build: |
+    corepack yarn install --immutable
+    corepack yarn build
+  static: turbo-admin/dist
+  deployPaths: [turbo-admin]
+
+site:
+  required: true
+  requiresTls: true
+  securityHeaders: false # the CSP below covers it
+  serverSnippet: |
+    add_header Content-Security-Policy "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+  routes:
+    - path: /
+      kind: Spa
+      target: "{{ app.static }}"
+    - path: /assets/
+      kind: Static
+      target: "{{ app.static }}/assets"
+      cacheSeconds: 31536000
+    - path: /api/
+      kind: Proxy
+      target: "http://127.0.0.1:{{ input.apiPort }}"
+      snippet: |
+        proxy_read_timeout 60s;
+        client_max_body_size 64k;
+
+notes:
+  - "Set the emulator's \"Admin panel address\" to https://{{ site.domain }} and restart it."

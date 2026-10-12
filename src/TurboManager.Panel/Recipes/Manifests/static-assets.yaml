@@ -1,0 +1,32 @@
+id: static-assets
+name: Game assets host
+category: nitro
+summary: Serves converted game assets (bundles, images, gamedata) to the client and imager, with CORS.
+description: >-
+  A site for the files Nitro Studio publishes (bundled/, images/, gamedata/). They aren't in a repository:
+  upload them over SFTP as the site's Linux user into its folder. Bundles are cached for a month, gamedata
+  for an hour.
+
+site:
+  required: true
+  directory: true
+  routes:
+    - path: /
+      kind: Static
+      target: "{{ site.dir }}"
+      cors: true
+      cacheSeconds: 3600
+    - path: /bundled/
+      kind: Static
+      target: "{{ site.dir }}/bundled"
+      cors: true
+      cacheSeconds: 2592000
+    - path: /images/
+      kind: Static
+      target: "{{ site.dir }}/images"
+      cors: true
+      cacheSeconds: 604800
+
+notes:
+  - "Upload the files to {{ site.dir }} as {{ user }} (add your SSH key for {{ user }} on the SSH keys page, then use SFTP or rsync)."
+  - "Use https://{{ site.domain }} as the \"Assets address\" of the client and the imager."

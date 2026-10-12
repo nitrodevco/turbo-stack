@@ -1,0 +1,145 @@
+id: turbo-emulator
+name: Turbo emulator
+category: turbo
+summary: The hotel server (game, WebSocket, admin API, public site API and gamedata in one process).
+description: >-
+  Builds Turbo.Main with .NET 10, migrates the database before each release goes live, and runs it as a
+  service. Players connect through the WebSocket site (for example ws.example.com). Assets, camera photos
+  and plugins live in the app's shared folder so they survive deploys. Fresh RSA keys are generated for
+  this hotel. MySQL or MariaDB only for now (Turbo's migrations are MySQL-specific).
+source:
+  repository: nitrodevco/turbo-cloud
+  branch: main
+  submodules: false
+
+inputs:
+  - key: hotelName
+    label: Hotel name
+    default: Turbo
+  - key: ownerName
+    label: Owner's username
+    help: When this player signs up (or at start-up, if they exist) Turbo logs a one-time admin panel setup link.
+  - key: adminPanelUrl
+    label: Admin panel address
+    kind: url
+    placeholder: https://admin.example.com
+    help: Where turbo-admin runs. Leave empty to keep the admin API off.
+  - key: siteUrl
+    label: Public site address
+    kind: url
+    placeholder: https://example.com
+    help: Where turbo-web runs. Leave empty to keep the public site API off.
+  - key: clientUrl
+    label: Client address
+    kind: url
+    placeholder: https://play.example.com
+    help: Where the Nitro client runs. Players are sent to <address>/?sso=<ticket>.
+  - key: avatarImageUrl
+    label: Avatar image address
+    kind: text
+    placeholder: https://imager.example.com/?figure={figure}&size=l
+  - key: gamedataPublicUrl
+    label: Gamedata public address
+    kind: url
+    placeholder: https://example.com
+    help: The site that serves /gamedata/ (usually the public site). Leave empty to use Turbo's default.
+  - key: badgeAssetUrl
+    label: Badge image address
+    kind: text
+    default: https://images.nitrodev.co/images/badges/%badgename%.gif
+
+database:
+  engines: [mysql, mariadb]
+  name: "{{ app.name | ident }}"
+
+ports:
+  - name: ws
+    default: 9001
+    label: WebSocket (players)
+  - name: admin
+    default: 8090
+    label: Admin API
+  - name: web
+    default: 8092
+    label: Public site API
+  - name: gamedata
+    default: 8094
+    label: Gamedata
+  - name: silo
+    default: 11111
+    label: Orleans silo
+  - name: gateway
+    default: 3000
+    label: Orleans gateway
+
+secrets:
+  - key: crypto
+    kind: rsa-turbo
+  - key: assetsKey
+    kind: base64-32
+
+app:
+  runtimes: [dotnet, node] # node: the camera renderer
+  serviceDirectory: out
+  build: |
+    dotnet publish Turbo.Main/Turbo.Main.csproj --configuration Release --output out --nologo
+    # Migrate before this release goes live: if it fails, the running hotel is untouched.
+    cd out
+    dotnet Turbo.Main.dll migrate
+  shared:
+    - { path: assets, directory: true }
+    - { path: camera, directory: true }
+    - { path: plugins, directory: true }
+  service:
+    command: dotnet Turbo.Main.dll
+    port: ws
+    health: tcp
+    stopTimeoutSeconds: 60
+  environment:
+    DOTNET_ENVIRONMENT: Production
+    TURBO__Turbo__Database__ConnectionString: "server={{ db.host }};port={{ db.port }};user={{ db.user }};password={{ db.password }};database={{ db.name }}"
+    TURBO__Turbo__Database__LoggingEnabled: "false"
+    serverOptions__WebSocketServer__listeners__0__ip: 127.0.0.1
+    serverOptions__WebSocketServer__listeners__0__port: "{{ port.ws }}"
+    serverOptions__TcpServer__listeners__0__ip: 127.0.0.1
+    TURBO__Turbo__Networking__TcpEnabled: "false"
+    TURBO__Turbo__Orleans__SiloAddress: 127.0.0.1
+    TURBO__Turbo__Orleans__SiloPort: "{{ port.silo }}"
+    TURBO__Turbo__Orleans__GatewayPort: "{{ port.gateway }}"
+    TURBO__Turbo__Crypto__KeySize: "{{ secret.crypto.exponent }}"
+    TURBO__Turbo__Crypto__PublicKey: "{{ secret.crypto.modulus }}"
+    TURBO__Turbo__Crypto__PrivateKey: "{{ secret.crypto.private }}"
+    TURBO__Turbo__Assets__Directory: "{{ app.shared }}/assets"
+    TURBO__Turbo__Assets__SecretKey: "{{ secret.assetsKey }}"
+    TURBO__Turbo__Camera__StoragePath: "{{ app.shared }}/camera"
+    TURBO__Turbo__Camera__RendererCacheDirectory: "{{ app.shared }}/camera/cache"
+    TURBO__Turbo__Plugin__PluginFolderPath: "{{ app.shared }}/plugins"
+    TURBO__Turbo__Plugin__HotReloadEnabled: "false"
+    TURBO__Logging__LogLevel__Turbo: Information
+    TURBO__Logging__TurboConsole__UseAnsiColor: "false"
+    TURBO__Turbo__Owner__Name: "{{ input.ownerName }}"
+    TURBO__Turbo__Achievements__BadgeAssetUrl: "{{ input.badgeAssetUrl }}"
+    TURBO__Turbo__Admin__Enabled: "{{ input.adminPanelUrl ? 'true' : 'false' }}"
+    TURBO__Turbo__Admin__Url: "http://127.0.0.1:{{ port.admin }}"
+    TURBO__Turbo__Admin__PanelUrl: "{{ input.adminPanelUrl | trimslash }}"
+    TURBO__Turbo__Admin__ClientLoginUrl: "{{ input.clientUrl | trimslash }}/?sso={ticket}"
+    TURBO__Turbo__Web__Enabled: "{{ input.siteUrl ? 'true' : 'false' }}"
+    TURBO__Turbo__Web__Url: "http://127.0.0.1:{{ port.web }}"
+    TURBO__Turbo__Web__SiteUrl: "{{ input.siteUrl | trimslash }}"
+    TURBO__Turbo__Web__HotelName: "{{ input.hotelName }}"
+    TURBO__Turbo__Web__ClientUrl: "{{ input.clientUrl | trimslash }}/?sso={ticket}"
+    TURBO__Turbo__Web__AvatarImageUrl: "{{ input.avatarImageUrl }}"
+    TURBO__Turbo__Gamedata__Enabled: "true"
+    TURBO__Turbo__Gamedata__Url: "http://127.0.0.1:{{ port.gamedata }}"
+    TURBO__Turbo__Gamedata__PublicUrl: "{{ input.gamedataPublicUrl | trimslash }}"
+
+site:
+  routes:
+    - path: /
+      kind: WebSocket
+      target: "http://127.0.0.1:{{ port.ws }}"
+
+notes:
+  - "Players connect to wss://{{ site.domain }} — use that as the client's socket address."
+  - "Turbo listens on 127.0.0.1 only; the admin API is on port {{ port.admin }}, the public site API on {{ port.web }} and gamedata on {{ port.gamedata }}."
+  - "After the first start, the owner's admin setup link is in the service log (Services → tm-app-{{ app.name }})."

@@ -24,3 +24,4 @@ web/.yarn/*
 # Test artifacts
 test-env/artifacts/
 TestResults/
+*.tsbuildinfo

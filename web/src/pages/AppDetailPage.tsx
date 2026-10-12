@@ -47,7 +47,15 @@ export function AppDetailPage() {
         <div className="space-y-6">
             <PageHeader
                 title={app.name}
-                description={`${app.repository} · runs as ${app.systemUser}${app.currentRelease ? ` · live: ${app.currentRelease}` : ''}`}
+                description={[
+                    app.repository,
+                    `runs as ${app.systemUser}`,
+                    app.recipeId && `recipe ${app.recipeId}`,
+                    Object.keys(app.ports).length > 0 && `ports ${Object.entries(app.ports).map(([name, port]) => `${name} ${port}`).join(', ')}`,
+                    app.currentRelease && `live: ${app.currentRelease}`,
+                ]
+                    .filter(Boolean)
+                    .join(' · ')}
                 actions={
                     <>
                         <Link to="/apps" className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800">
@@ -156,6 +164,7 @@ function SettingsCard({ app, onSaved }: { app: AppSettings; onSaved: () => void 
         sharedPaths: a.sharedPaths.map((p) => (p.directory ? `${p.path}/` : p.path)).join('\n'),
         staticOutput: a.staticOutput ?? '',
         serviceCommand: a.serviceCommand ?? '',
+        serviceDirectory: a.serviceDirectory ?? '',
         servicePort: a.servicePort?.toString() ?? '',
         healthPath: a.healthPath ?? '',
         memoryMaxMb: a.memoryMaxMb,
@@ -178,6 +187,7 @@ function SettingsCard({ app, onSaved }: { app: AppSettings; onSaved: () => void 
                 sharedPaths: lines(form.sharedPaths).map((p) => ({ path: p.replace(/\/$/, ''), directory: p.endsWith('/') })),
                 staticOutput: form.staticOutput || null,
                 serviceCommand: form.serviceCommand || null,
+                serviceDirectory: form.serviceDirectory || null,
                 servicePort: form.servicePort ? Number(form.servicePort) : null,
                 healthPath: form.healthPath || null,
                 memoryMaxMb: Number(form.memoryMaxMb),
@@ -241,8 +251,9 @@ function SettingsCard({ app, onSaved }: { app: AppSettings; onSaved: () => void 
                     </label>
                     <Field label="Built static files" value={form.staticOutput} onChange={(e) => set('staticOutput', e.target.value)} placeholder="dist" hint="Folder a site serves, relative to the repository root." />
                 </div>
-                <div className="grid gap-4 md:grid-cols-[2fr_1fr_1fr]">
+                <div className="grid gap-4 md:grid-cols-[2fr_1fr_1fr_1fr]">
                     <Field label="Service command (optional)" value={form.serviceCommand} onChange={(e) => set('serviceCommand', e.target.value)} placeholder="dotnet Turbo.Main.dll" hint="Kept running by systemd; restarted on every deploy." />
+                    <Field label="Starts in" value={form.serviceDirectory} onChange={(e) => set('serviceDirectory', e.target.value)} placeholder={form.workingDirectory || '(repository root)'} hint="Folder, relative to the release." />
                     <Field label="Port" value={form.servicePort} onChange={(e) => set('servicePort', e.target.value)} placeholder="9001" inputMode="numeric" />
                     <Field label="Health path" value={form.healthPath} onChange={(e) => set('healthPath', e.target.value)} placeholder="/health" />
                 </div>

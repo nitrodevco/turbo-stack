@@ -1,0 +1,34 @@
+id: static-site
+name: Static site or single-page app
+category: general
+summary: Build with a script (or not at all) and serve the output folder.
+description: >-
+  Runs the build commands in the repository and serves the output folder. For a single-page app
+  (React, Vue, ...) unknown paths fall back to index.html.
+
+inputs:
+  - key: build
+    label: Build commands
+    default: corepack yarn install --immutable && corepack yarn build
+    help: Leave empty if the repository already contains the files to serve.
+  - key: output
+    label: Output folder
+    default: dist
+    required: true
+    help: Relative to the repository root, e.g. dist or public.
+  - key: spa
+    label: Single-page app
+    kind: bool
+    default: "true"
+
+app:
+  runtimes: [node]
+  build: "{{ input.build }}"
+  static: "{{ input.output }}"
+
+site:
+  required: true
+  routes:
+    - path: /
+      kind: "{{ input.spa ? 'Spa' : 'Static' }}"
+      target: "{{ app.static }}"

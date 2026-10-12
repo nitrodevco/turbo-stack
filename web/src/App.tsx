@@ -5,6 +5,7 @@ import { AppShell } from './components/AppShell';
 import { CenteredPage, ErrorNote } from './components/ui';
 import { ActivityPage } from './pages/ActivityPage';
 import { AppDetailPage } from './pages/AppDetailPage';
+import { RecipePage } from './pages/RecipePage';
 import { AppsPage } from './pages/AppsPage';
 import { CertificatesPage } from './pages/CertificatesPage';
 import { CloudflarePage } from './pages/CloudflarePage';
@@ -74,6 +75,7 @@ export function App() {
                 <Route path="cloudflare" element={<CloudflarePage />} />
                 <Route path="databases" element={<DatabasesPage />} />
                 <Route path="apps" element={<AppsPage />} />
+                <Route path="apps/new" element={<RecipePage />} />
                 <Route path="apps/:id" element={<AppDetailPage />} />
                 <Route path="repositories/:id" element={<RepositoryPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />

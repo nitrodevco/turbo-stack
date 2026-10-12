@@ -1,0 +1,83 @@
+id: nitro-imager
+name: Nitro imager
+category: nitro
+summary: Avatar, badge, pet and furniture images (nitro-imager), as a service behind its own domain.
+description: >-
+  Builds packages/nitro-imager from nitro-next and runs it on 127.0.0.1. It loads the avatar data before it
+  answers, so the first start can take a minute, and it refuses to start if a required address is missing.
+  Memory grows with the number of loaded libraries (about 800 MB at the default 300).
+source:
+  repository: nitrodevco/nitro-next
+  branch: main
+
+inputs:
+  - key: assetsUrl
+    label: Assets address
+    kind: url
+    required: true
+    placeholder: https://assets.example.com
+    help: Where the converted bundles and static gamedata are (Nitro Studio's layout).
+  - key: gamedataUrl
+    label: Gamedata address
+    kind: url
+    required: true
+    placeholder: https://example.com
+    help: The site that serves Turbo's /gamedata/ (usually the public site).
+  - key: badgePartsUrl
+    label: Badge parts folder
+    kind: url
+    default: https://images.habbo.com/c_images/Badgeparts/
+  - key: maxLibraries
+    label: Avatar libraries kept loaded
+    kind: number
+    default: "300"
+  - key: memoryMb
+    label: Memory limit (MB)
+    kind: number
+    default: "1200"
+
+ports:
+  - name: http
+    default: 3030
+    label: Imager
+
+app:
+  runtimes: [node]
+  serviceDirectory: packages/nitro-imager
+  build: |
+    corepack yarn workspaces focus @nitrodevco/nitro-imager
+    corepack yarn workspace @nitrodevco/nitro-imager build
+  deployPaths: [packages/nitro-imager, packages/nitro-renderer, packages/nitro-api, package.json, yarn.lock]
+  service:
+    command: node --enable-source-maps dist/main.js
+    port: http
+    health: /health
+    memoryMaxMb: "{{ input.memoryMb }}"
+    stopTimeoutSeconds: 20
+  environment:
+    # nitro-next's yarn.lock also lists packages/nitro-studio, a separate checkout a clone doesn't have, so a
+    # strict install from a clone always fails; Yarn drops those entries (the rest stays as locked).
+    YARN_ENABLE_IMMUTABLE_INSTALLS: "false"
+    IMAGER_HOST: 127.0.0.1
+    IMAGER_PORT: "{{ port.http }}"
+    IMAGER_MAX_LIBRARIES: "{{ input.maxLibraries }}"
+    IMAGER_TEMPLATES_URL: "{{ input.assetsUrl | trimslash }}/bundled/templates/%libname%.nitro"
+    IMAGER_FIGURE_BUNDLE_URL: "{{ input.assetsUrl | trimslash }}/bundled/figures/%libname%.nitro"
+    IMAGER_EFFECT_BUNDLE_URL: "{{ input.assetsUrl | trimslash }}/bundled/effects/%libname%.nitro"
+    IMAGER_PET_BUNDLE_URL: "{{ input.assetsUrl | trimslash }}/bundled/pet/%libname%.nitro"
+    IMAGER_FURNITURE_BUNDLE_URL: "{{ input.assetsUrl | trimslash }}/bundled/furniture/%libname%.nitro"
+    IMAGER_FIGUREMAP_URL: "{{ input.assetsUrl | trimslash }}/gamedata/FigureMap.json"
+    IMAGER_EFFECTMAP_URL: "{{ input.assetsUrl | trimslash }}/gamedata/EffectMap.json"
+    IMAGER_FIGUREDATA_URL: "{{ input.gamedataUrl | trimslash }}/gamedata/figuredata_json/0"
+    IMAGER_FURNIDATA_URL: "{{ input.gamedataUrl | trimslash }}/gamedata/furnidata_json/0"
+    IMAGER_BADGE_PARTS: "{{ input.gamedataUrl | trimslash }}/gamedata/badgeparts_json/0"
+    IMAGER_BADGE_PART_URL: "{{ input.badgePartsUrl }}"
+
+site:
+  routes:
+    - path: /
+      kind: Proxy
+      target: "http://127.0.0.1:{{ port.http }}"
+
+notes:
+  - "Avatars: https://{{ site.domain }}/avatarimage?figure=<figure> — use https://{{ site.domain }}/?figure={figure}&size=l as the emulator's \"Avatar image address\"."

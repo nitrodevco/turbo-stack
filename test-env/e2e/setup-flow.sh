@@ -342,6 +342,51 @@ pass "failed build left the live release untouched"
 
 echo "Deploys passed."
 echo
+echo "Recipes"
+
+[[ "$(body_of "$(call GET /api/recipes)" | jq -r '[.[].id] | sort | join(",")')" == "dotnet-service,nitro-client,nitro-imager,node-service,static-assets,static-site,turbo-admin,turbo-emulator,turbo-web" ]] \
+    || fail "all recipes should be listed"
+
+response="$(call POST /api/recipes/static-site "$(jq -n '{
+    name: "landing", systemUser: "hotel", repository: "billsonnn/hotel-web", private: true, domains: ["landing.hotel.test"], tlsMode: "None",
+    inputs: { build: "mkdir -p dist && cp index.html dist/ && cp theme/theme.css dist/", output: "dist", spa: "true" }}')")"
+[[ "$(status_of "$response")" == "200" && "$(body_of "$response" | jq -r .repositoryCreated)" == "false" ]] \
+    || fail "static-site recipe should reuse hotel's checkout of hotel-web: $response"
+wait_for_job "$(deploy_app "$(body_of "$response" | jq -r .appId)")" 300
+[[ "$(curl -sf -H "Host: landing.hotel.test" http://server/some/client/route)" == *"Hello from"* ]] || fail "SPA fallback should serve index.html"
+pass "static-site recipe: reused the repository, deployed, SPA site served"
+
+NODE_SERVER='mkdir -p dist && echo "require(\"http\").createServer((q, s) => s.end(\"recipe service on \" + process.env.PORT)).listen(process.env.PORT, process.env.HOST)" > dist/server.js'
+response="$(call POST /api/recipes/node-service/preview "$(jq -n --arg build "$NODE_SERVER" '{
+    name: "pinger", systemUser: "hotel", repository: "billsonnn/hotel-web", domains: ["pinger.hotel.test"], tlsMode: "None",
+    inputs: { build: $build, start: "node dist/server.js" }}')")"
+PORT="$(body_of "$response" | jq -r .ports.http)"
+[[ "$PORT" == "3100" ]] || fail "node-service should get its default port: $response"
+response="$(call POST /api/recipes/node-service "$(jq -n --arg build "$NODE_SERVER" '{
+    name: "pinger", systemUser: "hotel", repository: "billsonnn/hotel-web", domains: ["pinger.hotel.test"], tlsMode: "None",
+    inputs: { build: $build, start: "node dist/server.js" }}')")"
+[[ "$(status_of "$response")" == "200" ]] || fail "node-service recipe failed: $response"
+wait_for_job "$(deploy_app "$(body_of "$response" | jq -r .appId)")" 300
+[[ "$(curl -sf -H "Host: pinger.hotel.test" http://server/)" == "recipe service on 3100" ]] || fail "service should answer on its allocated port behind the site"
+pass "node-service recipe: port allocated, service deployed and proxied"
+
+response="$(call POST /api/recipes/static-assets '{"name":"assets","systemUser":"hotel","domains":["assets.hotel.test"],"tlsMode":"None"}')"
+[[ "$(status_of "$response")" == "200" && "$(body_of "$response" | jq -r .appId)" == "null" ]] || fail "static-assets recipe failed: $response"
+pass "static-assets recipe: upload folder and CORS site created (served files checked on the server)"
+
+response="$(call POST /api/recipes/turbo-emulator/preview '{"name":"emulator","systemUser":"hotel"}')"
+[[ "$(body_of "$response" | jq -r .database.engine)" == "$SQL" ]] || fail "the emulator should get the installed $SQL: $response"
+response="$(call POST /api/recipes/turbo-emulator '{"name":"emulator","systemUser":"hotel","inputs":{"ownerName":"bill"}}')"
+[[ "$(status_of "$response")" == "200" ]] || fail "turbo-emulator recipe failed: $response"
+EMULATOR="$(body_of "$response" | jq -r .appId)"
+[[ "$(body_of "$(call GET "/api/databases/$SQL/databases")" | jq '[.[] | select(.name == "emulator")] | length')" == "1" ]] \
+    || fail "the emulator's database should exist in $SQL"
+[[ "$(body_of "$(call GET "/api/apps/$EMULATOR/environment")" | jq -r '.TURBO__Turbo__Crypto__PublicKey | length')" == "256" ]] \
+    || fail "the emulator should get its own RSA key"
+pass "turbo-emulator recipe: real $SQL database and user created, keys generated"
+
+echo "Recipes passed."
+echo
 echo "Cloudflare (fake API)"
 
 SERVER_IP="$(getent hosts server | awk '{print $1}')"

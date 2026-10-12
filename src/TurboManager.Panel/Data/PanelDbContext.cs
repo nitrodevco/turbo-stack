@@ -123,6 +123,8 @@ public sealed class PanelDbContext(DbContextOptions<PanelDbContext> options) : D
             app.HasOne(a => a.Repository).WithMany().HasForeignKey(a => a.RepositoryId).OnDelete(DeleteBehavior.Restrict);
             app.OwnsMany(a => a.SharedPaths, paths => paths.ToJson());
             app.Ignore(a => a.AppDirectory);
+            app.Property(a => a.RecipeInputs).HasConversion(JsonConverter<Dictionary<string, string>>(), JsonComparer<Dictionary<string, string>>());
+            app.Property(a => a.Ports).HasConversion(JsonConverter<Dictionary<string, int>>(), JsonComparer<Dictionary<string, int>>());
         });
 
         model.Entity<AppRelease>(release =>
@@ -149,6 +151,17 @@ public sealed class PanelDbContext(DbContextOptions<PanelDbContext> options) : D
         conventions.Properties<DateTimeOffset>().HaveConversion<DateTimeOffsetToUnixMillisConverter>();
     }
 
+
+    /// <summary>Stores a small object as a JSON string (dictionaries aren't primitive collections in EF).</summary>
+    private static Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<T, string> JsonConverter<T>() where T : new() =>
+        new(v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
+            v => string.IsNullOrEmpty(v) ? new T() : System.Text.Json.JsonSerializer.Deserialize<T>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new T());
+
+    /// <summary>Compares by JSON so changes inside the object are saved.</summary>
+    private static Microsoft.EntityFrameworkCore.ChangeTracking.ValueComparer<T> JsonComparer<T>() where T : new() =>
+        new((a, b) => System.Text.Json.JsonSerializer.Serialize(a, (System.Text.Json.JsonSerializerOptions?)null) == System.Text.Json.JsonSerializer.Serialize(b, (System.Text.Json.JsonSerializerOptions?)null),
+            v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null).GetHashCode(StringComparison.Ordinal),
+            v => System.Text.Json.JsonSerializer.Deserialize<T>(System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null), (System.Text.Json.JsonSerializerOptions?)null)!);
     private sealed class DateTimeOffsetToUnixMillisConverter()
         : Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<DateTimeOffset, long>(
             v => v.ToUnixTimeMilliseconds(),

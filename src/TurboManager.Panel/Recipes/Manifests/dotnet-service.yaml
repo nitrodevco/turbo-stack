@@ -1,0 +1,44 @@
+id: dotnet-service
+name: .NET service
+category: general
+summary: An ASP.NET Core (or other .NET) app published and run as a service on a local port.
+description: >-
+  Publishes the project with the .NET SDK and runs the published app as a service. ASP.NET Core apps get
+  ASPNETCORE_URLS so they listen on 127.0.0.1 and the allocated port.
+
+inputs:
+  - key: project
+    label: Project to publish
+    required: true
+    placeholder: src/MyApp/MyApp.csproj
+  - key: assembly
+    label: Published assembly
+    required: true
+    placeholder: MyApp.dll
+  - key: healthPath
+    label: Health check path
+    placeholder: /health
+    help: Leave empty to only check that the port accepts connections.
+
+ports:
+  - name: http
+    default: 5100
+    label: HTTP
+
+app:
+  runtimes: [dotnet]
+  serviceDirectory: out
+  build: dotnet publish "{{ input.project }}" --configuration Release --output out --nologo
+  service:
+    command: "dotnet {{ input.assembly }}"
+    port: http
+    health: "{{ input.healthPath ?? 'tcp' }}"
+  environment:
+    DOTNET_ENVIRONMENT: Production
+    ASPNETCORE_URLS: "http://127.0.0.1:{{ port.http }}"
+
+site:
+  routes:
+    - path: /
+      kind: Proxy
+      target: "http://127.0.0.1:{{ port.http }}"

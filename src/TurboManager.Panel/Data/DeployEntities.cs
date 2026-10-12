@@ -125,6 +125,18 @@ public sealed class App
 
     public string? CurrentRelease { get; set; }
 
+    /// <summary>Where the service starts, relative to the release root (null = the working directory).</summary>
+    public string? ServiceDirectory { get; set; }
+
+    /// <summary>The recipe the app was created from (null for a hand-made app).</summary>
+    public string? RecipeId { get; set; }
+
+    /// <summary>The recipe inputs it was created with.</summary>
+    public Dictionary<string, string> RecipeInputs { get; set; } = [];
+
+    /// <summary>Ports reserved for the app on 127.0.0.1, by the recipe's name for them.</summary>
+    public Dictionary<string, int> Ports { get; set; } = [];
+
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
     public string AppDirectory => $"/home/{SystemUser}/apps/{Name}";

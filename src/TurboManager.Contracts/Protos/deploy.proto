@@ -32,6 +32,9 @@ service DeployAgent {
   rpc WriteAppService (AppServiceRequest) returns (google.protobuf.Empty);
   rpc RemoveAppService (AppRef) returns (google.protobuf.Empty);
 
+  // /home/<user>/sites/<name>: files a site serves directly (uploaded over SFTP, not deployed).
+  rpc EnsureSiteDirectory (AppRef) returns (SiteDirectory);
+
   rpc ListRuntimes (google.protobuf.Empty) returns (Runtimes);
   rpc InstallRuntime (RuntimeRequest) returns (stream OutputLine);
 }
@@ -99,6 +102,10 @@ message DeployOutput {
 message AppRef {
   string user = 1;
   string app = 2;   // [a-z0-9-]{1,40}
+}
+
+message SiteDirectory {
+  string path = 1;
 }
 
 message SharedPath {

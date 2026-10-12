@@ -6,6 +6,7 @@
 #   test-env/dev install     Run install.sh on the server, exactly like a user would (curl | bash)
 #   test-env/dev e2e         Run the end-to-end checks (needs a fresh install)
 #   test-env/dev all         package + reset + install + e2e (what CI runs)
+#   test-env/dev recipes     Deploy the Turbo/Nitro recipes from the real GitHub repositories (slow)
 #   test-env/dev try         package + reset + install, then open the setup page in your browser
 #   test-env/dev shell       Root shell on the server
 #   test-env/dev logs        Follow panel + agent logs
@@ -51,16 +52,20 @@ cmd_install() {
     on_server bash -c "curl -fsSL http://install-host/install.sh | bash -s -- --base-url http://install-host --no-upgrade --public-host localhost" \
         | tee "$ARTIFACTS/install.log"
 
-    # Test-only: point the panel at the fake Cloudflare and fake GitHub instead of the real ones.
-    local github_key
-    github_key="$(compose exec -T fake-github awk '{print $1" "$2}' /etc/ssh/ssh_host_ed25519_key.pub | tr -d '\r')"
+    # Test-only: point the panel at the fake Cloudflare and (unless REAL_GITHUB=1) fake GitHub.
+    local github=""
+    if [[ "${REAL_GITHUB:-0}" != 1 ]]; then
+        local github_key
+        github_key="$(compose exec -T fake-github awk '{print $1" "$2}' /etc/ssh/ssh_host_ed25519_key.pub | tr -d '\r')"
+        github="Environment=Panel__GitHubSshHost=fake-github
+Environment=Panel__GitHubHttpsBase=https://fake-github
+Environment=\"Panel__GitHubKnownHosts__0=$github_key\"
+Environment=Panel__DeployHealthTimeoutSeconds=20"
+    fi
     on_server bash -c "mkdir -p /etc/systemd/system/tm-panel.service.d && cat > /etc/systemd/system/tm-panel.service.d/test.conf <<EOF
 [Service]
 Environment=Panel__CloudflareApiBase=http://fake-cloudflare:8080/client/v4
-Environment=Panel__GitHubSshHost=fake-github
-Environment=Panel__GitHubHttpsBase=https://fake-github
-Environment=\"Panel__GitHubKnownHosts__0=$github_key\"
-Environment=Panel__DeployHealthTimeoutSeconds=20
+$github
 EOF
 systemctl daemon-reload && systemctl restart tm-panel
 for _ in \$(seq 1 60); do curl -fsS http://127.0.0.1:7800/api/health >/dev/null 2>&1 && break; sleep 1; done"
@@ -80,6 +85,34 @@ cmd_e2e() {
     url="$(setup_url)"
     compose --profile test run --rm --build tester /e2e/setup-flow.sh "$url"
     on_server bash -s < "$HERE/e2e/server-post-checks.sh"
+}
+
+# Copies the committed HEAD of a local repository into the fake GitHub as <owner/name>, branch main.
+mirror_local_repo() {
+    local bundle="$ARTIFACTS/mirror.bundle" source
+    git -C "$1" bundle create "$bundle" HEAD
+    source="$(cygpath -w "$bundle" 2>/dev/null || echo "$bundle")" # docker.exe wants a Windows path
+    compose cp "$source" fake-github:/tmp/mirror.bundle
+    compose exec -T fake-github sh -c "rm -rf /home/git/$2.git && mkdir -p /home/git/${2%/*} \
+        && git init -q --bare -b main /home/git/$2.git && git -C /home/git/$2.git fetch -q /tmp/mirror.bundle HEAD:refs/heads/main \
+        && chown -R git:git /home/git/${2%/*} && rm /tmp/mirror.bundle"
+}
+
+# The Turbo and Nitro recipes against the real repositories on GitHub (slow: builds everything).
+# LOCAL_NITRO=/path/to/nitro-next: the Nitro recipes against that checkout's committed HEAD instead (served by
+# the fake GitHub), for verifying them before the commits are pushed.
+cmd_recipes() {
+    local url
+    cmd_package
+    cmd_reset
+    if [[ -n "${LOCAL_NITRO:-}" ]]; then
+        cmd_install
+        mirror_local_repo "$LOCAL_NITRO" nitrodevco/nitro-next
+    else
+        REAL_GITHUB=1 cmd_install
+    fi
+    url="$(setup_url)"
+    compose --profile test run --rm --build -e "LOCAL_NITRO=${LOCAL_NITRO:+1}" tester /e2e/recipes-flow.sh "$url"
 }
 
 cmd_collect() {
@@ -122,6 +155,7 @@ case "${1:-}" in
     e2e) cmd_e2e ;;
     # Separate statements (not &&) so set -e stops at the first failing step.
     all) cmd_package; cmd_reset; cmd_install; cmd_e2e ;;
+    recipes) cmd_recipes ;;
     try) cmd_try ;;
     collect) cmd_collect ;;
     shell) compose exec server bash ;;
@@ -129,5 +163,5 @@ case "${1:-}" in
     token) on_server tm-setup-token ;;
     reset) cmd_reset ;;
     down) compose down --volumes --remove-orphans ;;
-    *) sed -n '2,18p' "$0"; exit 1 ;;
+    *) sed -n '2,19p' "$0"; exit 1 ;;
 esac

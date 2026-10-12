@@ -1,0 +1,114 @@
+id: nitro-client
+name: Nitro client
+category: nitro
+summary: The game client (nitro-react), built for this hotel and served as static files.
+description: >-
+  Builds packages/nitro-react from nitro-next with Node and Yarn. The socket address is baked in at build
+  time; the asset, gamedata and imager addresses go into config/site-config.json, which the page loads on
+  top of the shipped nitro-config.json (changing them needs a redeploy). The vite build needs about 2 GB
+  of memory.
+source:
+  repository: nitrodevco/nitro-next
+  branch: main
+
+inputs:
+  - key: socketUrl
+    label: Socket address
+    kind: url
+    required: true
+    placeholder: wss://ws.example.com
+    help: The emulator's WebSocket site.
+  - key: assetsUrl
+    label: Assets address
+    kind: url
+    placeholder: https://assets.example.com
+    help: Where the converted bundles, images and static gamedata are (Nitro Studio's layout). Leave empty to keep the shipped defaults.
+  - key: gamedataUrl
+    label: Gamedata address
+    kind: url
+    placeholder: https://example.com
+    help: The site that serves Turbo's /gamedata/ (usually the public site).
+  - key: imagerUrl
+    label: Imager address
+    kind: url
+    placeholder: https://imager.example.com
+  - key: siteUrl
+    label: Public site address
+    kind: url
+    placeholder: https://example.com
+    help: The site that frames the client (allowed by its Content-Security-Policy).
+
+app:
+  runtimes: [node]
+  build: |
+    corepack yarn install
+    corepack yarn build-client
+    # Load the shipped config, then Turbo's external variables (if known), then this hotel's addresses.
+    node --input-type=module -e '
+    import fs from "node:fs";
+    const dist = "packages/nitro-react/dist";
+    fs.writeFileSync(`${dist}/config/site-config.json`, process.env.NITRO_SITE_CONFIG || "{}");
+    const urls = ["./config/nitro-config.json"];
+    if (process.env.NITRO_EXTERNAL_VARIABLES) urls.push(process.env.NITRO_EXTERNAL_VARIABLES);
+    urls.push("./config/site-config.json");
+    const page = `${dist}/index.html`;
+    const html = fs.readFileSync(page, "utf8");
+    const pattern = /(["\x27])nitro\.config\.url\1\s*:\s*[^\n]*?,?\s*\n/;
+    if (!pattern.test(html)) { console.error("index.html no longer sets nitro.config.url; update the recipe."); process.exit(1); }
+    fs.writeFileSync(page, html.replace(pattern, `"nitro.config.url": ${JSON.stringify(urls)},\n`));
+    console.log("Config:", urls.join(" + "));
+    '
+  static: packages/nitro-react/dist
+  deployPaths: [packages/nitro-react, packages/nitro-renderer, packages/nitro-api, packages/nitro-packets, packages/nitro-theme, package.json, yarn.lock]
+  environment:
+    # nitro-next's yarn.lock also lists packages/nitro-studio, a separate checkout a clone doesn't have, so a
+    # strict install from a clone always fails; Yarn drops those entries (the rest stays as locked).
+    YARN_ENABLE_IMMUTABLE_INSTALLS: "false"
+    VITE_SOCKET_URL: "{{ input.socketUrl }}"
+    NITRO_EXTERNAL_VARIABLES: "{{ input.gamedataUrl | trimslash }}/gamedata/external_variables/0"
+    NITRO_SITE_CONFIG:
+      socket.url: "{{ input.socketUrl }}"
+      asset.bundles.avatar: "{{ input.assetsUrl | trimslash }}/bundled/figures/%libname%.nitro"
+      asset.bundles.effects: "{{ input.assetsUrl | trimslash }}/bundled/effects/%libname%.nitro"
+      asset.bundles.furni: "{{ input.assetsUrl | trimslash }}/bundled/furniture/%libname%.nitro"
+      asset.bundles.pets: "{{ input.assetsUrl | trimslash }}/bundled/pet/%libname%.nitro"
+      asset.bundles.room: "{{ input.assetsUrl | trimslash }}/bundled/room/%libname%.nitro"
+      asset.bundles.templates: "{{ input.assetsUrl | trimslash }}/bundled/templates/%libname%.nitro"
+      asset.urls.catalog: "{{ input.assetsUrl | trimslash }}/images/catalog/%name%.gif"
+      asset.urls.icons.furni: "{{ input.assetsUrl | trimslash }}/images/furni-icons/%libname%%param%_icon.png"
+      badge.asset.url: "{{ input.assetsUrl | trimslash }}/images/badges/%badgename%.gif"
+      catalog.asset.url: "{{ input.assetsUrl | trimslash }}/images/catalog"
+      catalog.icons.url: "{{ input.assetsUrl | trimslash }}/images/catalog-icons/icon_%name%.png"
+      flash.dynamic.download.url: "{{ input.assetsUrl | trimslash }}/"
+      effectmap.url: "{{ input.assetsUrl | trimslash }}/gamedata/EffectMap.json"
+      figuremap.url: "{{ input.assetsUrl | trimslash }}/gamedata/FigureMap.json"
+      gamedata.urls.defaultLocalizations: "{{ input.assetsUrl | trimslash }}/gamedata/DefaultLocalizations_en.json"
+      figuredata.url: "{{ input.gamedataUrl | trimslash }}/gamedata/figuredata_json/0"
+      furnituredata.url: "{{ input.gamedataUrl | trimslash }}/gamedata/furnidata_json/0"
+      productdata.url: "{{ input.gamedataUrl | trimslash }}/gamedata/productdata_json/0"
+      gamedata.urls.externalTexts: "{{ input.gamedataUrl | trimslash }}/gamedata/external_flash_texts/0"
+      badge.asset.group.url: "{{ input.imagerUrl | trimslash }}/badge/%badgedata%.gif"
+      group.badge.url: "{{ input.imagerUrl | trimslash }}/badge/%imagerdata%.gif"
+
+site:
+  required: true
+  securityHeaders: false # framed by the public site: no X-Frame-Options
+  serverSnippet: |
+    add_header Content-Security-Policy "frame-ancestors 'self' {{ input.siteUrl | origin ?? '' }}" always;
+    add_header X-Content-Type-Options "nosniff" always;
+  routes:
+    - path: /
+      kind: Static
+      target: "{{ app.static }}"
+    - path: /config/
+      kind: Static
+      target: "{{ app.static }}/config"
+      cacheSeconds: 0
+    - path: /assets/
+      kind: Static
+      target: "{{ app.static }}/assets"
+      cacheSeconds: 2592000
+
+notes:
+  - "Set the emulator's \"Client address\" to https://{{ site.domain }}."
+  - "Changed an address? Edit the app's environment and redeploy: the client is built with them."

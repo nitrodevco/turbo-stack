@@ -55,13 +55,26 @@ function AppsTab() {
         <div className="space-y-4">
             <ErrorNote message={apps.error ? errorMessage(apps.error) : null} />
             {can('apps.manage') && (
-                <div className="flex justify-end">
-                    <Button onClick={() => setCreating(true)} disabled={!repositories.data?.length} title={repositories.data?.length ? undefined : 'Add a repository first'}>
-                        New app
+                <div className="flex justify-end gap-2">
+                    <Button
+                        variant="secondary"
+                        onClick={() => setCreating(true)}
+                        disabled={!repositories.data?.length}
+                        title={repositories.data?.length ? undefined : 'Add a repository first'}
+                    >
+                        New app by hand
                     </Button>
+                    <Link to="/apps/new">
+                        <Button>New from a recipe</Button>
+                    </Link>
                 </div>
             )}
-            {repositories.data?.length === 0 && <Notice>Start by adding the GitHub repository your app is built from, on the Repositories tab.</Notice>}
+            {apps.data?.length === 0 && (
+                <Notice>
+                    Setting up a hotel? Start with a <Link to="/apps/new" className="font-medium underline">recipe</Link>: the Turbo emulator, its admin panel and site, the Nitro
+                    client and imager are all ready to go.
+                </Notice>
+            )}
             {creating && repositories.data && <NewAppCard repositories={repositories.data} onClose={() => setCreating(false)} />}
             {apps.isPending ? (
                 <Spinner />

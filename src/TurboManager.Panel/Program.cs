@@ -14,6 +14,7 @@ using TurboManager.Panel.Auth;
 using TurboManager.Panel.Data;
 using TurboManager.Panel.Databases;
 using TurboManager.Panel.Deploy;
+using TurboManager.Panel.Recipes;
 using TurboManager.Panel.Endpoints;
 using TurboManager.Panel.Firewall;
 using TurboManager.Panel.Http;
@@ -60,6 +61,8 @@ builder.Services.AddScoped<DatabaseService>();
 builder.Services.AddHostedService<BackupScheduler>();
 builder.Services.AddSingleton<GitHubHostKeys>();
 builder.Services.AddScoped<DeployService>();
+builder.Services.AddSingleton(_ => new RecipeCatalog());
+builder.Services.AddScoped<RecipeService>();
 builder.Services.AddHttpClient("github", client =>
 {
     client.Timeout = TimeSpan.FromSeconds(15);
@@ -124,6 +127,7 @@ app.MapSitesEndpoints();
 app.MapCloudflareEndpoints();
 app.MapDatabaseEndpoints();
 app.MapDeployEndpoints();
+app.MapRecipeEndpoints();
 app.MapFallback("/api/{**path}", () => Results.NotFound());
 app.MapFallbackToFile("index.html");
 

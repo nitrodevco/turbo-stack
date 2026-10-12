@@ -158,13 +158,32 @@ public sealed class DeployManagerTests : IDisposable
             Runtimes = { "node" },
         }, _ => Task.CompletedTask, CancellationToken.None);
 
-        var call = Assert.Single(_commands.Calls);
+        var call = Assert.Single(_commands.Calls, c => c.EndsWith("bash -euo pipefail -c yarn build", StringComparison.Ordinal));
         Assert.StartsWith("runuser -u hotel -- env -i --chdir=/home/hotel/apps/web/releases/20261011120000-abcdef1/packages/nitro-react", call);
         Assert.Contains("VITE_SOCKET_URL=wss://ws.hotel.test", call);
         Assert.Contains("PATH=/opt/turbo-manager/runtimes/node/bin:/usr/local/sbin", call);
         Assert.Contains("TM_SHARED_DIR=/home/hotel/apps/web/shared", call);
-        Assert.EndsWith("bash -euo pipefail -c yarn build", call);
+        // Its own temp directory (not the shared, possibly noexec /tmp), made before and removed after.
+        Assert.Contains("TMPDIR=/home/hotel/.cache/tm-build/web", call);
+        Assert.Contains("mkdir -p -- \"$1\" bash /home/hotel/.cache/tm-build/web", _commands.Calls[0]);
+        Assert.EndsWith("rm -rf -- /home/hotel/.cache/tm-build/web", _commands.Calls[^1]);
     }
+
+    [Fact]
+    public async Task Site_directories_belong_to_the_app_user_and_stay_readable_by_nginx()
+    {
+        var directory = await _deploy.EnsureSiteDirectoryAsync(new AppRef { User = "hotel", App = "assets" }, CancellationToken.None);
+
+        Assert.Equal("/home/hotel/sites/assets", directory.Path);
+        Assert.StartsWith("runuser -u hotel -- env -i ", _commands.Calls[0]);
+        Assert.EndsWith(" mkdir -p /home/hotel/sites/assets", _commands.Calls[0]);
+        Assert.Contains("setfacl -R -m u:www-data:rX -m d:u:www-data:rX /home/hotel/sites/assets", _commands.Calls);
+        await Assert.ThrowsAsync<RpcException>(() => _deploy.EnsureSiteDirectoryAsync(new AppRef { User = "hotel", App = "../x" }, CancellationToken.None));
+    }
+
+    [Fact]
+    public void Node_runtime_never_prompts_for_downloads() =>
+        Assert.Equal("0", DeployManager.RuntimeEnvironment(["node"])["COREPACK_ENABLE_DOWNLOAD_PROMPT"]);
 
     [Fact]
     public async Task Activation_is_an_atomic_symlink_swap()

@@ -58,6 +58,9 @@ public sealed class DeployAgentService(DeployManager deploy) : DeployAgent.Deplo
         return new Empty();
     }
 
+    public override Task<SiteDirectory> EnsureSiteDirectory(AppRef request, ServerCallContext context) =>
+        deploy.EnsureSiteDirectoryAsync(request, context.CancellationToken);
+
     public override Task<Runtimes> ListRuntimes(Empty request, ServerCallContext context) =>
         deploy.ListRuntimesAsync(context.CancellationToken);
 

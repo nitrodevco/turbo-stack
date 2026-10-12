@@ -97,8 +97,10 @@ if [[ $UPGRADE -eq 1 ]]; then
     apt-get -y -qq -o Dpkg::Options::=--force-confold upgrade
 fi
 log "Installing base packages"
+# .NET apps (Turbo) need ICU; the package carries the version in its name (libicu74 on 24.04).
+ICU_PACKAGE="$(apt-cache search --names-only '^libicu[0-9]+$' | awk '{print $1}' | sort -V | tail -n1)"
 apt-get -y -qq install --no-install-recommends \
-    ca-certificates curl git unzip jq openssl acl iproute2 rsync xz-utils \
+    ca-certificates curl git unzip jq openssl acl iproute2 rsync xz-utils ${ICU_PACKAGE} \
     nginx ufw fail2ban python3-systemd unattended-upgrades >/dev/null
 
 # ---------------------------------------------------------------------------------------------
