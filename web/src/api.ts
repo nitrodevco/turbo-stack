@@ -302,6 +302,9 @@ export type DatabaseEngineView = {
     service: string;
     port: number;
     blockedReason: string;
+    candidateVersion: string;
+    recommended: boolean;
+    note: string;
 };
 
 export type DatabaseInfo = { name: string; sizeBytes: number; tables: number };

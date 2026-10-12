@@ -42,6 +42,16 @@ public sealed partial class DatabaseManager(ICommandRunner commands, IOptions<Ag
             statuses[spec.Engine] = await PackageStatusAsync(spec.Package, cancellationToken);
         }
 
+        var candidates = new Dictionary<DatabaseEngine, string>();
+
+        foreach (var spec in Engines.Where(s => !statuses[s.Engine].Installed))
+        {
+            candidates[spec.Engine] = await CandidateVersionAsync(spec.Package, cancellationToken);
+        }
+
+        var mysqlVersion = statuses[DatabaseEngine.Mysql].Installed ? statuses[DatabaseEngine.Mysql].Version : candidates.GetValueOrDefault(DatabaseEngine.Mysql, "");
+        var recommended = Recommend(mysqlVersion, e => statuses[e].Installed);
+
         foreach (var spec in Engines)
         {
             var (installed, version) = statuses[spec.Engine];
@@ -53,13 +63,68 @@ public sealed partial class DatabaseManager(ICommandRunner commands, IOptions<Ag
                 Installed = installed,
                 Running = active,
                 Version = version,
+                CandidateVersion = candidates.GetValueOrDefault(spec.Engine, ""),
                 Service = $"{spec.Service}.service",
                 Port = spec.Port,
                 BlockedReason = BlockedReason(spec.Engine, e => statuses[e].Installed) ?? "",
+                Recommended = spec.Engine == recommended,
+                Note = Note(spec.Engine, mysqlVersion) ?? "",
             });
         }
 
         return reply;
+    }
+
+    /// <summary>
+    /// Which of MySQL/MariaDB to use for Turbo: whichever is already installed; otherwise MySQL,
+    /// unless the MySQL this Ubuntu release ships is past Oracle's support (8.0 and older), in which
+    /// case MariaDB (Ubuntu 24.04).
+    /// </summary>
+    public static DatabaseEngine Recommend(string mysqlVersion, Func<DatabaseEngine, bool> installed) =>
+        installed(DatabaseEngine.Mysql) ? DatabaseEngine.Mysql
+        : installed(DatabaseEngine.Mariadb) ? DatabaseEngine.Mariadb
+        : IsMySqlOutOfSupport(mysqlVersion) ? DatabaseEngine.Mariadb
+        : DatabaseEngine.Mysql;
+
+    public static string? Note(DatabaseEngine engine, string mysqlVersion) => engine switch
+    {
+        DatabaseEngine.Mysql when IsMySqlOutOfSupport(mysqlVersion) =>
+            $"Ubuntu's MySQL {UpstreamVersion(mysqlVersion)} is past Oracle's end of support (April 2026). Use MariaDB for Turbo on this server.",
+        DatabaseEngine.Postgres => "Turbo doesn't use PostgreSQL; install it for other apps that need it.",
+        _ => null,
+    };
+
+    /// <summary>MySQL older than 8.4 (the current LTS) no longer gets fixes from Oracle.</summary>
+    public static bool IsMySqlOutOfSupport(string debianVersion)
+    {
+        var parts = UpstreamVersion(debianVersion).Split('.');
+
+        return parts.Length >= 2 && int.TryParse(parts[0], out var major) && int.TryParse(parts[1], out var minor)
+            && (major < 8 || (major == 8 && minor < 4));
+    }
+
+    /// <summary>"1:8.0.46-0ubuntu0.24.04.4" → "8.0.46".</summary>
+    public static string UpstreamVersion(string debianVersion)
+    {
+        var version = debianVersion.Contains(':') ? debianVersion[(debianVersion.IndexOf(':') + 1)..] : debianVersion;
+
+        return version.Split('-', '+', '~')[0];
+    }
+
+    private async Task<string> CandidateVersionAsync(string package, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await commands.RunAsync("apt-cache", ["policy", package], cancellationToken: cancellationToken);
+            var line = result.StdOut.Split('\n').Select(l => l.Trim()).FirstOrDefault(l => l.StartsWith("Candidate:", StringComparison.Ordinal));
+            var candidate = line?["Candidate:".Length..].Trim() ?? "";
+
+            return candidate == "(none)" ? "" : candidate;
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            return "";
+        }
     }
 
     /// <summary>MySQL and MariaDB use the same port and conflicting packages: only one of them per server.</summary>

@@ -40,12 +40,25 @@ if ufw status | grep -qE "^8443/tcp"; then
 fi
 pass "real-IP config installed; setup site and port closed"
 
-[[ "$(mysql -uturbo -pE2e-Mysql-Passw0rd -h 127.0.0.1 turbo -N -e 'SELECT COUNT(*) FROM players' 2>/dev/null)" == "2" ]] \
+# Where Ubuntu's MySQL is out of support (8.0 on 24.04) the panel must have recommended MariaDB.
+# (Captured first: with pipefail, "apt-cache | grep -q" fails when grep exits early.)
+MYSQL_POLICY="$(apt-cache policy mysql-server)"
+if grep -qE 'Candidate: 8\.0\.' <<<"$MYSQL_POLICY"; then
+    dpkg-query -W -f='${db:Status-Status}' mariadb-server 2>/dev/null | grep -q '^installed$' \
+        || fail "MariaDB should have been recommended and installed next to an out-of-support MySQL"
+    pass "MariaDB recommended and installed (Ubuntu's MySQL is 8.0)"
+else
+    dpkg-query -W -f='${db:Status-Status}' mysql-server 2>/dev/null | grep -q '^installed$' || fail "MySQL should have been recommended"
+    pass "MySQL recommended and installed (Ubuntu's MySQL is supported)"
+fi
+
+SQLCLIENT="$(command -v mariadb || command -v mysql)"
+[[ "$("$SQLCLIENT" -uturbo -pE2e-Mysql-Passw0rd -h 127.0.0.1 turbo -N -e 'SELECT COUNT(*) FROM players' 2>/dev/null)" == "2" ]] \
     || fail "the turbo user should log in over TCP and see the restored rows"
-if mysql -uturbo -pE2e-Mysql-Passw0rd -h 127.0.0.1 mysql -N -e 'SELECT 1' >/dev/null 2>&1; then
+if "$SQLCLIENT" -uturbo -pE2e-Mysql-Passw0rd -h 127.0.0.1 mysql -N -e 'SELECT 1' >/dev/null 2>&1; then
     fail "the turbo user must not reach other databases"
 fi
-pass "MySQL app user can log in, sees its restored data, and nothing else"
+pass "app user can log in, sees its restored data, and nothing else"
 
 [[ "$(PGPASSWORD=E2e-Postgres-Passw0rd psql -h 127.0.0.1 -U studio -d studio -tAc 'SELECT current_user')" == "studio" ]] \
     || fail "the studio user should log in to PostgreSQL"

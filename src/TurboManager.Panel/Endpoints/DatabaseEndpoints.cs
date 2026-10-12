@@ -44,6 +44,9 @@ public static class DatabaseEndpoints
                 e.Service,
                 e.Port,
                 e.BlockedReason,
+                e.CandidateVersion,
+                e.Recommended,
+                e.Note,
             })));
 
         manage.MapPost("/{engine}/install", (string engine, HttpContext http, PanelDbContext db, DatabaseService databases, AuditLog audit) =>

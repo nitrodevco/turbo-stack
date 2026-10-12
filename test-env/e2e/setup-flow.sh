@@ -173,31 +173,36 @@ wait_for_job() {
         || fail "job $1 failed: $(body_of "$(call GET "/api/jobs/$1")" | jq -r .output | tail -20)"
 }
 
-for engine in mysql postgres; do
+# Turbo gets whichever of MySQL/MariaDB the panel recommends for this Ubuntu release.
+SQL="$(body_of "$(call GET /api/databases/engines)" | jq -r '.[] | select(.recommended) | .engine')"
+[[ "$SQL" == mysql || "$SQL" == mariadb ]] || fail "MySQL or MariaDB should be recommended (got '$SQL')"
+OTHER="$([[ "$SQL" == mysql ]] && echo mariadb || echo mysql)"
+
+for engine in "$SQL" postgres; do
     response="$(call POST "/api/databases/$engine/install")"
     wait_for_job "$(body_of "$response" | jq -r .jobId)" 600
 done
-[[ "$(body_of "$(call GET /api/databases/engines)" | jq -r '[.[] | select(.installed and .running) | .engine] | join(",")')" == "mysql,postgres" ]] \
-    || fail "MySQL and PostgreSQL should be installed and running"
-[[ -n "$(body_of "$(call GET /api/databases/engines)" | jq -r '.[] | select(.engine == "mariadb") | .blockedReason')" ]] \
-    || fail "MariaDB should be blocked next to MySQL"
-pass "MySQL and PostgreSQL installed; MariaDB blocked next to MySQL"
+[[ "$(body_of "$(call GET /api/databases/engines)" | jq -r '[.[] | select(.installed and .running) | .engine] | join(",")')" == "$SQL,postgres" ]] \
+    || fail "$SQL and PostgreSQL should be installed and running"
+[[ -n "$(body_of "$(call GET /api/databases/engines)" | jq -r --arg other "$OTHER" '.[] | select(.engine == $other) | .blockedReason')" ]] \
+    || fail "$OTHER should be blocked next to $SQL"
+pass "$SQL (recommended) and PostgreSQL installed; $OTHER blocked next to it"
 
-response="$(call POST /api/databases/mysql/databases '{"name":"turbo","user":"turbo"}')"
+response="$(call POST "/api/databases/$SQL/databases" '{"name":"turbo","user":"turbo"}')"
 [[ "$(body_of "$response" | jq -r '.credentials.password | length')" == "32" ]] || fail "database with user should return credentials: $response"
-call PUT /api/databases/mysql/users/turbo/password '{"password":"E2e-Mysql-Passw0rd"}' >/dev/null
+call PUT "/api/databases/$SQL/users/turbo/password" '{"password":"E2e-Mysql-Passw0rd"}' >/dev/null
 response="$(curl -sk -b "$JAR" -c "$JAR" -H 'X-TM-Request: 1' -H 'Content-Type: application/octet-stream' \
     --data-binary $'CREATE TABLE players (id int);\nINSERT INTO players VALUES (1),(2);\n' "$BASE/api/databases/backups/upload?name=seed.sql")"
 IMPORT="$(jq -r .id <<<"$response")"
 [[ "$IMPORT" == imports/*seed.sql ]] || fail "upload failed: $response"
-response="$(call POST /api/databases/mysql/restore "{\"backupId\":\"$IMPORT\",\"database\":\"turbo\"}")"
+response="$(call POST "/api/databases/$SQL/restore" "{\"backupId\":\"$IMPORT\",\"database\":\"turbo\"}")"
 wait_for_job "$(body_of "$response" | jq -r .jobId)" 120
-response="$(call POST /api/databases/mysql/databases/turbo/backup)"
+response="$(call POST "/api/databases/$SQL/databases/turbo/backup")"
 wait_for_job "$(body_of "$response" | jq -r .jobId)" 120
-BACKUP="$(body_of "$(call GET '/api/databases/backups?engine=mysql')" | jq -r '[.[] | select(.database == "turbo")][0].id')"
+BACKUP="$(body_of "$(call GET "/api/databases/backups?engine=$SQL")" | jq -r '[.[] | select(.database == "turbo")][0].id')"
 [[ "$(curl -sk -b "$JAR" "$BASE/api/databases/backups/download?id=$BACKUP" | gunzip | grep -c 'INSERT INTO .players.')" -ge 1 ]] \
     || fail "downloaded backup should contain the data"
-pass "MySQL database + user created, import restored, backup taken and downloaded"
+pass "$SQL database + user created, import restored, backup taken and downloaded"
 
 response="$(call POST /api/databases/postgres/databases '{"name":"studio","user":"studio"}')"
 [[ "$(body_of "$response" | jq -r .credentials.port)" == "5432" ]] || fail "PostgreSQL database with user failed: $response"
@@ -207,8 +212,8 @@ wait_for_job "$(body_of "$response" | jq -r .jobId)" 120
 call POST /api/databases/postgres/databases '{"name":"other_app"}' >/dev/null
 pass "PostgreSQL database + user created and backed up"
 
-call POST /api/databases/mysql/databases '{"name":"scratch"}' >/dev/null
-[[ "$(body_of "$(call DELETE /api/databases/mysql/databases/scratch)" | jq -r .finalBackup)" == mysql/scratch/* ]] \
+call POST "/api/databases/$SQL/databases" '{"name":"scratch"}' >/dev/null
+[[ "$(body_of "$(call DELETE "/api/databases/$SQL/databases/scratch")" | jq -r .finalBackup)" == "$SQL"/scratch/* ]] \
     || fail "drop should keep a final backup"
 pass "dropping a database keeps a final backup"
 

@@ -99,6 +99,32 @@ public sealed class DatabaseSqlTests
         Assert.Null(DatabaseManager.BlockedReason(DatabaseEngine.Postgres, _ => true));
     }
 
+    [Theory]
+    [InlineData("8.0.46-0ubuntu0.24.04.4", true)]
+    [InlineData("1:8.0.46-0ubuntu0.24.04.4", true)]
+    [InlineData("5.7.42-1", true)]
+    [InlineData("8.4.6-0ubuntu1", false)]
+    [InlineData("9.1.0-1", false)]
+    [InlineData("", false)]
+    public void Mysql_support_status_follows_oracle_lts(string version, bool outOfSupport) =>
+        Assert.Equal(outOfSupport, DatabaseManager.IsMySqlOutOfSupport(version));
+
+    [Fact]
+    public void Mariadb_is_recommended_where_ubuntu_ships_an_unsupported_mysql()
+    {
+        Assert.Equal(DatabaseEngine.Mariadb, DatabaseManager.Recommend("8.0.46-0ubuntu0.24.04.4", _ => false));
+        Assert.Equal(DatabaseEngine.Mysql, DatabaseManager.Recommend("8.4.6-0ubuntu1", _ => false));
+        Assert.Contains("MariaDB", DatabaseManager.Note(DatabaseEngine.Mysql, "8.0.46-0ubuntu0.24.04.4"));
+        Assert.Null(DatabaseManager.Note(DatabaseEngine.Mysql, "8.4.6-0ubuntu1"));
+    }
+
+    [Fact]
+    public void An_installed_engine_stays_the_recommendation()
+    {
+        Assert.Equal(DatabaseEngine.Mysql, DatabaseManager.Recommend("8.0.46", e => e == DatabaseEngine.Mysql));
+        Assert.Equal(DatabaseEngine.Mariadb, DatabaseManager.Recommend("8.4.6", e => e == DatabaseEngine.Mariadb));
+    }
+
     [Fact]
     public void Clients_authenticate_over_the_socket_without_passwords()
     {

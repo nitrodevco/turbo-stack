@@ -7,7 +7,9 @@ being a complete general-purpose server manager.
 **Scope decisions (confirmed):**
 - **Single server** — the panel manages the box it is installed on (AMP-style).
 - **nitro-studio is out of scope** for this work.
-- **MySQL 8.4 by default**, swappable to **MariaDB** or **PostgreSQL** (see 6.2 for Turbo's
+- **MySQL by default where Ubuntu ships a supported MySQL (8.4+, e.g. 26.04); MariaDB where it
+  doesn't (24.04 ships MySQL 8.0, past Oracle's EOL)** — the panel recommends per server; any
+  engine can still be chosen, plus **PostgreSQL** (see 6.2 for Turbo's
   engine constraint).
 - **Cloudflare is the default edge** — the panel guides the user through creating an API token
   and then manages DNS, SSL mode, cache purge, etc. (section 6.8).
@@ -720,7 +722,8 @@ an unconfirmed change reverting) but has still not been run. Deferred from M1: c
   backup before drop, daily schedules with retention, SSH-tunnel instructions instead of
   opening ports. E2E installs real MySQL + PostgreSQL and checks logins and isolation on
   24.04 and 26.04. Later: MySQL↔MariaDB migration job, remote backup targets (M8), tuning,
-  process list. Note: Ubuntu 24.04's MySQL is 8.0 (past Oracle's EOL); see open question.
+  process list. Ubuntu 24.04 ships MySQL 8.0 (past Oracle's EOL), so the panel recommends
+  MariaDB there and MySQL where Ubuntu's MySQL is 8.4+ (26.04); the E2E installs the recommendation.
 - *Deviations / later:* ACME DNS-01 (wildcards without Cloudflare Origin) and Pebble in the
   Docker env are not done yet; fail2ban still bans in UFW even for proxied traffic (banning via
   the Cloudflare API, plan 6.8, comes with the WAF work); Authenticated Origin Pulls not yet.

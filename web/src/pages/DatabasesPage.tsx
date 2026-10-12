@@ -20,7 +20,8 @@ import { formatBytes, formatDateTime } from '../format';
 export function DatabasesPage() {
     const engines = useQuery({ queryKey: ['db-engines'], queryFn: () => api.get<DatabaseEngineView[]>('/api/databases/engines') });
     const [selected, setSelected] = useState<DatabaseEngineSlug | null>(null);
-    const current = engines.data?.find((e) => e.engine === (selected ?? engines.data.find((x) => x.installed)?.engine ?? 'mysql'));
+    // Open on an installed engine, else on the one recommended for this server.
+    const current = engines.data?.find((e) => e.engine === (selected ?? engines.data.find((x) => x.installed)?.engine ?? engines.data.find((x) => x.recommended)?.engine ?? 'mysql'));
 
     return (
         <div className="space-y-6">
@@ -29,7 +30,7 @@ export function DatabasesPage() {
             {engines.data && current && (
                 <>
                     <Tabs<DatabaseEngineSlug>
-                        tabs={engines.data.map((e) => ({ id: e.engine, label: `${e.label}${e.installed ? '' : ' (not installed)'}` }))}
+                        tabs={engines.data.map((e) => ({ id: e.engine, label: `${e.label}${e.installed ? '' : e.recommended ? ' (recommended)' : ' (not installed)'}` }))}
                         value={current.engine}
                         onChange={setSelected}
                     />
@@ -49,10 +50,11 @@ function InstallCard({ engine }: { engine: DatabaseEngineView }) {
     return (
         <Card className="space-y-4 p-5">
             <p>
-                <strong>{engine.label}</strong> is not installed.
-                {engine.engine === 'mysql' && ' Turbo uses MySQL (or MariaDB).'}
-                {engine.engine === 'postgres' && ' Install it when an app needs PostgreSQL.'}
+                <strong>{engine.label}</strong> {engine.candidateVersion && <span className="text-slate-500">{engine.candidateVersion.split('-')[0]}</span>} is not installed.
+                {engine.recommended && ' This is the database to use for Turbo on this server.'}
             </p>
+            {engine.recommended && <Badge tone="good">✓ Recommended</Badge>}
+            {engine.note && <Notice tone={engine.engine === 'postgres' ? 'info' : 'warning'}>{engine.note}</Notice>}
             {engine.blockedReason ? (
                 <Notice tone="info">{engine.blockedReason}</Notice>
             ) : (
@@ -85,6 +87,7 @@ function EngineView({ engine }: { engine: DatabaseEngineView }) {
                     {engine.label} {engine.version} · 127.0.0.1:{engine.port} · {engine.service}
                 </span>
             </div>
+            {engine.note && engine.engine !== 'postgres' && <Notice tone="warning">⚠ {engine.note}</Notice>}
             <ErrorNote message={databases.error ? errorMessage(databases.error) : users.error ? errorMessage(users.error) : null} />
             {jobId && (
                 <Card className="p-5">

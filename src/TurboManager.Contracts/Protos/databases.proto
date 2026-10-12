@@ -57,6 +57,12 @@ message DatabaseEngineStatus {
   int32 port = 6;
   // Why it can't be installed (e.g. MySQL and MariaDB exclude each other); empty when it can.
   string blocked_reason = 7;
+  // Version apt would install (for engines not installed yet).
+  string candidate_version = 8;
+  // The engine to use for Turbo on this server (MySQL, or MariaDB where Ubuntu's MySQL is out of support).
+  bool recommended = 9;
+  // Advice shown with the engine, e.g. why it isn't recommended here.
+  string note = 10;
 }
 
 message DatabaseInfo {
