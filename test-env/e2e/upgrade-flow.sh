@@ -110,8 +110,11 @@ JS' '{name: "api", repositoryId: $repo, runtimes: ["node"], buildScript: $build,
     pass "the signed channel verifies against the key from install time; up to date"
 }
 
+done_count() { body_of "$(call GET '/api/audit?action=panel.update.done')" | jq -r '.entries | length'; }
+
 update() {
-    local version="$1" response
+    local version="$1" response before
+    before="$(done_count)"
     echo "Self-update to $version"
 
     response="$(call POST /api/panel-update/check)"
@@ -135,8 +138,7 @@ update() {
     done
     [[ "$(jq -r .last.state <<<"$response")" == "done" && "$(jq -r .last.to <<<"$response")" == "$version" ]] \
         || fail "the update should be recorded as done: $response"
-    [[ "$(body_of "$(call GET '/api/audit?action=panel.update.done')" | jq -r '.entries | length')" == "1" ]] \
-        || fail "the update should be in the activity log once"
+    [[ "$(done_count)" == "$(( before + 1 ))" ]] || fail "the update should be in the activity log once"
     pass "recorded in the activity log"
     assert_unchanged
 }

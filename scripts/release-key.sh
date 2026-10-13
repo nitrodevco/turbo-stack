@@ -31,6 +31,17 @@ resolve_signing_key() {
 
 public_key() { openssl ec -in "$SIGNING_KEY" -pubout 2>/dev/null; }
 
+# The key servers should trust after installing this release (release-key.pem in the bundle). Normally the signing
+# key itself; to rotate, sign one release with the current key and set RELEASE_NEXT_PUBLIC_KEY_FILE to the new key's
+# public half: servers that install it switch to the new key (see docs/site/guide/updates.md).
+bundle_key() {
+    if [[ -n "${RELEASE_NEXT_PUBLIC_KEY_FILE:-}" ]]; then
+        openssl pkey -pubin -in "$RELEASE_NEXT_PUBLIC_KEY_FILE" 2>/dev/null || { echo "RELEASE_NEXT_PUBLIC_KEY_FILE is not a public key." >&2; exit 1; }
+    else
+        public_key
+    fi
+}
+
 # sign_file <file>: writes <file>.sig
 sign_file() {
     openssl dgst -sha256 -sign "$SIGNING_KEY" "$1" | base64 | tr -d '\r\n' > "$1.sig"

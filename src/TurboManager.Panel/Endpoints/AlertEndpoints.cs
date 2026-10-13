@@ -9,7 +9,7 @@ namespace TurboManager.Panel.Endpoints;
 public sealed record AlertChannelRequest(string? Name, AlertChannelKind Kind, string? Target, bool Enabled = true, bool CriticalOnly = false);
 
 public sealed record AlertSettingsRequest(int DiskPercent, int MemoryPercent, int CertificateDays, bool SecurityUpdates,
-    string? SmtpHost, int SmtpPort, string? SmtpUser, string? SmtpPassword, string? SmtpFrom);
+    string? SmtpHost, int SmtpPort, string? SmtpUser, string? SmtpPassword, string? SmtpFrom, int BackupDays = 2);
 
 public static class AlertEndpoints
 {
@@ -35,6 +35,7 @@ public static class AlertEndpoints
                 settings.MemoryPercent,
                 settings.CertificateDays,
                 settings.SecurityUpdates,
+                settings.BackupDays,
                 settings.SmtpHost,
                 settings.SmtpPort,
                 settings.SmtpUser,
@@ -47,9 +48,9 @@ public static class AlertEndpoints
         manage.MapPut("/settings", async (AlertSettingsRequest request, HttpContext http, PanelDbContext db, AlertService alerts, AuditLog audit) =>
         {
             if (request.DiskPercent is < 50 or > 99 || request.MemoryPercent is < 50 or > 100 || request.CertificateDays is < 1 or > 60
-                || request.SmtpPort is < 1 or > 65535)
+                || request.SmtpPort is < 1 or > 65535 || request.BackupDays is < 1 or > 60)
             {
-                return Invalid("Disk 50-99%, memory 50-100%, certificates 1-60 days, a valid mail port.");
+                return Invalid("Disk 50-99%, memory 50-100%, certificates 1-60 days, backups 1-60 days, a valid mail port.");
             }
 
             var settings = await alerts.GetSettingsAsync();
@@ -57,6 +58,7 @@ public static class AlertEndpoints
             settings.MemoryPercent = request.MemoryPercent;
             settings.CertificateDays = request.CertificateDays;
             settings.SecurityUpdates = request.SecurityUpdates;
+            settings.BackupDays = request.BackupDays;
             settings.SmtpHost = Clean(request.SmtpHost);
             settings.SmtpPort = request.SmtpPort;
             settings.SmtpUser = Clean(request.SmtpUser);

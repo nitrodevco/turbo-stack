@@ -735,6 +735,15 @@ public sealed class FakeBackupAgent : BackupAgent.BackupAgentBase
         await responseStream.WriteAsync(new OutputLine { Finished = true });
     }
 
+    public List<string> PanelRestores { get; } = [];
+
+    public override async Task RestorePanelState(SnapshotRef request, IServerStreamWriter<OutputLine> responseStream, ServerCallContext context)
+    {
+        PanelRestores.Add(request.SnapshotId);
+        await responseStream.WriteAsync(new OutputLine { Line = "The panel restarts with the restored state now." });
+        await responseStream.WriteAsync(new OutputLine { Finished = true });
+    }
+
     public override Task<TargetKey> CreateTargetKey(TargetKeyRequest request, ServerCallContext context) =>
         Task.FromResult(new TargetKey { PublicKey = $"ssh-ed25519 AAAAC3Nz turbo-manager-backup-{request.TargetId}" });
 

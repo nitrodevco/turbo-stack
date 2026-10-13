@@ -893,6 +893,20 @@ an unconfirmed change reverting) but has still not been run. Deferred from M1: c
     or added (the install job creates, rewires, certifies and deploys it).
   - *E2E:* the setup flow checks the API document with a token and a custom role; the hotel flow
     removes the admin panel and adds it back.
+- *M10 status (2026-10-13):* the leftovers.
+  - *Backup staleness alert:* a plan without a successful run (LastSuccessAt, else CreatedAt) for
+    `BackupDays` (default 2, Alerts page) raises a warning until it succeeds again.
+  - *Release key rotation:* a release signed with the trusted key may carry the next key
+    (`release-key.pem` in the bundle, `RELEASE_NEXT_PUBLIC_KEY_FILE` when packaging); tm-update
+    trusts it only after that release is installed and healthy (old key kept as
+    release-key.previous.pem), install.sh does the same for a verified download, and
+    `tm-update trust-key` switches a server by hand. The upgrade E2E rotates: 0.1.3 hands over a
+    new key, 0.1.4 is signed with it, 0.1.5 signed with the old key is refused.
+  - *One-click panel restore:* owner + sudo; the agent unpacks the snapshot's panel state and starts
+    tm-panel-restore in a transient unit, which keeps the current state, swaps in the restored
+    database, keys and SFTP key files, and puts the old state back if the panel doesn't come up.
+    The outcome is left in panel-restore.json and recorded in the (restored) activity log at
+    start-up. The setup-flow E2E restores the panel from its S3 snapshot and keeps going.
 - *Deviations / later:* ACME DNS-01 (wildcards without Cloudflare Origin) and Pebble in the
   Docker env are not done yet; fail2ban still bans in UFW even for proxied traffic (banning via
   the Cloudflare API, plan 6.8, comes with the WAF work); Authenticated Origin Pulls not yet.

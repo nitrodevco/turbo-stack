@@ -25,6 +25,12 @@ public sealed class BackupAgentService(BackupManager backups) : BackupAgent.Back
         await responseStream.WriteAsync(new OutputLine { Finished = true });
     }
 
+    public override async Task RestorePanelState(SnapshotRef request, IServerStreamWriter<OutputLine> responseStream, ServerCallContext context)
+    {
+        await backups.RestorePanelStateAsync(request, line => responseStream.WriteAsync(new OutputLine { Line = line }), context.CancellationToken);
+        await responseStream.WriteAsync(new OutputLine { Finished = true });
+    }
+
     public override Task<TargetKey> CreateTargetKey(TargetKeyRequest request, ServerCallContext context) =>
         backups.CreateTargetKeyAsync(request.TargetId, context.CancellationToken);
 

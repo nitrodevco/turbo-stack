@@ -66,8 +66,8 @@ for arch in "${ARCHES[@]}"; do
     cp "$ROOT/install/systemd/"*.service "$stage/systemd/"
     chmod 0755 "$stage/bin/"*
     echo "$VERSION" > "$stage/VERSION"
-    # For installs from a bundle (--bundle): the key later updates are checked with.
-    public_key > "$stage/release-key.pem"
+    # The key later updates are checked with: kept by --bundle installs, and handed over by this release (rotation).
+    bundle_key > "$stage/release-key.pem"
 
     file="tm-$VERSION-linux-$arch.tar.gz"
     tar -czf "$OUT/files/$file" -C "$stage" .

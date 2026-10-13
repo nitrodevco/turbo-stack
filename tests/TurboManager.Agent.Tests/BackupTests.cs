@@ -172,6 +172,47 @@ public sealed class BackupTests : IDisposable
     }
 
     [Fact]
+    public async Task Restoring_the_panel_hands_the_unpacked_state_to_tm_panel_restore()
+    {
+        _commands.Handler = (file, args) =>
+        {
+            if (file == "systemctl")
+            {
+                return new CommandResult(3, "", ""); // no restore running
+            }
+
+            if (file == "restic" && args.Contains("snapshots"))
+            {
+                return new CommandResult(0, "[{\"id\":\"0123456789abcdef\",\"time\":\"2026-10-12T03:00:00Z\",\"tags\":[\"plan:p1\"]}]", "");
+            }
+
+            if (file == "restic" && args.Contains("dump"))
+            {
+                return new CommandResult(0, "{\"planId\":\"p1\",\"planName\":\"n\",\"created\":\"\",\"databases\":[],\"folders\":[],\"panelState\":true}", "");
+            }
+
+            if (file == "restic" && args.Contains("restore"))
+            {
+                var target = args[args.ToList().IndexOf("--target") + 1];
+                _host.WithFile($"{target.TrimStart('/')}/var/lib/turbo-manager/backup/panel.db", "db")
+                    .WithFile($"{target.TrimStart('/')}/var/lib/turbo-manager/keys/key-1.xml", "key");
+            }
+
+            return new CommandResult(0, "", "");
+        };
+        var request = new SnapshotRef { Target = Local(), SnapshotId = "0123456789abcdef" };
+
+        await Assert.ThrowsAsync<RpcException>(() => _backups.RestorePanelStateAsync(request, _ => Task.CompletedTask, CancellationToken.None));
+        Assert.DoesNotContain(_commands.Calls, c => c.Contains(" restore ", StringComparison.Ordinal));
+
+        _host.WithFile("usr/local/sbin/tm-panel-restore", "#!/bin/bash");
+        await _backups.RestorePanelStateAsync(request, _ => Task.CompletedTask, CancellationToken.None);
+
+        var run = Assert.Single(_commands.Calls, c => c.StartsWith("systemd-run", StringComparison.Ordinal));
+        Assert.Matches(@"--unit tm-panel-restore .* /bin/bash /usr/local/sbin/tm-panel-restore /var/lib/tm-backups/restores/panel-state-\d{8}-\d{6}$", run);
+    }
+
+    [Fact]
     public async Task Only_what_the_snapshot_holds_can_be_restored()
     {
         _commands.Handler = (file, args) => file == "restic" && args.Contains("snapshots")

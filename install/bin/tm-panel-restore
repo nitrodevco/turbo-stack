@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+# Puts a panel state from a backup snapshot in place of the live one: the panel's database and keys, plus the SSH keys
+# of SFTP backup targets and SFTP accounts. tm-agent unpacks the snapshot and starts this in a transient unit
+# (tm-panel-restore), because the panel itself is stopped on the way.
+#
+#   tm-panel-restore <unpacked-state-dir>
+#
+# The state from before is kept next to it (panel-before-restore-<time>) and comes back by itself if the panel doesn't
+# start with the restored one. The outcome lands in /var/lib/turbo-manager/panel-restore.json, which the panel records
+# in its activity log at start-up.
+set -euo pipefail
+
+main() {
+    SHORT="tm"
+    SLUG="turbo-manager"
+    STATE_ROOT="/var/lib/$SLUG"
+    CONFIG_ROOT="/etc/$SLUG"
+    PANEL_PORT="$(sed -n 's/^TM_PANEL_PORT=//p' "$CONFIG_ROOT/install.env" 2>/dev/null || true)"
+    PANEL_PORT="${PANEL_PORT:-7800}"
+    HEALTH_TIMEOUT="${TM_RESTORE_HEALTH_TIMEOUT:-120}"
+    OUTCOME="$STATE_ROOT/panel-restore.json"
+
+    [[ $EUID -eq 0 ]] || { echo "Run as root." >&2; exit 1; }
+
+    local restored="${1:?Usage: $SHORT-panel-restore <unpacked-state-dir>}"
+    local database="$restored$STATE_ROOT/backup/panel.db"
+    [[ -f "$database" ]] || { echo "No panel database in $restored." >&2; exit 1; }
+
+    local stamp before
+    stamp="$(date -u +%Y%m%d-%H%M%S)"
+    before="$(dirname "$restored")/panel-before-restore-$stamp"
+
+    # The panel is still answering the request that started this.
+    sleep 3
+    systemctl stop "$SHORT-panel.service"
+
+    install -d -m 0700 "$before"
+    cp -a "$STATE_ROOT"/panel.db* "$before/" 2>/dev/null || true
+    [[ -d "$STATE_ROOT/keys" ]] && cp -a "$STATE_ROOT/keys" "$before/keys"
+
+    put_back() {
+        rm -f "$STATE_ROOT"/panel.db*
+        cp -a "$before"/panel.db* "$STATE_ROOT/" 2>/dev/null || true
+        rm -rf "${STATE_ROOT:?}/keys"
+        [[ -d "$before/keys" ]] && cp -a "$before/keys" "$STATE_ROOT/keys"
+    }
+
+    rm -f "$STATE_ROOT"/panel.db*
+    install -m 0600 -o "$SLUG" -g "$SLUG" "$database" "$STATE_ROOT/panel.db"
+
+    if [[ -d "$restored$STATE_ROOT/keys" ]]; then
+        rm -rf "${STATE_ROOT:?}/keys"
+        cp -a "$restored$STATE_ROOT/keys" "$STATE_ROOT/keys"
+        chown -R "$SLUG:$SLUG" "$STATE_ROOT/keys"
+    fi
+
+    # Keys the restored settings refer to (files, not settings): merged in, never removing what's there.
+    local dir
+    for dir in backup-keys sftp-keys; do
+        if [[ -d "$restored$CONFIG_ROOT/$dir" ]]; then
+            install -d -m 0700 "$CONFIG_ROOT/$dir"
+            cp -a "$restored$CONFIG_ROOT/$dir/." "$CONFIG_ROOT/$dir/"
+        fi
+    done
+
+    # Written first: the panel reads it while starting (if it doesn't start, this is overwritten below).
+    outcome restored "The panel's state was restored from a backup snapshot. The state from before is kept in $before."
+    systemctl start "$SHORT-panel.service" || true
+
+    if healthy; then
+        echo "Restored; the state from before is in $before"
+        return 0
+    fi
+
+    echo "The panel didn't start with the restored state; putting the previous one back"
+    systemctl stop "$SHORT-panel.service" || true
+    put_back
+    systemctl start "$SHORT-panel.service" || true
+    outcome failed "The panel didn't start with the restored state (a snapshot from a newer version?), so the state from before was put back."
+    exit 1
+}
+
+healthy() {
+    local deadline=$(( $(date +%s) + HEALTH_TIMEOUT ))
+
+    while (( $(date +%s) < deadline )); do
+        curl -fsS --max-time 3 "http://127.0.0.1:$PANEL_PORT/api/health" >/dev/null 2>&1 && return 0
+        sleep 2
+    done
+
+    return 1
+}
+
+# outcome <state> <message>: read (and removed) by the panel at start-up.
+outcome() {
+    jq -n --arg state "$1" --arg message "$2" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{state: $state, message: $message, at: $at}' > "$OUTCOME"
+    chown "$SLUG:$SLUG" "$OUTCOME"
+}
+
+main "$@"

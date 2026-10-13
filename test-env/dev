@@ -159,6 +159,22 @@ cmd_upgrade() {
     on_server bash -c '[[ "$(cat /opt/turbo-manager/VERSION)" == 0.1.1 ]] && grep -qx TM_VERSION=0.1.1 /etc/turbo-manager/install.env \
         && systemctl is-active --quiet tm-panel tm-agent tm-app-api' \
         || { echo "server: 0.1.1 should be back and running after the rollback" >&2; return 1; }
+
+    # Key rotation: 0.1.3 (signed with the current key) hands over a new key; 0.1.4 is signed with it; a release
+    # signed with the old key is refused from then on.
+    local next="$ARTIFACTS/next-release-key.pem" fingerprint
+    openssl ecparam -name prime256v1 -genkey -noout -out "$next" 2>/dev/null
+    openssl ec -in "$next" -pubout -out "$next.pub" 2>/dev/null
+    fingerprint="$(openssl pkey -pubin -in "$next.pub" -outform DER | sha256sum | cut -c1-16)"
+    "$HERE/release.sh" 0.1.3 --next-key "$next.pub"
+    in_tester update 0.1.3
+    on_server bash -c '[[ "$(openssl pkey -pubin -in /etc/turbo-manager/release-key.pem -outform DER | sha256sum | cut -c1-16)" == "$1" ]] \
+        && [[ -f /etc/turbo-manager/release-key.previous.pem ]]' _ "$fingerprint" \
+        || { echo "server: 0.1.3 should have handed over the new release key" >&2; return 1; }
+    "$HERE/release.sh" 0.1.4 --sign-with "$next"
+    in_tester update 0.1.4
+    "$HERE/release.sh" 0.1.5
+    in_tester tampered 0.1.5
     echo "Upgrade passed."
 }
 

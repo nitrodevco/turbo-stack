@@ -41,6 +41,9 @@ public sealed class AlertSettings
 
     public bool SecurityUpdates { get; set; } = true;
 
+    /// <summary>A backup plan without a successful run for this many days raises an alert.</summary>
+    public int BackupDays { get; set; } = 2;
+
     /// <summary>Failed jobs up to here have been reported.</summary>
     public DateTimeOffset? LastJobScanAt { get; set; }
 

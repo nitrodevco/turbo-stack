@@ -220,6 +220,19 @@ public sealed class AlertService(
             }
         }
 
+        foreach (var plan in await db.BackupPlans.Where(p => p.Enabled).ToListAsync(cancellationToken))
+        {
+            var since = plan.LastSuccessAt ?? plan.CreatedAt;
+
+            if (now - since > TimeSpan.FromDays(settings.BackupDays))
+            {
+                var days = (int)Math.Floor((now - since).TotalDays);
+                conditions.Add(new AlertCondition($"backup:{plan.Id}", AlertSeverity.Warning,
+                    plan.LastSuccessAt is null ? $"Backup plan {plan.Name} has never succeeded" : $"Backup plan {plan.Name} hasn't succeeded for {days} days",
+                    plan.LastResult is { } result && result != "OK" ? $"Last run: {result}" : "Its scheduled runs haven't saved a snapshot. Run it now on the Backups page."));
+            }
+        }
+
         if (await db.PanelUpdates.FindAsync([1], cancellationToken) is { } update)
         {
             var current = PanelUpdateService.CurrentVersion;

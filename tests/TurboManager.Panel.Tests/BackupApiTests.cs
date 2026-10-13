@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -176,6 +177,53 @@ public sealed class BackupApiTests : IAsyncLifetime
         await SudoAsync();
 
         Assert.Equal(HttpStatusCode.BadRequest, (await _client.DeleteAsync($"/api/backups/targets/{target}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task A_plan_without_a_good_run_for_days_raises_an_alert_until_it_succeeds()
+    {
+        var target = (await AddLocalTargetAsync()).GetProperty("target").GetProperty("id").GetInt32();
+        var plan = (await (await _client.PostAsJsonAsync("/api/backups/plans", new { name = "Nightly", targetId = target, panelState = true, enabled = true }))
+            .EnsureSuccessStatusCode().Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetInt32();
+
+        async Task<string[]> OpenAlertsAsync()
+        {
+            (await _client.PostAsync("/api/alerts/check", null)).EnsureSuccessStatusCode();
+
+            return (await _client.GetFromJsonAsync<JsonElement>("/api/alerts")).GetProperty("open").EnumerateArray()
+                .Select(a => a.GetProperty("title").GetString()!).ToArray();
+        }
+
+        Assert.DoesNotContain(await OpenAlertsAsync(), t => t.Contains("Nightly"));
+        // Made three days ago (moving the clock that far would also end the session).
+        using (var scope = _panel.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<PanelDbContext>();
+            (await db.BackupPlans.FindAsync(plan))!.CreatedAt = _panel.Time.GetUtcNow().AddDays(-3);
+            await db.SaveChangesAsync();
+        }
+
+        Assert.Contains("Backup plan Nightly has never succeeded", await OpenAlertsAsync());
+
+        var run = await _client.PostAsync($"/api/backups/plans/{plan}/run", null);
+        Assert.Equal("succeeded", await WaitForJobAsync((await run.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("jobId").GetInt64()));
+        Assert.DoesNotContain(await OpenAlertsAsync(), t => t.Contains("Nightly"));
+    }
+
+    [Fact]
+    public async Task Only_the_owner_restores_the_panel_itself_after_confirming()
+    {
+        var target = (await AddLocalTargetAsync()).GetProperty("target").GetProperty("id").GetInt32();
+        var path = $"/api/backups/targets/{target}/snapshots/0123abcd/restore-panel";
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await _client.PostAsync(path, null)).StatusCode);
+        await SudoAsync();
+        var response = await _client.PostAsync(path, null);
+
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+        Assert.Equal(["0123abcd"], _agent.Backups.PanelRestores);
+        Assert.Contains("restarts", await response.Content.ReadAsStringAsync());
+        Assert.Contains("backups.panel_restore", await _client.GetStringAsync("/api/audit?action=backups.panel_restore"));
     }
 
     [Fact]

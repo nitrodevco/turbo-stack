@@ -569,6 +569,22 @@ RESTORED="$(body_of "$(call GET '/api/files?user=hotel&path=')" | jq -r '.entrie
     || fail "the restored dump should join the database's backups list"
 pass "restore: the folder came back next to the original (untouched), the dump joined the database's backups list"
 
+# The panel itself, from the same snapshot: it restarts with that state (this session already existed then).
+response="$(call POST "/api/backups/targets/$S3_TARGET/snapshots/$SNAPSHOT/restore-panel")"
+[[ "$(status_of "$response")" == "202" ]] || fail "restoring the panel's state failed: $response"
+sleep 8
+for _ in $(seq 1 90); do
+    [[ "$(status_of "$(call GET /api/auth/me)")" == "200" ]] && break
+    sleep 2
+done
+[[ "$(status_of "$(call GET /api/auth/me)")" == "200" ]] || fail "the panel should come back with the restored state"
+for _ in $(seq 1 15); do
+    [[ "$(body_of "$(call GET '/api/audit?action=panel.state_restored')" | jq -r '.entries | length')" == "1" ]] && break
+    sleep 2
+done
+[[ "$(body_of "$(call GET '/api/audit?action=panel.state_restored')" | jq -r '.entries | length')" == "1" ]]     || fail "the restored panel should record the restore in its activity log"
+pass "the panel's own state restored from the snapshot in one step; it came back and recorded it"
+
 echo "Backups passed."
 echo
 echo "Cloudflare (fake API)"

@@ -32,7 +32,7 @@ A plan says what to back up, to which target, when, and how long to keep it:
 - **Daily at** — the server's local time.
 - **Keep** — daily, weekly and monthly snapshots (for example 7 / 4 / 6).
 
-**Run now** starts a plan immediately; its output streams in the page. Failed runs raise an [alert](./alerts).
+**Run now** starts a plan immediately; its output streams in the page. Failed runs raise an [alert](./alerts), and so does a plan that hasn't saved a snapshot for two days (adjustable on the Alerts page) — whatever the reason.
 
 ## Restoring
 
@@ -40,6 +40,6 @@ Pick a snapshot, then what to bring back. Nothing is overwritten:
 
 - a **database** dump joins that database's backups list on the Databases page — restore it from there when you're ready;
 - a **folder** comes back next to the original, as `~/restored-<time>/<folder>` of the app user, so you can compare and copy what you need;
-- the **panel's state** is unpacked under `/var/lib/turbo-manager-backups/restores/` for a [manual restore](./restore-panel).
+- the **panel's state** is unpacked under `/var/lib/turbo-manager-backups/restores/` — or, as the owner, [put back in one step](./restore-panel).
 
 Restoring needs your second factor again.

@@ -12,7 +12,7 @@ import {
     type DatabaseEngineView,
     type DatabaseInfo,
 } from '../api';
-import { usePermissions } from '../auth';
+import { useMe, usePermissions } from '../auth';
 import { JobOutput } from '../components/JobOutput';
 import { useSudo } from '../components/Sudo';
 import { Badge, Button, Card, ErrorNote, Field, Modal, Notice, PageHeader, SelectField, Spinner, TableWrap } from '../components/ui';
@@ -556,6 +556,12 @@ function SnapshotsCard({ targets, plans, onJob }: { targets: BackupTarget[]; pla
 
 function RestoreModal({ target, snapshot, onClose, onStarted }: { target: BackupTarget; snapshot: BackupSnapshot; onClose: () => void; onStarted: (jobId: number) => void }) {
     const withSudo = useSudo();
+    const owner = useMe()?.role === 'Owner';
+    const restorePanel = useMutation({
+        mutationFn: () => withSudo(() => api.post<{ output: string[] }>(`/api/backups/targets/${target.id}/snapshots/${snapshot.id}/restore-panel`)),
+        // The panel restarts with the restored accounts: back to the sign-in page once it's up again.
+        onSuccess: () => window.setTimeout(() => window.location.assign('/login'), 20_000),
+    });
     const manifest = useQuery({
         queryKey: ['snapshot', target.id, snapshot.id],
         queryFn: () => api.get<BackupManifest>(`/api/backups/targets/${target.id}/snapshots/${snapshot.id}`),
@@ -613,6 +619,29 @@ function RestoreModal({ target, snapshot, onClose, onStarted }: { target: Backup
                         <label className="flex items-center gap-2">
                             <input type="checkbox" checked={chosen.has('panel')} onChange={() => flip('panel')} /> The panel's state (unpacked for a manual restore; see the docs)
                         </label>
+                    )}
+                    {m.panelState && owner && (
+                        <div className="space-y-2 rounded-lg border border-red-200 p-3 dark:border-red-900">
+                            <p className="font-medium">Restore the panel itself</p>
+                            <p className="text-xs text-slate-600 dark:text-slate-400">
+                                Replaces the panel's accounts, settings and history with the snapshot's, now. Apps, sites and files on the server are not
+                                touched. The current state is kept, and comes back by itself if the panel doesn't start. You'll sign in again with the
+                                accounts as they were then.
+                            </p>
+                            {restorePanel.isSuccess ? (
+                                <Notice tone="info">The panel is restarting with the restored state; the sign-in page opens in a moment.</Notice>
+                            ) : (
+                                <Button
+                                    variant="danger"
+                                    size="sm"
+                                    disabled={restorePanel.isPending}
+                                    onClick={() => confirm(`Replace the panel's state with the snapshot from ${formatDateTime(snapshot.time)}?`) && restorePanel.mutate()}
+                                >
+                                    {restorePanel.isPending ? 'Unpacking…' : 'Restore the panel from this snapshot'}
+                                </Button>
+                            )}
+                            <ErrorNote message={restorePanel.error ? errorMessage(restorePanel.error) : null} />
+                        </div>
                     )}
                     <ErrorNote message={restore.error ? errorMessage(restore.error) : null} />
                     <div className="flex justify-end gap-2">

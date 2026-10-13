@@ -188,8 +188,11 @@ echo "$VERSION" > "$INSTALL_ROOT/VERSION"
 
 install -m 0755 "$WORK_DIR/bundle/bin/"* /usr/local/sbin/
 
-# Self-updates are checked against this key: the embedded one, or for a bundle install the one it brought along.
-if [[ "$RELEASE_PUBLIC_KEY" == *"BEGIN PUBLIC KEY"* ]]; then
+# Self-updates are checked against this key: the embedded one — or, when the downloaded release (verified with it)
+# hands over the next key during a rotation, that one; for a bundle install, the one it brought along.
+if [[ "$RELEASE_PUBLIC_KEY" == *"BEGIN PUBLIC KEY"* && -n "${ARTIFACT_SHA:-}" && -f "$WORK_DIR/bundle/release-key.pem" ]]; then
+    install -m 0644 "$WORK_DIR/bundle/release-key.pem" "$CONFIG_ROOT/release-key.pem"
+elif [[ "$RELEASE_PUBLIC_KEY" == *"BEGIN PUBLIC KEY"* ]]; then
     printf '%s\n' "$RELEASE_PUBLIC_KEY" > "$CONFIG_ROOT/release-key.pem"
 elif [[ ! -f "$CONFIG_ROOT/release-key.pem" && -f "$WORK_DIR/bundle/release-key.pem" ]]; then
     install -m 0644 "$WORK_DIR/bundle/release-key.pem" "$CONFIG_ROOT/release-key.pem"

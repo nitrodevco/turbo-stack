@@ -6,6 +6,10 @@
 #   tm-update apply <bundle-dir>   install it, health-check, roll back on failure
 #   tm-update rollback             put back the version from before the last update (binaries and panel database)
 #   tm-update status               the last update's outcome (JSON)
+#   tm-update trust-key <file>     trust this release signing key from now on (after checking it out of band)
+#
+# Key rotation: a release signed with the trusted key may carry the next key (release-key.pem in the bundle). Once
+# that release is installed and healthy, the next key is trusted and the old one no longer is.
 #
 # Everything runs inside main(): bash has read the whole script before any file is replaced.
 set -euo pipefail
@@ -29,7 +33,8 @@ main() {
         apply) apply "${2:?Usage: $SHORT-update apply <bundle-dir>}" ;;
         rollback) manual_rollback ;;
         status) cat "$STATUS_FILE" 2>/dev/null || echo '{}' ;;
-        *) sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
+        trust-key) trust_key "${2:?Usage: $SHORT-update trust-key <public-key.pem>}" && echo "Trusted from now on: $(fingerprint "$CONFIG_ROOT/release-key.pem")" ;;
+        *) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
     esac
 }
 
@@ -40,6 +45,22 @@ status() {
         '{state: $state, from: $from, to: $to, message: $message, at: $at}' > "$STATUS_FILE.tmp"
     mv "$STATUS_FILE.tmp" "$STATUS_FILE"
     echo "[$1] $4"
+}
+
+fingerprint() { openssl pkey -pubin -in "$1" -outform DER 2>/dev/null | sha256sum | cut -c1-16; }
+
+# trust_key <file>: an EC public key replaces the trusted release key (the old one is kept as release-key.previous.pem).
+trust_key() {
+    local key="$1"
+    openssl pkey -pubin -in "$key" -noout 2>/dev/null || { echo "$key is not a public key." >&2; return 1; }
+
+    if [[ -f "$CONFIG_ROOT/release-key.pem" && "$(fingerprint "$key")" == "$(fingerprint "$CONFIG_ROOT/release-key.pem")" ]]; then
+        return 0
+    fi
+
+    [[ -f "$CONFIG_ROOT/release-key.pem" ]] && cp "$CONFIG_ROOT/release-key.pem" "$CONFIG_ROOT/release-key.previous.pem"
+    install -m 0644 "$key" "$CONFIG_ROOT/release-key.pem.new"
+    mv "$CONFIG_ROOT/release-key.pem.new" "$CONFIG_ROOT/release-key.pem"
 }
 
 set_version() { sed -i "s/^TM_VERSION=.*/TM_VERSION=$1/" "$CONFIG_ROOT/install.env"; }
@@ -125,7 +146,16 @@ apply() {
     start_all
 
     if healthy "$to"; then
-        status done "$from" "$to" "Updated from $from to $to."
+        local rotated=""
+
+        # Only now, with the release (signed by the trusted key) installed and healthy, may it hand over the next key.
+        if [[ -f "$bundle/release-key.pem" && -f "$CONFIG_ROOT/release-key.pem" ]]             && [[ "$(fingerprint "$bundle/release-key.pem")" != "$(fingerprint "$CONFIG_ROOT/release-key.pem")" ]]; then
+            if trust_key "$bundle/release-key.pem"; then
+                rotated=" The release signing key was rotated (now $(fingerprint "$CONFIG_ROOT/release-key.pem"))."
+            fi
+        fi
+
+        status done "$from" "$to" "Updated from $from to $to.$rotated"
         # The downloaded bundle is no longer needed; the rollback copy stays until the next update.
         [[ "$(dirname "$bundle")" == "$UPDATE_ROOT/"* ]] && rm -rf "$(dirname "$bundle")"
         return 0

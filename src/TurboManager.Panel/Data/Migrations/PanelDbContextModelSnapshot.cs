@@ -120,6 +120,9 @@ namespace TurboManager.Panel.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<int>("BackupDays")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("CertificateDays")
                         .HasColumnType("INTEGER");
 
@@ -401,6 +404,9 @@ namespace TurboManager.Panel.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Databases")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -429,6 +435,9 @@ namespace TurboManager.Panel.Data.Migrations
 
                     b.Property<string>("LastSnapshot")
                         .HasColumnType("TEXT");
+
+                    b.Property<long?>("LastSuccessAt")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("Name")
                         .IsRequired()

@@ -17,6 +17,9 @@ service BackupAgent {
   // What a snapshot holds (its manifest.json): which databases, folders, and whether panel state is in it.
   rpc ReadManifest (SnapshotRef) returns (BackupManifest);
   rpc RestoreSnapshot (RestoreSnapshotRequest) returns (stream OutputLine);
+  // Puts the snapshot's panel state (database, keys) back in place of the live one: unpacks it, then hands over to
+  // tm-panel-restore in a transient unit (the panel stops on the way; the state before is kept and comes back on failure).
+  rpc RestorePanelState (SnapshotRef) returns (stream OutputLine);
   // A key pair for an SFTP target (the public half goes into the remote account's authorized_keys).
   rpc CreateTargetKey (TargetKeyRequest) returns (TargetKey);
   // The SFTP server's host key, for the owner to compare before it is pinned.

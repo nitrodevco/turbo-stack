@@ -7,3 +7,8 @@ export function usePermissions() {
 
     return (permission: string) => me?.permissions.includes(permission) ?? false;
 }
+
+/** The signed-in user (from the cached /api/auth/me). */
+export function useMe() {
+    return useQueryClient().getQueryData<Me>(['me']);
+}

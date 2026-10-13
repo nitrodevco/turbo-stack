@@ -249,6 +249,11 @@ public sealed partial class BackupService(PanelDbContext db, AgentChannelFactory
             plan.LastSnapshot = snapshot;
             plan.LastResult = snapshot is null ? "Failed: no snapshot was saved." : "OK";
 
+            if (snapshot is not null)
+            {
+                plan.LastSuccessAt = time.GetUtcNow();
+            }
+
             return snapshot is not null;
         }
         catch (RpcException e)

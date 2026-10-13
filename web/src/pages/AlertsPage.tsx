@@ -23,6 +23,7 @@ type AlertSettingsView = {
     memoryPercent: number;
     certificateDays: number;
     securityUpdates: boolean;
+    backupDays: number;
     smtpHost: string | null;
     smtpPort: number;
     smtpUser: string | null;
@@ -128,10 +129,11 @@ function AlertSettingsCard() {
                         save.mutate();
                     }}
                 >
-                    <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="grid gap-3 sm:grid-cols-4">
                         <Field label="Disk fuller than (%)" type="number" min={50} max={99} value={form.diskPercent} onChange={(e) => set('diskPercent', Number(e.target.value))} />
                         <Field label="Memory used over (%)" type="number" min={50} max={100} value={form.memoryPercent} onChange={(e) => set('memoryPercent', Number(e.target.value))} />
                         <Field label="Certificate expiring within (days)" type="number" min={1} max={60} value={form.certificateDays} onChange={(e) => set('certificateDays', Number(e.target.value))} />
+                        <Field label="No successful backup for (days)" type="number" min={1} max={60} value={form.backupDays} onChange={(e) => set('backupDays', Number(e.target.value))} />
                     </div>
                     <label className="flex items-center gap-2 text-sm">
                         <input type="checkbox" className="size-4 accent-brand-600" checked={form.securityUpdates} onChange={(e) => set('securityUpdates', e.target.checked)} />

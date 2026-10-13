@@ -1,4 +1,5 @@
 using Google.Protobuf.WellKnownTypes;
+using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
 using TurboManager.Contracts.Agent;
 using TurboManager.Panel.AgentClient;
@@ -228,6 +229,43 @@ public static class BackupEndpoints
                 return Results.Problem(e.Message, statusCode: StatusCodes.Status409Conflict);
             }
         }).RequireSudo();
+
+        manage.MapPost("/targets/{id:int}/snapshots/{snapshot}/restore-panel", RestorePanelAsync).RequireSudo();
+    }
+
+    private static async Task<IResult> RestorePanelAsync(int id, string snapshot, HttpContext http, PanelDbContext db, BackupService backups,
+        AgentChannelFactory agent, AuditLog audit, CancellationToken cancellationToken)
+    {
+        var user = await CurrentUser.GetAsync(http, db);
+
+        // It replaces every account and role with the snapshot's: the owner's call alone.
+        if (user.Role != PanelRole.Owner)
+        {
+            return Results.Problem("Only the owner can restore the panel's own state.", statusCode: StatusCodes.Status403Forbidden);
+        }
+
+        if (await db.BackupTargets.FindAsync([id], cancellationToken) is not { } target)
+        {
+            return Results.NotFound();
+        }
+
+        // Recorded before: the restored database won't have it (the restored panel records the outcome itself).
+        audit.Record("backups.panel_restore", user, target.Name, snapshot);
+        await db.SaveChangesAsync(cancellationToken);
+
+        var lines = new List<string>();
+        using var call = agent.Backups.RestorePanelState(new SnapshotRef { Target = backups.ToAgent(target), SnapshotId = snapshot },
+            cancellationToken: cancellationToken);
+
+        await foreach (var line in call.ResponseStream.ReadAllAsync(cancellationToken))
+        {
+            if (!line.Finished)
+            {
+                lines.Add(line.Line);
+            }
+        }
+
+        return Results.Accepted(value: new { output = lines });
     }
 
     private static object Describe(BackupTarget target) => new

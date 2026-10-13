@@ -26,6 +26,18 @@ sudo tm-update status     # how the last update went
 sudo tm-update rollback   # back to the version before the last update
 ```
 
+### The release key
+
+Every server trusts one release signing key, from its installation (`/etc/turbo-manager/release-key.pem`). If that key ever has to change, the switch happens through a normal update: a release signed with the current key carries the next one, and once that release is installed and healthy the server trusts the next key — and no longer the old one. The update's entry in the activity log says so.
+
+A server that missed that release (or was offline for a long time) can be told by hand, after checking the new key's fingerprint against the one announced with the release:
+
+```bash
+sudo tm-update trust-key new-release-key.pem
+```
+
+For maintainers: generate the new key, publish one release signed with the current key and with `RELEASE_NEXT_PUBLIC_KEY_FILE` set to the new key's public half (`scripts/release-key.sh`), let servers update, then switch the `RELEASE_SIGNING_KEY` secret to the new key.
+
 ## Ubuntu
 
 The same page lists the operating system's pending package updates. Security updates are also installed automatically every day (unattended-upgrades); the page shows when a reboot is needed and can schedule it.

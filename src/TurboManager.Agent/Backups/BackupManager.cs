@@ -232,7 +232,8 @@ public sealed partial class BackupManager(ICommandRunner commands, DatabaseManag
         return FromJson(result.StdOut);
     }
 
-    public async Task RestoreAsync(RestoreSnapshotRequest request, Func<string, Task> write, CancellationToken cancellationToken)
+    /// <returns>Where the panel's state was unpacked (when it was asked for).</returns>
+    public async Task<string?> RestoreAsync(RestoreSnapshotRequest request, Func<string, Task> write, CancellationToken cancellationToken)
     {
         await EnsureResticAsync(cancellationToken);
         var repository = Repository(request.Target);
@@ -284,6 +285,8 @@ public sealed partial class BackupManager(ICommandRunner commands, DatabaseManag
             throw Validate.Invalid("Choose what to restore.");
         }
 
+        string? kept = null;
+
         // Root-only scratch space: nothing the restore writes is reachable by an app user until it's in place.
         var scratch = $"{options.Value.BackupRoot}/restores/{stamp}-{Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(4))}";
         Directory.CreateDirectory(HostPath(scratch));
@@ -317,7 +320,13 @@ public sealed partial class BackupManager(ICommandRunner commands, DatabaseManag
 
             if (request.PanelState)
             {
-                var kept = $"{options.Value.BackupRoot}/restores/panel-state-{stamp}";
+                kept = $"{options.Value.BackupRoot}/restores/panel-state-{stamp}";
+
+                if (Directory.Exists(HostPath(kept)))
+                {
+                    Directory.Delete(HostPath(kept), recursive: true); // the same snapshot, unpacked before
+                }
+
                 Directory.CreateDirectory(HostPath(kept));
 
                 foreach (var path in PanelStatePaths.Where(p => File.Exists(HostPath($"{scratch}{p}")) || Directory.Exists(HostPath($"{scratch}{p}"))))
@@ -327,7 +336,7 @@ public sealed partial class BackupManager(ICommandRunner commands, DatabaseManag
                     Directory.Move(HostPath($"{scratch}{path}"), target);
                 }
 
-                await write($"The panel's state is in {kept} (root-only). The documentation's \"Restoring the panel\" page explains how to put it back.");
+                await write($"The panel's state is in {kept} (root-only).");
             }
         }
         finally
@@ -337,6 +346,42 @@ public sealed partial class BackupManager(ICommandRunner commands, DatabaseManag
                 Directory.Delete(HostPath(scratch), recursive: true);
             }
         }
+
+        return kept;
+    }
+
+    public const string PanelRestoreUnit = $"{Branding.ShortName}-panel-restore";
+
+    private static readonly string PanelRestoreScript = $"/usr/local/sbin/{Branding.ShortName}-panel-restore";
+
+    /// <summary>
+    /// Replaces the live panel state with the snapshot's: unpacks it, then starts tm-panel-restore in a transient unit (it
+    /// stops the panel, keeps the current state aside, swaps, and puts the old state back if the panel doesn't come up).
+    /// </summary>
+    public async Task RestorePanelStateAsync(SnapshotRef request, Func<string, Task> write, CancellationToken cancellationToken)
+    {
+        if (!File.Exists(HostPath(PanelRestoreScript)))
+        {
+            throw new RpcException(new Status(StatusCode.FailedPrecondition, $"{PanelRestoreScript} is missing: update the panel first."));
+        }
+
+        if ((await commands.RunAsync("systemctl", ["is-active", "--quiet", $"{PanelRestoreUnit}.service"], cancellationToken: cancellationToken)).Success)
+        {
+            throw new RpcException(new Status(StatusCode.FailedPrecondition, "The panel's state is already being restored."));
+        }
+
+        var kept = await RestoreAsync(new RestoreSnapshotRequest { Target = request.Target, SnapshotId = request.SnapshotId, PanelState = true },
+            write, cancellationToken);
+
+        if (kept is null || !File.Exists(HostPath($"{kept}{PanelDatabaseCopy}")))
+        {
+            throw new RpcException(new Status(StatusCode.FailedPrecondition, "The snapshot's panel state has no database."));
+        }
+
+        await commands.RunCheckedAsync("systemd-run", ["--unit", PanelRestoreUnit, "--collect", "--no-block", "--quiet",
+            "--description", $"{Branding.ProductName} panel state restore", "/bin/bash", PanelRestoreScript, kept], cancellationToken: cancellationToken);
+        await write("The panel restarts with the restored state now. Sign in with the accounts as they were in that snapshot.");
+        logger.LogInformation("Panel state restore from snapshot {Snapshot} started", request.SnapshotId);
     }
 
     /// <summary>~/restored-&lt;time&gt;/&lt;path&gt;: root-only while it fills, then handed to the app user.</summary>

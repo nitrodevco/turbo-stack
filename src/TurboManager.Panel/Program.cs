@@ -115,6 +115,7 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<PanelDbContext>();
     await db.Database.MigrateAsync();
     await FirewallService.SeedAsync(db);
+    await TurboManager.Panel.Backups.PanelRestoreOutcome.RecordAsync(dataDirectory, db, scope.ServiceProvider.GetRequiredService<AuditLog>(), app.Logger);
 
     if (panelOptions.DevGenerateSetupToken && !await SetupEndpoints.IsClaimedAsync(db))
     {

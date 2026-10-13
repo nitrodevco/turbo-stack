@@ -7,6 +7,7 @@ The panel checks the server every few minutes and tells you when something needs
 - a certificate expires soon or couldn't be renewed;
 - security updates are waiting;
 - a deploy, hotel install, backup, certificate or runtime job failed;
+- a backup plan hasn't saved a snapshot for two days (adjustable);
 - a panel update is available, or an update didn't work and was rolled back.
 
 Alerts go to **Discord**, a **webhook** (JSON) or **email** (your SMTP server). A channel can receive only critical alerts. Each problem is sent once when it starts and once when it's resolved — not every few minutes. **Test** next to a channel sends a test message.

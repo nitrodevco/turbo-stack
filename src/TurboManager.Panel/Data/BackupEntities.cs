@@ -79,7 +79,12 @@ public sealed class BackupPlan
 
     public int KeepMonthly { get; set; } = 6;
 
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+
     public DateTimeOffset? LastRunAt { get; set; }
+
+    /// <summary>The last run that saved a snapshot (alerts look at this, not at the last attempt).</summary>
+    public DateTimeOffset? LastSuccessAt { get; set; }
 
     public string? LastResult { get; set; }
 
