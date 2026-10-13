@@ -65,7 +65,13 @@ public sealed class ApiTokenAuthenticationHandler(
             new(AuthSchemes.TokenIdClaim, token.Id.ToString()),
         };
         claims.AddRange(token.Permissions.Select(p => new Claim(Permissions.TokenPermissionClaim, p)));
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, Scheme.Name));
 
-        return AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(new ClaimsIdentity(claims, Scheme.Name)), Scheme.Name));
+        if (user.Role == PanelRole.Custom)
+        {
+            principal = await SessionManager.WithRolePermissionsAsync(principal, user.CustomRoleId, db);
+        }
+
+        return AuthenticateResult.Success(new AuthenticationTicket(principal, Scheme.Name));
     }
 }

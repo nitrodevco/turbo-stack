@@ -24,6 +24,7 @@ const navigation: { label: string; to?: string; permission?: string }[] = [
     { label: 'Alerts', to: '/alerts', permission: 'system.view' },
     { label: 'Team', to: '/team', permission: 'users.manage' },
     { label: 'Activity', to: '/activity', permission: 'audit.view' },
+    { label: 'API', to: '/api-docs', permission: 'system.view' },
     { label: 'Settings', to: '/settings', permission: 'sites.view' },
 ];
 

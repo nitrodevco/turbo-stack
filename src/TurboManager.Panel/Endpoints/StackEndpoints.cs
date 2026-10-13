@@ -10,6 +10,10 @@ using TurboManager.Panel.Stacks;
 
 namespace TurboManager.Panel.Endpoints;
 
+public sealed record RoleAddRequest(string? Host);
+
+public sealed record RoleRemoveRequest(Dictionary<string, string>? Replacements);
+
 public static class StackEndpoints
 {
     public static void MapStackEndpoints(this IEndpointRouteBuilder app)
@@ -111,6 +115,15 @@ public static class StackEndpoints
 
         manage.MapPost("/stacks/{id:int}/install", (int id, HttpContext http, PanelDbContext db, StackService stacks) =>
             StartAsync(id, http, db, (stack, user) => stacks.StartInstallAsync(stack, user)));
+
+        // Optional parts (client, imager, admin panel, game assets) can be added to or removed from an existing hotel.
+        manage.MapPost("/stacks/{id:int}/roles/{role}", (int id, string role, RoleAddRequest request, HttpContext http, PanelDbContext db,
+            StackService stacks, CancellationToken cancellationToken) =>
+            StartAsync(id, http, db, (stack, user) => stacks.StartAddRoleAsync(stack, role, request.Host, user, cancellationToken)));
+
+        manage.MapDelete("/stacks/{id:int}/roles/{role}", (int id, string role, [Microsoft.AspNetCore.Mvc.FromBody] RoleRemoveRequest request, HttpContext http,
+            PanelDbContext db, StackService stacks, CancellationToken cancellationToken) =>
+            StartAsync(id, http, db, (stack, user) => stacks.StartRemoveRoleAsync(stack, role, request.Replacements, user, cancellationToken)));
 
         // The owner's admin setup link: found in the emulator's log, then kept (encrypted) for the owner.
         var owner = app.MapGroup("/api").WithAgentErrors().RequirePermission(Permissions.AppsManage);

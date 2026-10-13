@@ -207,6 +207,59 @@ public sealed class StackApiTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task An_optional_part_is_removed_and_the_others_rewired_to_its_replacement()
+    {
+        var stackId = await CreateAsync(Hotel());
+        await InstallAsync(stackId);
+
+        _panel.Time.Advance(TimeSpan.FromMinutes(5)); // releases are named after the time: rebuilds get a new one
+        var required = await _client.SendAsync(new HttpRequestMessage(HttpMethod.Delete, $"/api/stacks/{stackId}/roles/emulator")
+        {
+            Content = JsonContent.Create(new { replacements = new Dictionary<string, string>() }),
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, required.StatusCode);
+        Assert.Contains("always part of the hotel", await required.Content.ReadAsStringAsync());
+
+        HttpRequestMessage Remove(Dictionary<string, string> replacements) =>
+            new(HttpMethod.Delete, $"/api/stacks/{stackId}/roles/imager") { Content = JsonContent.Create(new { replacements }) };
+
+        var incomplete = await _client.SendAsync(Remove(new() { ["imager.url"] = "https://imager.example.com" }));
+        Assert.Contains("imager.avatarUrl", await incomplete.Content.ReadAsStringAsync());
+
+        var job = await RunJobAsync(await _client.SendAsync(Remove(new()
+        {
+            ["imager.url"] = "https://imager.example.com",
+            ["imager.avatarUrl"] = "https://imager.example.com/avatarimage?figure={figure}&size=l",
+        })));
+        Assert.True(job.GetProperty("status").GetString() == "succeeded", job.GetProperty("output").GetString());
+
+        Assert.DoesNotContain(await _client.GetFromJsonAsync<JsonElement[]>("/api/apps") ?? [], a => a.GetProperty("name").GetString() == "hotel-imager");
+        Assert.False(_agent.Nginx.Sites.ContainsKey("hotel-imager"));
+        Assert.Equal("https://imager.example.com/avatarimage?figure={figure}&size=l", (await EnvironmentAsync("hotel-emulator"))["TURBO__Turbo__Web__AvatarImageUrl"]);
+        Assert.Contains("img-src 'self' data: https://imager.example.com;", _agent.Nginx.Sites["hotel-web"]);
+        Assert.DoesNotContain((await _client.GetFromJsonAsync<JsonElement[]>($"/api/stacks/{stackId}/changes"))!,
+            c => c.GetProperty("action").GetString() != "none");
+    }
+
+    [Fact]
+    public async Task A_part_left_out_can_be_added_later_and_takes_over_from_the_typed_addresses()
+    {
+        var stackId = await CreateAsync(Hotel());
+        await InstallAsync(stackId);
+        Assert.Equal("https://cdn.example.com/badges/%badgename%.gif", (await EnvironmentAsync("hotel-emulator"))["TURBO__Turbo__Achievements__BadgeAssetUrl"]);
+
+        _panel.Time.Advance(TimeSpan.FromMinutes(5));
+        var job = await RunJobAsync(await _client.PostAsJsonAsync($"/api/stacks/{stackId}/roles/assets", new { }));
+        Assert.True(job.GetProperty("status").GetString() == "succeeded", job.GetProperty("output").GetString());
+
+        Assert.Contains("server_name assets.hotel.test;", _agent.Nginx.Sites["hotel-assets"]);
+        Assert.Equal("https://assets.hotel.test/images/badges/%badgename%.gif", (await EnvironmentAsync("hotel-emulator"))["TURBO__Turbo__Achievements__BadgeAssetUrl"]);
+        var stack = await _client.GetFromJsonAsync<JsonElement>($"/api/stacks/{stackId}");
+        Assert.DoesNotContain("cdn.example.com", stack.ToString());
+        Assert.Equal(HttpStatusCode.BadRequest, (await _client.PostAsJsonAsync($"/api/stacks/{stackId}/roles/assets", new { })).StatusCode);
+    }
+
+    [Fact]
     public async Task Changing_a_domain_shows_and_applies_exactly_what_it_affects()
     {
         var stackId = await CreateAsync(Hotel());

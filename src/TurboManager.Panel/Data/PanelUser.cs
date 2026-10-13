@@ -7,6 +7,23 @@ public enum PanelRole
     Developer,
     Operator,
     Viewer,
+
+    /// <summary>Permissions from a <see cref="CustomRole"/> (<see cref="PanelUser.CustomRoleId"/>).</summary>
+    Custom,
+}
+
+/// <summary>A role made from the permission matrix (never the root terminal or team management: those stay with owners and admins).</summary>
+public sealed class CustomRole
+{
+    public int Id { get; set; }
+
+    public required string Name { get; set; }
+
+    public string Description { get; set; } = "";
+
+    public List<string> Permissions { get; set; } = [];
+
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }
 
 public sealed class PanelUser
@@ -18,6 +35,9 @@ public sealed class PanelUser
     public required string PasswordHash { get; set; }
 
     public PanelRole Role { get; set; }
+
+    /// <summary>Set when <see cref="Role"/> is <see cref="PanelRole.Custom"/>.</summary>
+    public int? CustomRoleId { get; set; }
 
     /// <summary>TOTP secret protected with ASP.NET Data Protection.</summary>
     public string? TotpSecretProtected { get; set; }
@@ -54,6 +74,9 @@ public sealed class PanelUser
     public List<int> ScopeStacks { get; set; } = [];
 
     public List<int> ScopeApps { get; set; } = [];
+
+    /// <summary>The WebAuthn user handle (random, base64url): passkeys identify the user by it, never by username.</summary>
+    public string? PasskeyHandle { get; set; }
 }
 
 public sealed class RecoveryCode

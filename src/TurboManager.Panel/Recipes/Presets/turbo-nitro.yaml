@@ -16,6 +16,8 @@ settings:
     required: true
     help: Your player name. When you sign up on the website with it, the emulator logs your admin panel setup link.
 
+# Optional parts can be left out (their addresses are then given as settings) and added or removed later.
+# The emulator and the website stay: the admin panel and the website reach the emulator on local ports.
 # Created in this order (the emulator first: other apps use its ports) and deployed in deployOrder.
 roles:
   - role: emulator
@@ -30,14 +32,17 @@ roles:
     recipe: nitro-client
     host: play
     label: Game client
+    optional: true # or a client hosted elsewhere (settings: client.url)
   - role: admin
     recipe: turbo-admin
     host: admin
     label: Admin panel
+    optional: true # some hotels run without it (settings: admin.url)
   - role: imager
     recipe: nitro-imager
     host: imager
     label: Imager
+    optional: true # or a shared imager (settings: imager.url, imager.avatarUrl)
   - role: assets
     recipe: static-assets
     host: assets

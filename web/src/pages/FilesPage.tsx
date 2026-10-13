@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRef, useState } from 'react';
+import { lazy, Suspense, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { api, ApiError, errorMessage } from '../api';
 import { Button, Card, ErrorNote, Notice, PageHeader, SelectField, Spinner } from '../components/ui';
@@ -8,6 +8,9 @@ import { formatBytes, formatRelative } from '../format';
 type Entry = { name: string; type: 'd' | 'f' | 'l' | 'o'; size: number; mode: string; modified: number };
 
 const join = (dir: string, name: string) => (dir ? `${dir}/${name}` : name);
+
+// Monaco is large: it loads the first time a file is opened.
+const CodeEditor = lazy(() => import('../components/CodeEditor'));
 
 export function FilesPage() {
     const [params, setParams] = useSearchParams();
@@ -194,9 +197,20 @@ function Editor({ user, path, onClose }: { user: string; path: string; onClose: 
         retry: false,
     });
     const [text, setText] = useState<string | null>(null);
-    const content = text ?? file.data?.content ?? '';
+    const [reviewing, setReviewing] = useState(false);
+    // What's on disk (as last loaded or saved): the diff compares against it.
+    const [saved, setSaved] = useState<string | null>(null);
+    const original = saved ?? file.data?.content ?? '';
+    const content = text ?? original;
     const isNew = file.error instanceof ApiError;
-    const save = useMutation({ mutationFn: () => api.put('/api/files/content', { user, path, content }) });
+    const changed = content !== original;
+    const save = useMutation({
+        mutationFn: (value: string) => api.put('/api/files/content', { user, path, content: value }).then(() => value),
+        onSuccess: (value) => {
+            setSaved(value);
+            setReviewing(false);
+        },
+    });
 
     return (
         <Card className="space-y-3 p-4">
@@ -208,9 +222,14 @@ function Editor({ user, path, onClose }: { user: string; path: string; onClose: 
                     <Button size="sm" variant="ghost" onClick={onClose}>
                         Close
                     </Button>
+                    {!file.data?.binary && !isNew && (
+                        <Button size="sm" variant="secondary" onClick={() => setReviewing(!reviewing)} disabled={!changed && !reviewing}>
+                            {reviewing ? 'Back to editing' : 'Review changes'}
+                        </Button>
+                    )}
                     {!file.data?.binary && (
-                        <Button size="sm" onClick={() => save.mutate()} disabled={save.isPending}>
-                            {save.isSuccess && text === null ? '✓ Saved' : 'Save'}
+                        <Button size="sm" onClick={() => save.mutate(content)} disabled={save.isPending || (!changed && !isNew)}>
+                            {!changed && save.isSuccess ? '✓ Saved' : 'Save'}
                         </Button>
                     )}
                 </div>
@@ -226,18 +245,15 @@ function Editor({ user, path, onClose }: { user: string; path: string; onClose: 
                     .
                 </Notice>
             ) : (
-                <textarea
-                    className="h-[28rem] w-full rounded-lg border border-slate-300 bg-white p-3 font-mono text-xs dark:border-slate-700 dark:bg-slate-950"
-                    value={content}
-                    spellCheck={false}
-                    onChange={(e) => setText(e.target.value)}
-                    onKeyDown={(e) => {
-                        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-                            e.preventDefault();
-                            save.mutate();
-                        }
-                    }}
-                />
+                <Suspense fallback={<Spinner />}>
+                    <CodeEditor
+                        path={path}
+                        value={content}
+                        original={reviewing ? original : undefined}
+                        onChange={setText}
+                        onSave={() => save.mutate(content)}
+                    />
+                </Suspense>
             )}
             <ErrorNote message={save.error ? errorMessage(save.error) : file.error && !isNew ? errorMessage(file.error) : null} />
         </Card>

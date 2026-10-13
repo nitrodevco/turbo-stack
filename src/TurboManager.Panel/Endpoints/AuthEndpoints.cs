@@ -101,7 +101,7 @@ public static class AuthEndpoints
             await http.SignOutAsync(AuthSchemes.MfaPending);
             await SessionManager.SignInAsync(http, AuthSchemes.Session, user);
 
-            return Results.Ok(Me(user));
+            return Results.Ok(Me(user, user.CustomRoleId is { } roleId ? await db.CustomRoles.FindAsync(roleId) : null));
         }).RequireRateLimiting(RateLimits.Auth);
 
         group.MapPost("/logout", async (HttpContext http, PanelDbContext db) =>
@@ -120,16 +120,17 @@ public static class AuthEndpoints
         {
             var user = await SessionManager.GetUserAsync(http, AuthSchemes.Session, db);
 
-            return user is null ? Results.Unauthorized() : Results.Ok(Me(user));
+            return user is null ? Results.Unauthorized()
+                : Results.Ok(Me(user, user.CustomRoleId is { } roleId ? await db.CustomRoles.FindAsync(roleId) : null));
         });
     }
 
-    private static object Me(PanelUser user) => new
+    private static object Me(PanelUser user, CustomRole? custom) => new
     {
         username = user.Username,
-        role = user.Role.ToString(),
+        role = user.Role == PanelRole.Custom ? custom?.Name ?? "Custom" : user.Role.ToString(),
         remainingRecoveryCodes = user.RecoveryCodes.Count(c => c.UsedAt is null),
-        permissions = Permissions.For(user.Role),
+        permissions = Permissions.For(user, custom),
         limited = user.Role is not (PanelRole.Owner or PanelRole.Admin) && (user.ScopeStacks.Count > 0 || user.ScopeApps.Count > 0),
     };
 

@@ -524,13 +524,118 @@ public sealed partial class StackService(
     private async Task<bool> ApplyChangesAsync(int stackId, PanelUser? actor, JobContext context) =>
         await ApplyChangesAsync(await db.Stacks.FirstAsync(s => s.Id == stackId, context.CancellationToken), actor, context);
 
+    // ----- Adding and removing parts -----
+
+    private PresetRole OptionalRole(Stack stack, string roleName)
+    {
+        // Checked before anything changes: the hotel's answers and its members must move together.
+        if (jobs.IsRunning(JobKind(stack.Id)))
+        {
+            throw new JobConflictException($"{stack.Name} is already being installed or updated.");
+        }
+
+        var role = Preset(stack).Roles.FirstOrDefault(r => r.Role == roleName) ?? throw new StackException($"This hotel has no part called {roleName}.");
+
+        return role.Optional ? role : throw new StackException($"{role.Label} is always part of the hotel.");
+    }
+
+    /// <summary>
+    /// Adds a part that was left out: it gets its domain (the default subdomain unless given), the addresses typed in
+    /// for it are dropped (the wiring takes over), and the install job creates, wires, certifies and deploys it.
+    /// </summary>
+    public async Task<Job> StartAddRoleAsync(Stack stack, string roleName, string? host, PanelUser? actor, CancellationToken cancellationToken)
+    {
+        var role = OptionalRole(stack, roleName);
+
+        if (Included(stack, Preset(stack)).Contains(role))
+        {
+            throw new StackException($"{role.Label} is already part of the hotel.");
+        }
+
+        var domain = string.IsNullOrWhiteSpace(host) ? role.Host == "@" ? stack.Domain : $"{role.Host}.{stack.Domain}" : host.Trim().TrimEnd('.').ToLowerInvariant();
+        stack.Hosts = new Dictionary<string, string>(stack.Hosts) { [role.Role] = domain };
+        stack.Settings = stack.Settings.Where(s => !s.Key.StartsWith($"{role.Role}.", StringComparison.Ordinal)).ToDictionary();
+        await ValidateAsync(stack, Preset(stack), cancellationToken);
+        audit.Record("stack.role_added", actor, target: stack.Name, details: $"{role.Label} on {domain}");
+        await db.SaveChangesAsync(cancellationToken);
+
+        return await StartInstallAsync(stack, actor, $"Add {role.Label.ToLowerInvariant()} to {stack.Name}");
+    }
+
+    /// <summary>
+    /// Removes an optional part: the others are rewired to the addresses given for it (e.g. a shared imager), then its
+    /// app (service and releases) and site go. Files outside the app's folder — uploaded game assets — stay.
+    /// </summary>
+    public async Task<Job> StartRemoveRoleAsync(Stack stack, string roleName, Dictionary<string, string>? replacements, PanelUser? actor,
+        CancellationToken cancellationToken)
+    {
+        var role = OptionalRole(stack, roleName);
+        var preset = Preset(stack);
+
+        if (!Included(stack, preset).Contains(role))
+        {
+            throw new StackException($"{role.Label} isn't part of the hotel.");
+        }
+
+        var settings = new Dictionary<string, string>(stack.Settings);
+
+        foreach (var (key, value) in replacements ?? [])
+        {
+            if (!key.StartsWith($"{role.Role}.", StringComparison.Ordinal) || !Wanted(preset, role.Role, key[(role.Role.Length + 1)..]))
+            {
+                throw new StackException($"{key} isn't an address of {role.Label.ToLowerInvariant()}.");
+            }
+
+            settings[key] = value.Trim();
+        }
+
+        stack.Hosts = new Dictionary<string, string>(stack.Hosts) { [role.Role] = "" };
+        stack.Settings = settings;
+        await ValidateAsync(stack, preset, cancellationToken);
+        audit.Record("stack.role_removed", actor, target: stack.Name, details: role.Label);
+        await db.SaveChangesAsync(cancellationToken);
+
+        var stackId = stack.Id;
+
+        return await jobs.StartAsync(JobKind(stackId), $"Remove {role.Label.ToLowerInvariant()} from {stack.Name}", actor, context =>
+            context.Services.GetRequiredService<StackService>().RemoveRoleAsync(stackId, role, actor, context));
+    }
+
+    private async Task<bool> RemoveRoleAsync(int stackId, PresetRole role, PanelUser? actor, JobContext context)
+    {
+        var stack = await db.Stacks.FirstAsync(s => s.Id == stackId, context.CancellationToken);
+
+        context.Log("① Rewiring the other parts");
+        var ok = await ApplyChangesAsync(stack, actor, context);
+
+        context.Log($"② Removing {role.Label.ToLowerInvariant()}");
+
+        foreach (var app in await db.Apps.Where(a => a.StackId == stack.Id && a.StackRole == role.Role).ToListAsync(context.CancellationToken))
+        {
+            await agent.Deploy.RemoveAppAsync(new AppRef { User = app.SystemUser, App = app.Name }, cancellationToken: context.CancellationToken);
+            db.Apps.Remove(app);
+            await db.SaveChangesAsync(context.CancellationToken);
+            context.Log($"✓ {app.Name}: service and releases removed");
+        }
+
+        foreach (var site in await db.Sites.Where(s => s.StackId == stack.Id && s.StackRole == role.Role).ToListAsync(context.CancellationToken))
+        {
+            await sites.RemoveAsync(site, context.CancellationToken);
+            context.Log($"✓ {site.Name}: site removed ({string.Join(", ", site.Domains)}); its files stay");
+        }
+
+        context.Log(ok ? $"✓ {role.Label} is no longer part of {stack.Name}." : "✕ Some parts didn't take the new addresses; see above.");
+
+        return ok;
+    }
+
     // ----- Installing -----
 
     /// <summary>Runtimes, database engine, members, repository access, deploys, admin link. Safe to run again: it continues.</summary>
-    public async Task<Job> StartInstallAsync(Stack stack, PanelUser? actor)
+    public async Task<Job> StartInstallAsync(Stack stack, PanelUser? actor, string? title = null)
     {
         var stackId = stack.Id;
-        var job = await jobs.StartAsync(JobKind(stackId), $"Install {stack.Name}", actor, async context =>
+        var job = await jobs.StartAsync(JobKind(stackId), title ?? $"Install {stack.Name}", actor, async context =>
         {
             var service = context.Services.GetRequiredService<StackService>();
 

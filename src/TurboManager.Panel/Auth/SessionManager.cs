@@ -75,14 +75,19 @@ public static class SessionManager
             return;
         }
 
-        var stamp = await db.Users.Where(u => u.Id == id).Select(u => u.SecurityStamp).FirstOrDefaultAsync();
+        var user = await db.Users.Where(u => u.Id == id).Select(u => new { u.SecurityStamp, u.Role, u.CustomRoleId }).FirstOrDefaultAsync();
         var session = await db.Sessions.FindAsync(sessionId);
 
-        if (stamp is null || stamp != principal.FindFirstValue(AuthSchemes.StampClaim) || session is null || session.UserId != id)
+        if (user is null || user.SecurityStamp != principal.FindFirstValue(AuthSchemes.StampClaim) || session is null || session.UserId != id)
         {
             await RejectAsync(context);
 
             return;
+        }
+
+        if (user.Role == PanelRole.Custom)
+        {
+            context.ReplacePrincipal(await WithRolePermissionsAsync(principal, user.CustomRoleId, db));
         }
 
         var now = time.GetUtcNow();
@@ -93,6 +98,16 @@ public static class SessionManager
             session.IpAddress = context.HttpContext.Connection.RemoteIpAddress?.ToString();
             await db.SaveChangesAsync();
         }
+    }
+
+    /// <summary>A custom role's permissions as they are now (a role edited a minute ago applies to this request).</summary>
+    public static async Task<ClaimsPrincipal> WithRolePermissionsAsync(ClaimsPrincipal principal, int? customRoleId, PanelDbContext db)
+    {
+        var role = customRoleId is { } roleId ? await db.CustomRoles.AsNoTracking().FirstOrDefaultAsync(r => r.Id == roleId) : null;
+        var identity = new ClaimsIdentity(principal.Claims.Where(c => c.Type != Permissions.RolePermissionClaim), principal.Identity?.AuthenticationType);
+        identity.AddClaims((role?.Permissions ?? []).Select(p => new Claim(Permissions.RolePermissionClaim, p)));
+
+        return new ClaimsPrincipal(identity);
     }
 
     private static async Task RejectAsync(Microsoft.AspNetCore.Authentication.Cookies.CookieValidatePrincipalContext context)

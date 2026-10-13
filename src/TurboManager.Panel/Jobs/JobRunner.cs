@@ -84,6 +84,8 @@ public sealed class JobRunner(IServiceScopeFactory scopes, IHostApplicationLifet
 
     public RunningJob? GetRunning(long id) => _running.GetValueOrDefault(id);
 
+    public bool IsRunning(string kind) => _runningKinds.ContainsKey(kind);
+
     public async Task<Job> StartAsync(string kind, string title, PanelUser? startedBy, Func<JobContext, Task<bool>> work)
     {
         using var scope = scopes.CreateScope();

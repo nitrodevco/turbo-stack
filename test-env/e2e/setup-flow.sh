@@ -420,6 +420,14 @@ response="$(call POST /api/team '{"username":"deploybot","role":"Developer"}')"
 [[ "$(body_of "$(call GET /api/team)" | jq -r '.[] | select(.username == "deploybot") | .invitePending')" == "true" ]] || fail "the invite should be pending"
 pass "member invited (pending until they set a password and 2FA)"
 
+[[ "$(curl -sk -H "Authorization: Bearer $API_TOKEN" "$BASE/api/openapi.json" | jq -r '.paths["/api/apps"].get.description')" == *'`apps.view`'* ]]     || fail "the API should be described (with each endpoint's permission) for a token"
+response="$(call POST /api/team/roles '{"name":"Deployer","permissions":["apps.view","apps.deploy"]}')"
+ROLE_ID="$(body_of "$response" | jq -r .id)"
+[[ "$ROLE_ID" =~ ^[0-9]+$ ]] || fail "creating a custom role failed: $response"
+response="$(call POST /api/team "{\"username\":\"shipper\",\"role\":\"Custom\",\"customRoleId\":$ROLE_ID}")"
+[[ "$(body_of "$response" | jq -r .inviteUrl)" == *"/invite?token="* ]] || fail "inviting with a custom role failed: $response"
+pass "API document served to tokens; custom role created and given to a member"
+
 echo "Team passed."
 echo
 echo "Alerts"

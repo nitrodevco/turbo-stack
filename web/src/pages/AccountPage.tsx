@@ -4,6 +4,7 @@ import { api, errorMessage, type Me } from '../api';
 import { useSudo } from '../components/Sudo';
 import { Button, Card, ErrorNote, Field, Notice, PageHeader, SelectField } from '../components/ui';
 import { formatRelative } from '../format';
+import { addPasskey, passkeysSupported } from '../passkeys';
 
 type SessionRow = { id: string; createdAt: string; lastSeenAt: string; ipAddress: string | null; userAgent: string | null; current: boolean };
 
@@ -26,6 +27,8 @@ export function AccountPage({ me }: { me: Me }) {
         <div className="space-y-6">
             <PageHeader title="Your account" description={`${me.username} · ${me.role} · ${me.remainingRecoveryCodes} recovery codes left`} />
             {me.remainingRecoveryCodes < 3 && <Notice tone="warning">You're running out of recovery codes. Ask an admin to reset your authenticator if you lose it.</Notice>}
+
+            <PasskeysCard />
 
             <Card className="space-y-3 p-5">
                 <h2 className="font-medium">Signed-in browsers</h2>
@@ -134,5 +137,78 @@ function NewToken({ me }: { me: Me }) {
                 Create token
             </Button>
         </form>
+    );
+}
+
+type PasskeyRow = { id: number; name: string; rpId: string; createdAt: string; lastUsedAt: string | null };
+
+/** Passkeys sign in without a password or code (a fingerprint, face or PIN on your device). */
+function PasskeysCard() {
+    const queryClient = useQueryClient();
+    const withSudo = useSudo();
+    const [name, setName] = useState('');
+    const list = useQuery({ queryKey: ['my-passkeys'], queryFn: () => api.get<{ rpId: string | null; passkeys: PasskeyRow[] }>('/api/account/passkeys') });
+    const refresh = () => void queryClient.invalidateQueries({ queryKey: ['my-passkeys'] });
+    const add = useMutation({
+        mutationFn: () => withSudo(() => addPasskey(name.trim())),
+        onSuccess: () => {
+            setName('');
+            refresh();
+        },
+    });
+    const remove = useMutation({ mutationFn: (id: number) => withSudo(() => api.delete(`/api/account/passkeys/${id}`)), onSuccess: refresh });
+    const rpId = list.data?.rpId;
+
+    return (
+        <Card className="space-y-4 p-5">
+            <div>
+                <h2 className="font-medium">Passkeys</h2>
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                    Sign in with your device's fingerprint, face or PIN instead of a password and code. A passkey works on the address it was added on.
+                </p>
+            </div>
+            <ul className="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+                {(list.data?.passkeys ?? []).map((p) => (
+                    <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                        <span>
+                            <span className="font-medium">{p.name}</span> · {p.rpId} ·{' '}
+                            {p.lastUsedAt ? `used ${formatRelative(p.lastUsedAt)}` : `added ${formatRelative(p.createdAt)}`}
+                        </span>
+                        <Button size="sm" variant="ghost" onClick={() => confirm(`Remove the passkey ${p.name}?`) && remove.mutate(p.id)}>
+                            Remove
+                        </Button>
+                    </li>
+                ))}
+            </ul>
+            {!passkeysSupported() ? (
+                <Notice>This browser doesn't support passkeys.</Notice>
+            ) : !rpId ? (
+                <Notice>Passkeys need the panel's own domain: move the panel to it under Settings → Panel address first.</Notice>
+            ) : (
+                <form
+                    className="flex flex-wrap items-end gap-2"
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        add.mutate();
+                    }}
+                >
+                    <Field label="Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Laptop fingerprint" required />
+                    <Button type="submit" disabled={add.isPending || !name.trim()}>
+                        {add.isPending ? 'Waiting for your device…' : 'Add a passkey'}
+                    </Button>
+                </form>
+            )}
+            <ErrorNote
+                message={
+                    add.error && !(add.error instanceof Error && add.error.message === 'Cancelled.')
+                        ? add.error instanceof DOMException
+                            ? add.error.message
+                            : errorMessage(add.error)
+                        : remove.error
+                          ? errorMessage(remove.error)
+                          : null
+                }
+            />
+        </Card>
     );
 }

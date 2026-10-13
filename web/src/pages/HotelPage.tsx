@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router';
-import { api, errorMessage, type MemberChangeView, type StackRoleView, type StackView } from '../api';
+import { api, errorMessage, type MemberChangeView, type PresetRoleView, type PresetView, type StackRoleView, type StackView } from '../api';
 import { usePermissions } from '../auth';
 import { JobOutput } from '../components/JobOutput';
 import { Badge, Button, Card, ErrorNote, Field, Notice, PageHeader, Spinner } from '../components/ui';
@@ -41,6 +41,7 @@ export function HotelPage() {
     const [jobId, setJobId] = useState<number | null>(null);
     const [editing, setEditing] = useState(false);
     const install = useMutation({ mutationFn: () => api.post<{ jobId: number }>(`/api/stacks/${id}/install`), onSuccess: (d) => setJobId(d.jobId) });
+    const presets = useQuery({ queryKey: ['presets'], queryFn: () => api.get<PresetView[]>('/api/presets') });
 
     if (!stack.data) return stack.error ? <ErrorNote message={errorMessage(stack.error)} /> : <Spinner />;
 
@@ -77,7 +78,17 @@ export function HotelPage() {
 
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {hotel.roles.map((role) => (
-                    <RoleCard key={role.role} role={role} url={url(role.role)} />
+                    <RoleCard
+                        key={role.role}
+                        role={role}
+                        url={url(role.role)}
+                        hotel={hotel}
+                        preset={presets.data?.find((p) => p.id === hotel.preset)?.roles.find((r) => r.role === role.role)}
+                        onJob={(job) => {
+                            setJobId(job);
+                            void queryClient.invalidateQueries({ queryKey: ['stack', id] });
+                        }}
+                    />
                 ))}
             </div>
 
@@ -108,7 +119,20 @@ export function HotelPage() {
     );
 }
 
-function RoleCard({ role, url }: { role: StackRoleView; url: string | null }) {
+function RoleCard({
+    role,
+    url,
+    hotel,
+    preset,
+    onJob,
+}: {
+    role: StackRoleView;
+    url: string | null;
+    hotel: StackView;
+    preset: PresetRoleView | undefined;
+    onJob: (jobId: number) => void;
+}) {
+    const can = usePermissions();
     const health = !role.included
         ? null
         : role.app?.service === 'failed' || role.app?.lastRelease?.status === 'failed' || role.site?.lastError
@@ -171,6 +195,7 @@ function RoleCard({ role, url }: { role: StackRoleView; url: string | null }) {
                     </ul>
                 </details>
             )}
+            {can('apps.manage') && role.optional && preset && <PartControls role={role} hotel={hotel} preset={preset} onJob={onJob} />}
         </Card>
     );
 }
@@ -271,3 +296,69 @@ const actionLabel: Record<MemberChangeView['action'], string> = {
     restart: 'restart',
     redeploy: 'rebuild',
 };
+
+/** Adding an optional part to this server, or removing it in favour of an address elsewhere. */
+function PartControls({ role, hotel, preset, onJob }: { role: StackRoleView; hotel: StackView; preset: PresetRoleView; onJob: (jobId: number) => void }) {
+    const [open, setOpen] = useState(false);
+    const [host, setHost] = useState(preset.host === '@' ? hotel.domain : `${preset.host}.${hotel.domain}`);
+    const [replacements, setReplacements] = useState<Record<string, string>>(
+        Object.fromEntries(preset.exports.map((e) => [`${role.role}.${e}`, hotel.settings[`${role.role}.${e}`] ?? ''])),
+    );
+    const add = useMutation({
+        mutationFn: () => api.post<{ jobId: number }>(`/api/stacks/${hotel.id}/roles/${role.role}`, { host }),
+        onSuccess: (d) => onJob(d.jobId),
+    });
+    const remove = useMutation({
+        mutationFn: () => api.delete<{ jobId: number }>(`/api/stacks/${hotel.id}/roles/${role.role}`, { replacements }),
+        onSuccess: (d) => onJob(d.jobId),
+    });
+    const error = add.error ?? remove.error;
+
+    if (!open) {
+        return (
+            <Button size="sm" variant="ghost" onClick={() => setOpen(true)}>
+                {role.included ? 'Remove from this server…' : 'Add to this server…'}
+            </Button>
+        );
+    }
+
+    return (
+        <form
+            className="space-y-3 border-t border-slate-200 pt-3 dark:border-slate-800"
+            onSubmit={(e) => {
+                e.preventDefault();
+                if (role.included) remove.mutate();
+                else add.mutate();
+            }}
+        >
+            {role.included ? (
+                <>
+                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                        The other parts will use these addresses instead. The app and its site are removed{role.role === 'assets' ? '; uploaded files stay' : ''}.
+                    </p>
+                    {preset.exports.map((e) => (
+                        <Field
+                            key={e}
+                            label={`${role.role}.${e}`}
+                            value={replacements[`${role.role}.${e}`] ?? ''}
+                            onChange={(event) => setReplacements({ ...replacements, [`${role.role}.${e}`]: event.target.value })}
+                            placeholder="https://"
+                            required
+                        />
+                    ))}
+                </>
+            ) : (
+                <Field label="Domain" value={host} onChange={(e) => setHost(e.target.value.trim().toLowerCase())} required />
+            )}
+            <ErrorNote message={error ? errorMessage(error) : null} />
+            <div className="flex gap-2">
+                <Button type="button" size="sm" variant="ghost" onClick={() => setOpen(false)}>
+                    Cancel
+                </Button>
+                <Button type="submit" size="sm" variant={role.included ? 'danger' : 'primary'} disabled={add.isPending || remove.isPending}>
+                    {role.included ? `Remove ${role.label.toLowerCase()}` : `Add ${role.label.toLowerCase()}`}
+                </Button>
+            </div>
+        </form>
+    );
+}

@@ -4,6 +4,8 @@
 
 **Files** browses an app user's home: create folders, edit text files, upload and download, rename and delete. Everything happens **as that app user**, never as root, so files keep the right owner and nothing outside the home folder is reachable.
 
+Text files open in a code editor with syntax highlighting for the usual languages (C#, TypeScript, JSON, YAML, `.env` and ini files, shell, …). **Review changes** shows your edits side by side with the file as it is on disk before you save; `Ctrl+S` (or `⌘S`) saves.
+
 ## Terminal
 
 **Terminal** opens a shell in the browser as an app user — a real terminal, so editors and `Ctrl+C` work. The owner can also open a **root** shell after confirming their second factor (unless the server was installed with `--no-root-terminal`).

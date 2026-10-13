@@ -38,6 +38,13 @@ The panel keeps the addresses between apps in step: the client knows the emulato
 
 Values you edited by hand stay as you set them; the preview tells you which ones those are.
 
+## Adding or removing parts
+
+The emulator and the website are always part of a hotel (the admin panel and website talk to the emulator on the server itself). The **client**, **imager**, **admin panel** and **game assets** are optional:
+
+- **Remove from this server…** on a part's card asks for the address the others should use instead — for example a shared imager or a client hosted elsewhere. The other parts are rewired (restarted or rebuilt as needed), then the part's app and site are removed. Uploaded game assets stay on disk.
+- **Add to this server…** on a part that isn't here gives it a domain; the panel creates it, rewires the others to it, issues its certificate and deploys it.
+
 ## Rebuilding a hotel from its answers file
 
 The hotel page's **Answers file** downloads everything the wizard was told (no secrets). On a fresh server:

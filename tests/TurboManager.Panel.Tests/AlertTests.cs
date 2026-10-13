@@ -99,6 +99,18 @@ public sealed class AlertApiTests : IAsyncLifetime
     }
 
     [Fact]
+    public void A_service_that_crashed_and_runs_again_is_not_crash_looping()
+    {
+        var state = new TurboManager.Panel.Alerts.AlertState();
+        var start = new DateTimeOffset(2026, 10, 12, 12, 0, 0, TimeSpan.Zero);
+        ServiceUnit Unit(int restarts) => new() { Name = "tm-app-api.service", ActiveState = "active", SubState = "running", Restarts = restarts };
+
+        Assert.False(state.IsCrashLooping(Unit(1), start));
+        Assert.True(state.IsCrashLooping(Unit(5), start.AddMinutes(1)), "three restarts within ten minutes, the last just now");
+        Assert.False(state.IsCrashLooping(Unit(5), start.AddMinutes(4)), "stable again for three minutes");
+    }
+
+    [Fact]
     public async Task Failed_jobs_are_reported_once_and_old_ones_not_at_all()
     {
         using (var scope = _panel.Services.CreateScope())
@@ -111,17 +123,19 @@ public sealed class AlertApiTests : IAsyncLifetime
         await CheckAsync(); // the first check sets the starting point
         Assert.Empty(SentTo(Discord));
 
+        // Advancing a minute also fires the background monitor's check (its scan ends at this moment): the jobs finish after it.
         _panel.Time.Advance(TimeSpan.FromMinutes(1));
+        var finished = _panel.Time.GetUtcNow().AddSeconds(1);
 
         using (var scope = _panel.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<PanelDbContext>();
-            db.Jobs.Add(new Job { Kind = "deploy-app-1", Title = "Deploy web", Status = JobStatus.Failed, Output = "Building…\nerror: build broke", FinishedAt = _panel.Time.GetUtcNow() });
-            db.Jobs.Add(new Job { Kind = "packages", Title = "Upgrade packages", Status = JobStatus.Failed, FinishedAt = _panel.Time.GetUtcNow() });
+            db.Jobs.Add(new Job { Kind = "deploy-app-1", Title = "Deploy web", Status = JobStatus.Failed, Output = "Building…\nerror: build broke", FinishedAt = finished });
+            db.Jobs.Add(new Job { Kind = "packages", Title = "Upgrade packages", Status = JobStatus.Failed, FinishedAt = finished });
             await db.SaveChangesAsync();
         }
 
-        _panel.Time.Advance(TimeSpan.FromSeconds(1));
+        _panel.Time.Advance(TimeSpan.FromSeconds(2));
         await CheckAsync();
         await CheckAsync();
 

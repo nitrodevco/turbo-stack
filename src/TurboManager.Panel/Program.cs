@@ -68,6 +68,7 @@ builder.Services.AddSingleton(_ => new RecipeCatalog());
 builder.Services.AddScoped<RecipeService>();
 builder.Services.AddScoped<StackService>();
 builder.Services.AddScoped<AccessScope>();
+builder.Services.AddScoped<PasskeyService>();
 builder.Services.AddSingleton<AlertState>();
 builder.Services.AddScoped<AlertService>();
 builder.Services.AddHostedService<AlertMonitor>();
@@ -91,6 +92,7 @@ builder.Services.AddHttpClient(CertificateService.AcmeHttpClientName)
         ServerCertificateCustomValidationCallback = panelOptions.AcmeSkipTlsVerify ? HttpClientHandler.DangerousAcceptAnyServerCertificateValidator : null,
     });
 builder.Services.AddPanelRateLimits();
+builder.Services.AddApiDocs();
 builder.Services.ConfigureHttpJsonOptions(json => json.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 builder.Services.Configure<ForwardedHeadersOptions>(forwarded =>
@@ -131,6 +133,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(20) });
 
+app.MapApiDocs();
 app.MapSetupEndpoints();
 app.MapAuthEndpoints();
 app.MapSystemEndpoints();
@@ -142,6 +145,7 @@ app.MapActivityEndpoints();
 app.MapSitesEndpoints();
 app.MapCloudflareEndpoints();
 app.MapUpdateEndpoints();
+app.MapPasskeyEndpoints();
 app.MapBackupEndpoints();
 app.MapDatabaseEndpoints();
 app.MapDeployEndpoints();

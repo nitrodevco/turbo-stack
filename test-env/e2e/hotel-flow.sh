@@ -122,6 +122,22 @@ UPGRADE="$(curl -sk --http1.1 --max-time 5 -i --resolve "ws.hotel.test:443:$SERV
 [[ "$UPGRADE" == *" 101 "* ]] || fail "the emulator should be back after its restart"
 pass "domain change applied: client on game.hotel.test with a new certificate, website and emulator updated"
 
+# Optional parts: the admin panel goes (the emulator is pointed elsewhere), then comes back.
+response="$(curl -sk -b "$JAR" -c "$JAR" -X DELETE "$BASE/api/stacks/$STACK/roles/admin" -H 'X-TM-Request: 1' -H 'Content-Type: application/json'     --data '{"replacements":{"admin.url":"https://staff.example.com"}}' -w '
+%{http_code}')"
+[[ "$(status_of "$response")" == "202" ]] || fail "removing the admin panel failed: $response"
+JOB="$(body_of "$response" | jq -r .jobId)"
+[[ "$(job_status "$JOB" 600)" == "succeeded" ]] || fail "removing the admin panel failed: $(job_output "$JOB" | tail -30)"
+[[ "$(body_of "$(call GET "/api/apps/$EMULATOR/environment")" | jq -r .TURBO__Turbo__Admin__PanelUrl)" == "https://staff.example.com" ]]     || fail "the emulator should use the admin address given instead"
+[[ "$(body_of "$(call GET /api/sites)" | jq '[.[] | select(.domains | index("admin.hotel.test"))] | length')" == "0" ]]     || fail "the admin panel's site should be gone"
+pass "admin panel removed: its app and site are gone, the emulator points at the address given instead"
+
+JOB="$(body_of "$(call POST "/api/stacks/$STACK/roles/admin" '{}')" | jq -r .jobId)"
+[[ "$(job_status "$JOB" 1200)" == "succeeded" ]] || fail "adding the admin panel back failed: $(job_output "$JOB" | tail -40)"
+[[ "$(https admin.hotel.test /)" == *'<div id="root"'* ]] || fail "the admin panel should be served again"
+[[ "$(body_of "$(call GET "/api/apps/$EMULATOR/environment")" | jq -r .TURBO__Turbo__Admin__PanelUrl)" == "https://admin.hotel.test" ]]     || fail "the emulator should be wired to the admin panel again"
+pass "admin panel added back: created, certified, deployed and wired"
+
 [[ "$(status_of "$(call GET "/api/stacks/$STACK/answers")")" == "200" ]] || fail "the answers file should download"
 pass "answers file downloads (for rebuilding this hotel)"
 

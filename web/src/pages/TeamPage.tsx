@@ -9,6 +9,7 @@ type Member = {
     id: number;
     username: string;
     role: string;
+    customRoleId: number | null;
     twoFactor: boolean;
     invitePending: boolean;
     inviteExpiresAt: string | null;
@@ -18,6 +19,14 @@ type Member = {
     scopeApps: number[];
     activeSessions: number;
 };
+
+type RoleCatalog = {
+    catalog: { permission: string; area: string; description: string; customAllowed: boolean }[];
+    builtIn: { role: string; permissions: string[] }[];
+    custom: CustomRole[];
+};
+
+type CustomRole = { id: number; name: string; description: string; permissions: string[]; members: number };
 
 type SessionRow = { id: string; username: string; createdAt: string; lastSeenAt: string; ipAddress: string | null; userAgent: string | null };
 
@@ -33,6 +42,7 @@ export function TeamPage() {
     const sessions = useQuery({ queryKey: ['team-sessions'], queryFn: () => api.get<SessionRow[]>('/api/team/sessions') });
     const apps = useQuery({ queryKey: ['apps'], queryFn: () => api.get<AppSummary[]>('/api/apps') });
     const stacks = useQuery({ queryKey: ['stacks'], queryFn: () => api.get<{ id: number; name: string }[]>('/api/stacks') });
+    const roleCatalog = useQuery({ queryKey: ['team-roles'], queryFn: () => api.get<RoleCatalog>('/api/team/roles') });
     const queryClient = useQueryClient();
     const withSudo = useSudo();
     const [inviteUrl, setInviteUrl] = useState<{ username: string; url: string } | null>(null);
@@ -80,6 +90,7 @@ export function TeamPage() {
                     member={editing === 'new' ? null : editing}
                     apps={apps.data ?? []}
                     stacks={stacks.data ?? []}
+                    customRoles={roleCatalog.data?.custom ?? []}
                     onClose={() => setEditing(null)}
                     onInvited={(username, url) => setInviteUrl({ username, url })}
                 />
@@ -109,7 +120,7 @@ export function TeamPage() {
                                     )}
                                     {m.invitedBy && <p className="text-xs text-slate-500">invited by {m.invitedBy}</p>}
                                 </td>
-                                <td>{m.role}</td>
+                                <td>{m.role === 'Custom' ? (roleCatalog.data?.custom.find((r) => r.id === m.customRoleId)?.name ?? 'Custom') : m.role}</td>
                                 <td className="text-sm text-slate-600 dark:text-slate-400">{scopeLabel(m) || 'Everything'}</td>
                                 <td className="text-sm text-slate-600 dark:text-slate-400">
                                     {m.lastLoginAt ? formatRelative(m.lastLoginAt) : 'Never'}
@@ -135,6 +146,8 @@ export function TeamPage() {
                     </tbody>
                 </TableWrap>
             )}
+
+            {roleCatalog.data && <RolesCard catalog={roleCatalog.data} />}
 
             <Card className="space-y-3 p-5">
                 <h2 className="font-medium">Signed-in browsers</h2>
@@ -164,28 +177,38 @@ function MemberEditor({
     member,
     apps,
     stacks,
+    customRoles,
     onClose,
     onInvited,
 }: {
     member: Member | null;
     apps: AppSummary[];
     stacks: { id: number; name: string }[];
+    customRoles: CustomRole[];
     onClose: () => void;
     onInvited: (username: string, url: string) => void;
 }) {
     const queryClient = useQueryClient();
     const withSudo = useSudo();
     const [username, setUsername] = useState(member?.username ?? '');
-    const [role, setRole] = useState(member?.role === 'Owner' ? 'Admin' : (member?.role ?? 'Developer'));
+    // Built-in roles by name, custom ones as "custom:<id>".
+    const [role, setRole] = useState(
+        member?.role === 'Owner' ? 'Admin' : member?.role === 'Custom' ? `custom:${member.customRoleId}` : (member?.role ?? 'Developer'),
+    );
     const [scopeStacks, setScopeStacks] = useState<number[]>(member?.scopeStacks ?? []);
     const [scopeApps, setScopeApps] = useState<number[]>(member?.scopeApps ?? []);
     const limited = role !== 'Admin';
+    const custom = role.startsWith('custom:') ? Number(role.slice(7)) : null;
+    const body = () => ({
+        role: custom ? 'Custom' : role,
+        customRoleId: custom,
+        scopeStacks: limited ? scopeStacks : [],
+        scopeApps: limited ? scopeApps : [],
+    });
     const save = useMutation({
         mutationFn: () =>
             withSudo<{ inviteUrl: string } | void>(() =>
-                member
-                    ? api.put(`/api/team/${member.id}`, { role, scopeStacks: limited ? scopeStacks : [], scopeApps: limited ? scopeApps : [] })
-                    : api.post<{ inviteUrl: string }>('/api/team', { username, role, scopeStacks: limited ? scopeStacks : [], scopeApps: limited ? scopeApps : [] }),
+                member ? api.put(`/api/team/${member.id}`, body()) : api.post<{ inviteUrl: string }>('/api/team', { username, ...body() }),
             ),
         onSuccess: (result) => {
             if (!member && result) onInvited(username, (result as { inviteUrl: string }).inviteUrl);
@@ -206,10 +229,20 @@ function MemberEditor({
                 }}
             >
                 {!member && <Field label="Username" value={username} onChange={(e) => setUsername(e.target.value.toLowerCase())} required pattern="[a-z0-9][a-z0-9_.\-]{2,31}" />}
-                <SelectField label="Role" value={role} onChange={(e) => setRole(e.target.value)} hint={roles.find((r) => r.id === role)?.description}>
+                <SelectField
+                    label="Role"
+                    value={role}
+                    onChange={(e) => setRole(e.target.value)}
+                    hint={custom ? customRoles.find((r) => r.id === custom)?.description : roles.find((r) => r.id === role)?.description}
+                >
                     {roles.map((r) => (
                         <option key={r.id} value={r.id}>
                             {r.id}
+                        </option>
+                    ))}
+                    {customRoles.map((r) => (
+                        <option key={r.id} value={`custom:${r.id}`}>
+                            {r.name} (custom)
                         </option>
                     ))}
                 </SelectField>
@@ -243,5 +276,156 @@ function MemberEditor({
                 </div>
             </form>
         </Card>
+    );
+}
+
+/** Custom roles: picked from the permission matrix, next to what the built-in roles allow. */
+function RolesCard({ catalog }: { catalog: RoleCatalog }) {
+    const queryClient = useQueryClient();
+    const withSudo = useSudo();
+    const [editing, setEditing] = useState<CustomRole | 'new' | null>(null);
+    const remove = useMutation({
+        mutationFn: (r: CustomRole) => withSudo(() => api.delete(`/api/team/roles/${r.id}`)),
+        onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['team-roles'] }),
+    });
+
+    return (
+        <Card className="space-y-4 p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <h2 className="font-medium">Roles</h2>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                        Built-in roles cover most teams. A custom role is exactly the permissions you tick; changes apply on the members' next click.
+                    </p>
+                </div>
+                <Button variant="secondary" onClick={() => setEditing('new')}>
+                    New role
+                </Button>
+            </div>
+            {catalog.custom.length > 0 && (
+                <ul className="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+                    {catalog.custom.map((r) => (
+                        <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                            <span>
+                                <span className="font-medium">{r.name}</span> · {r.permissions.length} permissions · {r.members} member(s)
+                                {r.description && <span className="block text-xs text-slate-500">{r.description}</span>}
+                            </span>
+                            <span className="flex gap-1">
+                                <Button size="sm" variant="ghost" onClick={() => setEditing(r)}>
+                                    Edit
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    disabled={r.members > 0}
+                                    title={r.members > 0 ? 'Members still have this role' : undefined}
+                                    onClick={() => confirm(`Delete the role ${r.name}?`) && remove.mutate(r)}
+                                >
+                                    Delete
+                                </Button>
+                            </span>
+                        </li>
+                    ))}
+                </ul>
+            )}
+            <ErrorNote message={remove.error ? errorMessage(remove.error) : null} />
+            {editing && <RoleEditor catalog={catalog} role={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
+        </Card>
+    );
+}
+
+function RoleEditor({ catalog, role, onClose }: { catalog: RoleCatalog; role: CustomRole | null; onClose: () => void }) {
+    const queryClient = useQueryClient();
+    const withSudo = useSudo();
+    const [name, setName] = useState(role?.name ?? '');
+    const [description, setDescription] = useState(role?.description ?? '');
+    const [chosen, setChosen] = useState<string[]>(role?.permissions ?? []);
+    const builtIn = catalog.builtIn.filter((b) => b.role !== 'Owner');
+    const save = useMutation({
+        mutationFn: () =>
+            withSudo(() =>
+                role
+                    ? api.put(`/api/team/roles/${role.id}`, { name, description, permissions: chosen })
+                    : api.post('/api/team/roles', { name, description, permissions: chosen }),
+            ),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: ['team-roles'] });
+            onClose();
+        },
+    });
+    const areas = [...new Set(catalog.catalog.map((c) => c.area))];
+
+    return (
+        <form
+            className="space-y-4 border-t border-slate-200 pt-4 dark:border-slate-800"
+            onSubmit={(e) => {
+                e.preventDefault();
+                save.mutate();
+            }}
+        >
+            <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Release manager" required />
+                <Field label="Description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Deploys and watches the logs" />
+            </div>
+            <TableWrap>
+                <thead>
+                    <tr>
+                        <th>Permission</th>
+                        {builtIn.map((b) => (
+                            <th key={b.role} className="text-center text-xs font-normal text-slate-500">
+                                {b.role}
+                            </th>
+                        ))}
+                        <th className="text-center">This role</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {areas.flatMap((area) => [
+                        <tr key={area}>
+                            <td colSpan={builtIn.length + 2} className="pt-3 text-xs font-medium tracking-wide text-slate-500 uppercase">
+                                {area}
+                            </td>
+                        </tr>,
+                        ...catalog.catalog
+                            .filter((c) => c.area === area)
+                            .map((c) => (
+                                <tr key={c.permission}>
+                                    <td>
+                                        <span className="text-sm">{c.description}</span>
+                                        <span className="block font-mono text-xs text-slate-500">{c.permission}</span>
+                                    </td>
+                                    {builtIn.map((b) => (
+                                        <td key={b.role} className="text-center text-slate-500">
+                                            {b.permissions.includes(c.permission) ? '✓' : ''}
+                                        </td>
+                                    ))}
+                                    <td className="text-center">
+                                        <input
+                                            type="checkbox"
+                                            aria-label={c.description}
+                                            className="size-4 accent-brand-600"
+                                            disabled={!c.customAllowed}
+                                            title={c.customAllowed ? undefined : 'Owner and admins only'}
+                                            checked={chosen.includes(c.permission)}
+                                            onChange={() =>
+                                                setChosen(chosen.includes(c.permission) ? chosen.filter((p) => p !== c.permission) : [...chosen, c.permission])
+                                            }
+                                        />
+                                    </td>
+                                </tr>
+                            )),
+                    ])}
+                </tbody>
+            </TableWrap>
+            <ErrorNote message={save.error && !(save.error instanceof Error && save.error.message === 'Cancelled.') ? errorMessage(save.error) : null} />
+            <div className="flex gap-2">
+                <Button type="button" variant="ghost" onClick={onClose}>
+                    Cancel
+                </Button>
+                <Button type="submit" disabled={save.isPending || chosen.length === 0}>
+                    {role ? 'Save role' : 'Create role'}
+                </Button>
+            </div>
+        </form>
     );
 }

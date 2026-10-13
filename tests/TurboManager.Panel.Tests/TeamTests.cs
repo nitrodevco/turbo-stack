@@ -35,9 +35,9 @@ public sealed class TeamApiTests : IAsyncLifetime
     }
 
     /// <summary>Invites a user and walks through their invite link; returns their signed-in client and TOTP secret.</summary>
-    private async Task<(HttpClient Client, string Secret, int Id)> AddMemberAsync(string username, PanelRole role, int[]? apps = null)
+    private async Task<(HttpClient Client, string Secret, int Id)> AddMemberAsync(string username, PanelRole role, int[]? apps = null, int? customRoleId = null)
     {
-        var invite = await (await _owner.PostAsJsonAsync("/api/team", new { username, role = role.ToString(), scopeApps = apps ?? [] }))
+        var invite = await (await _owner.PostAsJsonAsync("/api/team", new { username, role = role.ToString(), scopeApps = apps ?? [], customRoleId }))
             .EnsureSuccessStatusCode().Content.ReadFromJsonAsync<JsonElement>();
         var token = invite.GetProperty("inviteUrl").GetString()!.Split("token=")[1];
 
@@ -62,6 +62,41 @@ public sealed class TeamApiTests : IAsyncLifetime
         {
             name, repositoryId = repository.GetProperty("id").GetInt32(), serviceCommand = "node server.js", servicePort = 4000,
         })).EnsureSuccessStatusCode().Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetInt32();
+    }
+
+    [Fact]
+    public void The_matrix_describes_every_permission_once() =>
+        Assert.Equal(TurboManager.Panel.Auth.Permissions.All.Order(), TurboManager.Panel.Auth.Permissions.Catalog.Select(c => c.Permission).Order());
+
+    [Fact]
+    public async Task A_custom_role_grants_exactly_its_permissions_and_edits_apply_at_once()
+    {
+        await SudoAsync(_owner, _ownerSecret);
+        Assert.Equal(HttpStatusCode.BadRequest, (await _owner.PostAsJsonAsync("/api/team/roles",
+            new { name = "Root-ish", permissions = new[] { "apps.view", "terminal.root" } })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await _owner.PostAsJsonAsync("/api/team/roles", new { name = "Admin", permissions = new[] { "apps.view" } })).StatusCode);
+        var created = await (await _owner.PostAsJsonAsync("/api/team/roles",
+            new { name = "Deployer", description = "Ships releases", permissions = new[] { "apps.view", "apps.deploy" } }))
+            .EnsureSuccessStatusCode().Content.ReadFromJsonAsync<JsonElement>();
+        var roleId = created.GetProperty("id").GetInt32();
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await _owner.PostAsJsonAsync("/api/team", new { username = "nobody", role = "Custom" })).StatusCode);
+        var (member, _, _) = await AddMemberAsync("deployer", PanelRole.Custom, customRoleId: roleId);
+
+        var me = await member.GetFromJsonAsync<JsonElement>("/api/auth/me");
+        Assert.Equal("Deployer", me.GetProperty("role").GetString());
+        Assert.Equal(["apps.deploy", "apps.view"], me.GetProperty("permissions").EnumerateArray().Select(p => p.GetString()!).Order());
+        Assert.Equal(HttpStatusCode.OK, (await member.GetAsync("/api/apps")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await member.GetAsync("/api/firewall")).StatusCode);
+
+        // The member stays signed in; the next request already has the new permission.
+        (await _owner.PutAsJsonAsync($"/api/team/roles/{roleId}", new { name = "Deployer", permissions = new[] { "apps.view", "apps.deploy", "firewall.view" } }))
+            .EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.OK, (await member.GetAsync("/api/firewall")).StatusCode);
+
+        var roles = await _owner.GetFromJsonAsync<JsonElement>("/api/team/roles");
+        Assert.Equal(1, roles.GetProperty("custom")[0].GetProperty("members").GetInt32());
+        Assert.Equal(HttpStatusCode.BadRequest, (await _owner.DeleteAsync($"/api/team/roles/{roleId}")).StatusCode);
     }
 
     [Fact]

@@ -10,6 +10,7 @@
 ## Signing in
 
 - Two-factor sign-in is required for everyone; recovery codes are given once.
+- **Passkeys** (Account page) sign in with your device's fingerprint, face or PIN — no password, no code. A passkey counts as both factors: it proves you have the device and that you unlocked it. It also works for "confirm it's you". Passkeys are bound to the panel's domain, so add them once the panel has [its own address](./setup#move-the-panel-to-its-own-address); browsers don't allow passkeys for an IP address.
 - Failed sign-ins are rate-limited and feed a fail2ban jail.
 - Sensitive actions (API tokens, the root terminal, restores, removing targets, updating the panel) ask for the second factor again.
 - Every change is in the **Activity** log: who, what, when and from where.

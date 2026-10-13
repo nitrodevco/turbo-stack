@@ -60,6 +60,10 @@ public sealed class PanelDbContext(DbContextOptions<PanelDbContext> options) : D
 
     public DbSet<PanelUpdateState> PanelUpdates => Set<PanelUpdateState>();
 
+    public DbSet<CustomRole> CustomRoles => Set<CustomRole>();
+
+    public DbSet<Passkey> Passkeys => Set<Passkey>();
+
     public DbSet<BackupTarget> BackupTargets => Set<BackupTarget>();
 
     public DbSet<BackupPlan> BackupPlans => Set<BackupPlan>();
@@ -185,6 +189,20 @@ public sealed class PanelDbContext(DbContextOptions<PanelDbContext> options) : D
         });
 
         model.Entity<BackupSchedule>().HasIndex(s => new { s.Engine, s.Database }).IsUnique();
+
+        model.Entity<Passkey>(passkey =>
+        {
+            passkey.HasIndex(p => p.CredentialId).IsUnique();
+            passkey.HasOne<PanelUser>().WithMany().HasForeignKey(p => p.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        model.Entity<CustomRole>(role =>
+        {
+            role.HasIndex(r => r.Name).IsUnique();
+            role.Property(r => r.Permissions).HasConversion(JsonConverter<List<string>>(), JsonComparer<List<string>>());
+        });
+
+        model.Entity<PanelUser>().HasOne<CustomRole>().WithMany().HasForeignKey(u => u.CustomRoleId).OnDelete(DeleteBehavior.Restrict);
 
         model.Entity<BackupTarget>(target =>
         {

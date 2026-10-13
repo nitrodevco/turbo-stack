@@ -871,6 +871,28 @@ an unconfirmed change reverting) but has still not been run. Deferred from M1: c
     stage (three targets, three plans, a restore) on 24.04 and 26.04.
   - *Not yet:* hosting of the install domain (needs the product name), panel-state restore as a
     one-click action, backup alerts for "no successful run in N days", key rotation for releases.
+- *M9 status (2026-10-12):* the items M7/M8 left for later.
+  - *Custom roles:* a role is a set from the permission matrix (Permissions.Catalog: area and
+    description per permission); members with `Role = Custom` get its permissions as claims on
+    every request (cookie validation and token authentication read the role), so edits apply at
+    once. The root terminal and team management stay with owners and admins. Team page: roles
+    card with the matrix next to the built-in roles.
+  - *Passkeys (WebAuthn, fido2-net-lib 4.3):* passwordless sign-in with discoverable,
+    user-verified credentials (counts as both factors), "confirm it's you" with a passkey, and
+    managing them on the Account page (needs sudo). The relying party is the panel's host name,
+    so passkeys need its own domain (never an IP). Ceremony options stay server-side for five
+    minutes and are answered once. Tests use a software authenticator (ES256, CBOR) against the
+    real verification, including a phished origin and a replay.
+  - *API documentation:* the built-in OpenAPI generator (`/api/openapi.json`, signed-in users and
+    tokens); every operation says the permission it needs and whether it needs sudo. The API page
+    renders it with a filter and request bodies.
+  - *Code editor:* Monaco (bundled, never from a CDN, CSP unchanged), syntax highlighting only, a
+    side-by-side review of changes before saving, Ctrl/Cmd+S; loaded only when a file opens.
+  - *Hotel parts:* client, imager and admin panel joined game assets as optional roles; a part is
+    removed (others rewired to the addresses given, then its app and site deleted, uploads kept)
+    or added (the install job creates, rewires, certifies and deploys it).
+  - *E2E:* the setup flow checks the API document with a token and a custom role; the hotel flow
+    removes the admin panel and adds it back.
 - *Deviations / later:* ACME DNS-01 (wildcards without Cloudflare Origin) and Pebble in the
   Docker env are not done yet; fail2ban still bans in UFW even for proxied traffic (banning via
   the Cloudflare API, plan 6.8, comes with the WAF work); Authenticated Origin Pulls not yet.

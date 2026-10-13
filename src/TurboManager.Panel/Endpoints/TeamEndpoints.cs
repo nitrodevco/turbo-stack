@@ -11,9 +11,11 @@ using TurboManager.Panel.Http;
 
 namespace TurboManager.Panel.Endpoints;
 
-public sealed record InviteRequest(string? Username, PanelRole Role, List<int>? ScopeStacks = null, List<int>? ScopeApps = null);
+public sealed record InviteRequest(string? Username, PanelRole Role, List<int>? ScopeStacks = null, List<int>? ScopeApps = null, int? CustomRoleId = null);
 
-public sealed record MemberUpdate(PanelRole Role, List<int>? ScopeStacks = null, List<int>? ScopeApps = null);
+public sealed record MemberUpdate(PanelRole Role, List<int>? ScopeStacks = null, List<int>? ScopeApps = null, int? CustomRoleId = null);
+
+public sealed record CustomRoleRequest(string? Name, string? Description, List<string>? Permissions);
 
 public sealed record InvitePasswordRequest(string? Token, string? Password);
 
@@ -24,7 +26,7 @@ public sealed record SudoRequest(string? Code, string? RecoveryCode);
 public sealed record TokenRequest(string? Name, List<string>? Permissions, int? ExpiresInDays);
 
 /// <summary>The panel's users: invites, roles and scopes, sessions, API tokens and re-authentication.</summary>
-public static class TeamEndpoints
+public static partial class TeamEndpoints
 {
     private static readonly TimeSpan InviteLifetime = TimeSpan.FromDays(3);
 
@@ -44,6 +46,7 @@ public static class TeamEndpoints
                 u.Id,
                 u.Username,
                 role = u.Role.ToString(),
+                u.CustomRoleId,
                 twoFactor = u.TotpEnabled,
                 invitePending = u.InviteHash is not null,
                 u.InviteExpiresAt,
@@ -71,6 +74,11 @@ public static class TeamEndpoints
                 return Invalid("There is one owner. Invite an admin instead.");
             }
 
+            if (await CustomRoleErrorAsync(request.Role, request.CustomRoleId, db) is { } roleError)
+            {
+                return Invalid(roleError);
+            }
+
             if (await db.Users.AnyAsync(u => u.Username == username))
             {
                 return Invalid($"{username} already exists.");
@@ -81,6 +89,7 @@ public static class TeamEndpoints
                 Username = username,
                 PasswordHash = "",
                 Role = request.Role,
+                CustomRoleId = request.Role == PanelRole.Custom ? request.CustomRoleId : null,
                 ScopeStacks = request.ScopeStacks ?? [],
                 ScopeApps = request.ScopeApps ?? [],
                 InvitedBy = actor.Username,
@@ -110,8 +119,15 @@ public static class TeamEndpoints
                 return Invalid("The owner's role, and your own, can't be changed here.");
             }
 
-            var changed = user.Role != request.Role;
+            if (await CustomRoleErrorAsync(request.Role, request.CustomRoleId, db) is { } roleError)
+            {
+                return Invalid(roleError);
+            }
+
+            var customRoleId = request.Role == PanelRole.Custom ? request.CustomRoleId : null;
+            var changed = user.Role != request.Role || user.CustomRoleId != customRoleId;
             user.Role = request.Role;
+            user.CustomRoleId = customRoleId;
             user.ScopeStacks = request.ScopeStacks ?? [];
             user.ScopeApps = request.ScopeApps ?? [];
 
@@ -174,6 +190,82 @@ public static class TeamEndpoints
 
             db.Users.Remove(user); // sessions and tokens go with it
             audit.Record("team.removed", actor, target: user.Username);
+            await db.SaveChangesAsync();
+
+            return Results.NoContent();
+        }).RequireSudo();
+
+        // Custom roles: a name and a set of permissions from the matrix.
+        manage.MapGet("/roles", async (PanelDbContext db) =>
+        {
+            var members = await db.Users.Where(u => u.CustomRoleId != null).GroupBy(u => u.CustomRoleId).Select(g => new { g.Key, count = g.Count() })
+                .ToListAsync();
+
+            return Results.Ok(new
+            {
+                catalog = Permissions.Catalog.Select(c => new
+                {
+                    permission = c.Permission, area = c.Area, description = c.Description, customAllowed = !Permissions.NotForCustomRoles.Contains(c.Permission),
+                }),
+                builtIn = Enum.GetValues<PanelRole>().Where(r => r != PanelRole.Custom).Select(r => new { role = r.ToString(), permissions = Permissions.For(r) }),
+                custom = (await db.CustomRoles.OrderBy(r => r.Name).ToListAsync()).Select(r => new
+                {
+                    r.Id, r.Name, r.Description, r.Permissions, members = members.FirstOrDefault(m => m.Key == r.Id)?.count ?? 0,
+                }),
+            });
+        });
+
+        manage.MapPost("/roles", async (CustomRoleRequest request, HttpContext http, PanelDbContext db, AuditLog audit) =>
+        {
+            if (await RoleRequestErrorAsync(request, null, db) is { } error)
+            {
+                return Invalid(error);
+            }
+
+            var role = new CustomRole { Name = request.Name!.Trim(), Description = (request.Description ?? "").Trim(), Permissions = [.. request.Permissions!.Distinct()] };
+            db.CustomRoles.Add(role);
+            audit.Record("team.role_created", await CurrentUser.GetAsync(http, db), target: role.Name, details: string.Join(", ", role.Permissions));
+            await db.SaveChangesAsync();
+
+            return Results.Ok(new { role.Id });
+        }).RequireSudo();
+
+        manage.MapPut("/roles/{id:int}", async (int id, CustomRoleRequest request, HttpContext http, PanelDbContext db, AuditLog audit) =>
+        {
+            if (await db.CustomRoles.FindAsync(id) is not { } role)
+            {
+                return Results.NotFound();
+            }
+
+            if (await RoleRequestErrorAsync(request, id, db) is { } error)
+            {
+                return Invalid(error);
+            }
+
+            // Members get the new permissions on their next request (they're read from here every time).
+            role.Name = request.Name!.Trim();
+            role.Description = (request.Description ?? "").Trim();
+            role.Permissions = [.. request.Permissions!.Distinct()];
+            audit.Record("team.role_changed", await CurrentUser.GetAsync(http, db), target: role.Name, details: string.Join(", ", role.Permissions));
+            await db.SaveChangesAsync();
+
+            return Results.NoContent();
+        }).RequireSudo();
+
+        manage.MapDelete("/roles/{id:int}", async (int id, HttpContext http, PanelDbContext db, AuditLog audit) =>
+        {
+            if (await db.CustomRoles.FindAsync(id) is not { } role)
+            {
+                return Results.NotFound();
+            }
+
+            if (await db.Users.AnyAsync(u => u.CustomRoleId == id))
+            {
+                return Invalid("Members still have this role; give them another one first.");
+            }
+
+            db.CustomRoles.Remove(role);
+            audit.Record("team.role_deleted", await CurrentUser.GetAsync(http, db), target: role.Name);
             await db.SaveChangesAsync();
 
             return Results.NoContent();
@@ -323,7 +415,9 @@ public static class TeamEndpoints
                 return Invalid("Give the token a name (up to 60 characters), e.g. \"GitHub Actions\".");
             }
 
-            if (permissions.Count == 0 || permissions.Any(p => !Permissions.RoleHas(user.Role, p)))
+            var allowed = Permissions.For(user, user.CustomRoleId is { } roleId ? await db.CustomRoles.FindAsync(roleId) : null);
+
+            if (permissions.Count == 0 || permissions.Any(p => !allowed.Contains(p)))
             {
                 return Invalid(permissions.Count == 0 ? "Choose what the token may do." : "A token can only do what your role can.");
             }
@@ -368,6 +462,34 @@ public static class TeamEndpoints
         });
     }
 
+    private static async Task<string?> CustomRoleErrorAsync(PanelRole role, int? customRoleId, PanelDbContext db) =>
+        role != PanelRole.Custom ? null
+        : customRoleId is { } id && await db.CustomRoles.AnyAsync(r => r.Id == id) ? null
+        : "Choose which custom role.";
+
+    private static async Task<string?> RoleRequestErrorAsync(CustomRoleRequest request, int? id, PanelDbContext db)
+    {
+        var name = (request.Name ?? "").Trim();
+        var permissions = request.Permissions ?? [];
+
+        if (!RoleNamePattern().IsMatch(name) || Enum.GetNames<PanelRole>().Contains(name, StringComparer.OrdinalIgnoreCase))
+        {
+            return "Role names: 1-40 letters, digits, spaces, dots or dashes, and not a built-in role's name.";
+        }
+
+        if (permissions.Count == 0 || permissions.Any(p => !Permissions.All.Contains(p)))
+        {
+            return "Choose at least one permission from the matrix.";
+        }
+
+        if (permissions.FirstOrDefault(Permissions.NotForCustomRoles.Contains) is { } reserved)
+        {
+            return $"{reserved} stays with the owner and admins.";
+        }
+
+        return await db.CustomRoles.AnyAsync(r => r.Name == name && r.Id != id) ? $"There is already a role called {name}." : null;
+    }
+
     private static string Invite(PanelUser user, HttpContext http)
     {
         var token = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(24));
@@ -396,4 +518,7 @@ public static class TeamEndpoints
         Results.Problem("This invite link is invalid or has expired. Ask for a new one.", statusCode: StatusCodes.Status404NotFound);
 
     private static IResult Invalid(string message) => Results.ValidationProblem(new Dictionary<string, string[]> { ["team"] = [message] });
+
+    [System.Text.RegularExpressions.GeneratedRegex("^[A-Za-z0-9][A-Za-z0-9 ._-]{0,39}$")]
+    private static partial System.Text.RegularExpressions.Regex RoleNamePattern();
 }

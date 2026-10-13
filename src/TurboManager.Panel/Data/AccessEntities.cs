@@ -43,3 +43,27 @@ public sealed class ApiToken
 
     public DateTimeOffset? LastUsedAt { get; set; }
 }
+
+/// <summary>A WebAuthn credential (passkey): signs in without a password, and counts as two factors.</summary>
+public sealed class Passkey
+{
+    public int Id { get; set; }
+
+    public int UserId { get; set; }
+
+    public required string Name { get; set; }
+
+    /// <summary>base64url of the credential id.</summary>
+    public required string CredentialId { get; set; }
+
+    public required byte[] PublicKey { get; set; }
+
+    public uint SignCount { get; set; }
+
+    /// <summary>The domain it was made for (a passkey only works there).</summary>
+    public required string RpId { get; set; }
+
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+
+    public DateTimeOffset? LastUsedAt { get; set; }
+}

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { api, ApiError } from '../api';
 import { Button, Card, CenteredPage, ErrorNote, Field } from '../components/ui';
+import { passkeysSupported, signInWithPasskey } from '../passkeys';
 
 export function LoginPage() {
     const [stage, setStage] = useState<'password' | 'mfa'>('password');
@@ -26,7 +27,8 @@ export function LoginPage() {
                 setStage('password');
             }
 
-            setError(e instanceof ApiError ? e.message : 'Something went wrong.');
+            // A cancelled passkey prompt is a DOMException; its message says what happened.
+            setError(e instanceof ApiError || e instanceof DOMException ? e.message : 'Something went wrong.');
         } finally {
             setBusy(false);
         }
@@ -53,6 +55,23 @@ export function LoginPage() {
                         <Button type="submit" disabled={busy} className="w-full">
                             {busy ? 'Signing in…' : 'Continue'}
                         </Button>
+                        {passkeysSupported() && (
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                disabled={busy}
+                                className="w-full"
+                                onClick={() =>
+                                    void submit(async () => {
+                                        await signInWithPasskey();
+                                        await queryClient.invalidateQueries();
+                                        void navigate('/', { replace: true });
+                                    })
+                                }
+                            >
+                                Sign in with a passkey
+                            </Button>
+                        )}
                     </form>
                 ) : (
                     <form

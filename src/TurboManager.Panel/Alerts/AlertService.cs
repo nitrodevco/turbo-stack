@@ -397,7 +397,10 @@ public sealed class AlertState
 
     private readonly ConcurrentDictionary<string, List<(DateTimeOffset At, int Restarts)>> _restarts = new();
 
-    /// <summary>systemd is about to restart it, or it restarted three times within ten minutes.</summary>
+    /// <summary>
+    /// systemd is about to restart it, or it restarted three times within ten minutes and isn't settled yet (a restart
+    /// in the last two minutes): a service that crashed during a bad deploy and now runs again isn't "crashing".
+    /// </summary>
     public bool IsCrashLooping(ServiceUnit unit, DateTimeOffset now)
     {
         var history = _restarts.GetOrAdd(unit.Name, _ => []);
@@ -407,7 +410,15 @@ public sealed class AlertState
             history.RemoveAll(h => now - h.At > TimeSpan.FromMinutes(10));
             history.Add((now, unit.Restarts));
 
-            return unit.SubState == "auto-restart" || unit.Restarts - history[0].Restarts >= 3;
+            if (unit.SubState == "auto-restart")
+            {
+                return true;
+            }
+
+            // When the count last went up (as far as we've seen).
+            var lastRestart = history.Zip(history.Skip(1)).LastOrDefault(p => p.Second.Restarts > p.First.Restarts).Second.At;
+
+            return unit.Restarts - history[0].Restarts >= 3 && now - lastRestart < TimeSpan.FromMinutes(2);
         }
     }
 }

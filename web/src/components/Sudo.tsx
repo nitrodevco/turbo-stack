@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
 import { api, ApiError, errorMessage } from '../api';
+import { confirmWithPasskey, passkeysSupported } from '../passkeys';
 import { Button, ErrorNote, Field, Modal } from './ui';
 
 type WithSudo = <T>(action: () => Promise<T>) => Promise<T>;
@@ -47,6 +48,20 @@ export function SudoProvider({ children }: { children: ReactNode }) {
         }
     }
 
+    async function confirmPasskey() {
+        setBusy(true);
+        setError(null);
+        try {
+            await confirmWithPasskey();
+            setOpen(false);
+            pending.current?.resolve();
+        } catch (e) {
+            setError(e instanceof DOMException ? e.message : errorMessage(e));
+        } finally {
+            setBusy(false);
+        }
+    }
+
     function cancel() {
         setOpen(false);
         pending.current?.reject(new Error('Cancelled.'));
@@ -75,9 +90,16 @@ export function SudoProvider({ children }: { children: ReactNode }) {
                     />
                     <ErrorNote message={error} />
                     <div className="flex items-center justify-between gap-2">
-                        <button type="button" className="text-xs text-slate-500 hover:underline" onClick={() => setUseRecovery(!useRecovery)}>
-                            {useRecovery ? 'Use the authenticator app' : 'Use a recovery code'}
-                        </button>
+                        <span className="flex flex-col items-start gap-1">
+                            <button type="button" className="text-xs text-slate-500 hover:underline" onClick={() => setUseRecovery(!useRecovery)}>
+                                {useRecovery ? 'Use the authenticator app' : 'Use a recovery code'}
+                            </button>
+                            {passkeysSupported() && (
+                                <button type="button" className="text-xs text-slate-500 hover:underline" disabled={busy} onClick={() => void confirmPasskey()}>
+                                    Use a passkey
+                                </button>
+                            )}
+                        </span>
                         <div className="flex gap-2">
                             <Button type="button" variant="ghost" onClick={cancel}>
                                 Cancel

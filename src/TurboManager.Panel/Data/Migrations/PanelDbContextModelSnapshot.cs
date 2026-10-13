@@ -601,6 +601,35 @@ namespace TurboManager.Panel.Data.Migrations
                     b.ToTable("CloudflareAccounts");
                 });
 
+            modelBuilder.Entity("TurboManager.Panel.Data.CustomRole", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Permissions")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("CustomRoles");
+                });
+
             modelBuilder.Entity("TurboManager.Panel.Data.DatabaseCredential", b =>
                 {
                     b.Property<int>("Id")
@@ -1102,6 +1131,9 @@ namespace TurboManager.Panel.Data.Migrations
                     b.Property<long>("CreatedAt")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int?>("CustomRoleId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("FailedLoginCount")
                         .HasColumnType("INTEGER");
 
@@ -1122,6 +1154,9 @@ namespace TurboManager.Panel.Data.Migrations
 
                     b.Property<long?>("LockedUntil")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("PasskeyHandle")
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
@@ -1157,10 +1192,56 @@ namespace TurboManager.Panel.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CustomRoleId");
+
                     b.HasIndex("Username")
                         .IsUnique();
 
                     b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("TurboManager.Panel.Data.Passkey", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("CredentialId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("LastUsedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("PublicKey")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("RpId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<uint>("SignCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CredentialId")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Passkeys");
                 });
 
             modelBuilder.Entity("TurboManager.Panel.Data.RecoveryCode", b =>
@@ -1584,6 +1665,23 @@ namespace TurboManager.Panel.Data.Migrations
                 });
 
             modelBuilder.Entity("TurboManager.Panel.Data.PanelSession", b =>
+                {
+                    b.HasOne("TurboManager.Panel.Data.PanelUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("TurboManager.Panel.Data.PanelUser", b =>
+                {
+                    b.HasOne("TurboManager.Panel.Data.CustomRole", null)
+                        .WithMany()
+                        .HasForeignKey("CustomRoleId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("TurboManager.Panel.Data.Passkey", b =>
                 {
                     b.HasOne("TurboManager.Panel.Data.PanelUser", null)
                         .WithMany()

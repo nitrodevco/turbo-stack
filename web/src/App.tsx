@@ -33,6 +33,7 @@ import { SitesPage } from './pages/SitesPage';
 import { SshPage } from './pages/SshPage';
 import { UpdatesPage } from './pages/UpdatesPage';
 import { BackupsPage } from './pages/BackupsPage';
+import { ApiPage } from './pages/ApiPage';
 
 export function App() {
     const location = useLocation();
@@ -79,6 +80,7 @@ export function App() {
                 <Route path="ssh" element={<SshPage />} />
                 <Route path="updates" element={<UpdatesPage />} />
                 <Route path="backups" element={<BackupsPage />} />
+                <Route path="api-docs" element={<ApiPage />} />
                 <Route path="activity" element={<ActivityPage />} />
                 <Route path="sites" element={<SitesPage />} />
                 <Route path="sites/new" element={<SiteEditorPage />} />
