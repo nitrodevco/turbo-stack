@@ -30,7 +30,9 @@ export function AppConsole({ appId, appName, canType }: { appId: number; appName
         return () => source.close();
     }, [appName]);
 
-    useEffect(() => bottom.current?.scrollIntoView({ block: 'nearest' }), [lines]);
+    useEffect(() => {
+        bottom.current?.scrollIntoView({ block: 'nearest' });
+    }, [lines]);
 
     return (
         <Card className="space-y-3 p-5">

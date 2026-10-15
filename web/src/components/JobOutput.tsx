@@ -24,7 +24,9 @@ export function JobOutput({ jobId, onEnd }: { jobId: number; onEnd?: (status: st
         return () => source.close();
     }, [jobId]);
 
-    useEffect(() => bottomRef.current?.scrollIntoView({ block: 'end' }), [lines.length]);
+    useEffect(() => {
+        bottomRef.current?.scrollIntoView({ block: 'end' });
+    }, [lines.length]);
 
     return (
         <div className="space-y-2">

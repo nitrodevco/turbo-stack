@@ -204,7 +204,9 @@ function SettingsCard({ app, onSaved }: { app: AppSettings; onSaved: () => void 
         onSuccess: onSaved,
     });
 
-    useEffect(() => setForm(toForm(app)), [app]);
+    useEffect(() => {
+        setForm(toForm(app));
+    }, [app]);
 
     return (
         <Card className="space-y-5 p-5">
