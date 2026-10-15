@@ -29,7 +29,6 @@ import { ServicesPage } from './pages/ServicesPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { SetupPage } from './pages/SetupPage';
 import { SiteEditorPage } from './pages/SiteEditorPage';
-import { SitesPage } from './pages/SitesPage';
 import { SshPage } from './pages/SshPage';
 import { UpdatesPage } from './pages/UpdatesPage';
 import { BackupsPage } from './pages/BackupsPage';
@@ -82,7 +81,7 @@ export function App() {
                 <Route path="backups" element={<BackupsPage />} />
                 <Route path="api-docs" element={<ApiPage />} />
                 <Route path="activity" element={<ActivityPage />} />
-                <Route path="sites" element={<SitesPage />} />
+                <Route path="sites" element={<Navigate to="/apps?show=sites" replace />} />
                 <Route path="sites/new" element={<SiteEditorPage />} />
                 <Route path="sites/:id" element={<SiteEditorPage />} />
                 <Route path="certificates" element={<CertificatesPage />} />

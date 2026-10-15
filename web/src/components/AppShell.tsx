@@ -159,7 +159,7 @@ function Rail({ me }: { me: Me }) {
 }
 
 /** The places a phone's bottom bar keeps in reach, the first four of these the viewer may open. */
-const DOCK = ['/', '/hotel', '/sites', '/apps', '/services', '/logs'];
+const DOCK = ['/', '/hotel', '/apps', '/services', '/logs'];
 
 function DockItem({ to, label, icon, active, onClick }: { to?: string; label: string; icon: ReactNode; active: boolean; onClick?: () => void }) {
     const body = (

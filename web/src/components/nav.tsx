@@ -1,4 +1,4 @@
-import { Archive, Bell, Braces, Building2, Cloud, Cog, Database, FolderOpen, Gauge, Globe, History, KeyRound, LockKeyhole, PackageCheck, Rocket, ScrollText, Shield, SlidersHorizontal, SquareTerminal, Users } from 'lucide-react';
+import { Archive, Bell, Braces, Building2, Cloud, Cog, Database, FolderOpen, Gauge, History, KeyRound, LockKeyhole, PackageCheck, Rocket, ScrollText, Shield, SlidersHorizontal, SquareTerminal, Users } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useLocation } from 'react-router';
 import type { Me } from '../api';
@@ -8,7 +8,8 @@ export type NavEntry = {
     label: string;
     to: string;
     icon: ReactNode;
-    permission?: string;
+    /** Shown to whoever has any of these. */
+    permission?: string | string[];
     hint: string;
     /** Other paths that belong to it (a repository's page is under Apps). */
     also?: string[];
@@ -27,15 +28,21 @@ const SECTIONS: NavSection[] = [
     {
         label: 'Web',
         entries: [
-            { label: 'Sites', to: '/sites', icon: <Globe />, permission: 'sites.view', hint: 'Domains served by nginx' },
+            {
+                label: 'Apps & sites',
+                to: '/apps',
+                icon: <Rocket />,
+                permission: ['apps.view', 'sites.view'],
+                hint: 'Deploys from GitHub, and the domains that serve them',
+                also: ['/sites', '/repositories'],
+            },
             { label: 'Certificates', to: '/certificates', icon: <LockKeyhole />, permission: 'sites.view', hint: 'HTTPS certificates' },
             { label: 'Cloudflare', to: '/cloudflare', icon: <Cloud />, permission: 'sites.view', hint: 'DNS and proxying' },
         ],
     },
     {
-        label: 'Apps',
+        label: 'Data',
         entries: [
-            { label: 'Apps & deploys', to: '/apps', icon: <Rocket />, permission: 'apps.view', hint: 'Code from GitHub, built and run', also: ['/repositories'] },
             { label: 'Databases', to: '/databases', icon: <Database />, permission: 'databases.view', hint: 'MySQL, MariaDB, PostgreSQL' },
             { label: 'Backups', to: '/backups', icon: <Archive />, permission: 'backups.view', hint: 'Schedules, targets, restores' },
         ],
@@ -71,7 +78,7 @@ const SECTIONS: NavSection[] = [
 
 /** The navigation's sections, with only the entries the signed-in user may open. */
 export function navFor(me: Me): NavSection[] {
-    return SECTIONS.map((section) => ({ label: section.label, entries: section.entries.filter((entry) => !entry.permission || me.permissions.includes(entry.permission)) })).filter(
+    return SECTIONS.map((section) => ({ label: section.label, entries: section.entries.filter((entry) => !entry.permission || [entry.permission].flat().some((p) => me.permissions.includes(p))) })).filter(
         (section) => section.entries.length > 0,
     );
 }

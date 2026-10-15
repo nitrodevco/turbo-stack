@@ -6,7 +6,7 @@ A repository belongs to an **app user** (a Linux user in the `ts-apps` group, ne
 
 ### Connecting GitHub
 
-Connect a GitHub account under *Apps → Repositories → Connect GitHub* so you don't have to copy keys into GitHub yourself. The panel uses a personal access token: either a classic token with the `repo` scope (the link on that page fills it in), or a fine-grained token with *Administration* (read and write), *Webhooks* (read and write) and *Contents* (read) on the repositories you deploy. The token is stored encrypted and is never shown again.
+Connect a GitHub account under *Apps & sites → Repositories → Connect GitHub* so you don't have to copy keys into GitHub yourself. The panel uses a personal access token: either a classic token with the `repo` scope (the link on that page fills it in), or a fine-grained token with *Administration* (read and write), *Webhooks* (read and write) and *Contents* (read) on the repositories you deploy. The token is stored encrypted and is never shown again.
 
 Once connected:
 

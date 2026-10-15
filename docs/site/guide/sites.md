@@ -2,6 +2,8 @@
 
 ## Sites
 
+Sites and apps share one page, *Apps & sites*. An app lists the sites that serve it, and a site lists the apps it serves. The panel links a site to an app when the site carries the app's name, serves files from the app's folder, or proxies to one of the app's ports. Not every app needs a site (the emulator has none), and a site doesn't need an app: it can serve any folder, proxy to any port or redirect. On an app's page, *Add a site* fills in a site for that app.
+
 A site is one or more domains and an ordered list of routes:
 
 | Route | Does |
