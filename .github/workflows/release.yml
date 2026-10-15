@@ -65,8 +65,14 @@ jobs:
           prerelease=()
           [[ "$GITHUB_REF_NAME" == *-* ]] && prerelease=(--prerelease)
           tar -czf "$RUNNER_TEMP/docs.tar.gz" -C dist docs
-          gh release create "$GITHUB_REF_NAME" "${prerelease[@]}" --title "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md" \
-            dist/files/* dist/channels/* dist/install.sh "$RUNNER_TEMP/docs.tar.gz"
+          assets=(dist/files/* dist/channels/* dist/install.sh "$RUNNER_TEMP/docs.tar.gz")
+          # A re-run (say, after the install domain failed) replaces the assets of the release it created before.
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "${prerelease[@]}" --title "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md" \
+              "${assets[@]}"
+          fi
 
       # install.nitrodev.co is a Cloudflare Pages project (install/site/README.md). Every deploy replaces the whole site,
       # so a beta keeps install.sh, the docs and the stable channel from the latest stable release and only moves beta.
@@ -93,9 +99,15 @@ jobs:
           cp install/site/_headers install/site/_redirects "$site/"
           find "$site" -maxdepth 2 -not -path "$site/docs/*" | sort
 
+      # The Pages project is created here on the first release (the dashboard's "Create" now makes Workers by default,
+      # which pages deploy can't see). Attach install.nitrodev.co to it once afterwards.
       - name: Deploy the install domain
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy ${{ runner.temp }}/site --project-name=turbo-stack-install --branch=main --commit-dirty=true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          wrangler=(npx --yes wrangler@4.151.0)
+          if ! "${wrangler[@]}" pages project list --json | jq -e 'any(.[]; (.["Project Name"] // .name) == "turbo-stack-install")' >/dev/null; then
+            "${wrangler[@]}" pages project create turbo-stack-install --production-branch=main
+          fi
+          "${wrangler[@]}" pages deploy "$RUNNER_TEMP/site" --project-name=turbo-stack-install --branch=main --commit-dirty=true
