@@ -86,6 +86,7 @@ public sealed partial class RecipeService(
     PanelDbContext db,
     AgentChannelFactory agent,
     DeployService deployments,
+    GitHubService github,
     DatabaseService databases,
     SiteService sites,
     IDataProtectionProvider dataProtection,
@@ -316,6 +317,15 @@ public sealed partial class RecipeService(
             }
 
             await db.SaveChangesAsync(cancellationToken);
+
+            // With GitHub connected, private repositories get their deploy keys without a trip to GitHub's settings.
+            if (repositoryCreated && repository.Auth == RepositoryAuth.DeployKey && await github.GetAccountAsync() is { } account)
+            {
+                var steps = await github.InstallAsync(repository, null, cancellationToken);
+                plan.Notes.AddRange(steps.Select(s => s.Status == "ok"
+                    ? $"{s.Label}: added through GitHub account {account.Login}."
+                    : $"{s.Label}: {s.Detail} Add it by hand."));
+            }
         }
 
         if (plan.Database is { } database)

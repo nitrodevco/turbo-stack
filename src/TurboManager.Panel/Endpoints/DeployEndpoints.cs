@@ -18,6 +18,10 @@ public static class DeployEndpoints
 
     public sealed record ConsoleRequest(string? Line);
 
+    public sealed record GitHubSetupRequest(bool Webhook);
+
+    public sealed record GitHubTokenRequest(string? Token);
+
     public static void MapDeployEndpoints(this IEndpointRouteBuilder app)
     {
         var view = app.MapGroup("/api").WithAgentErrors().RequirePermission(Permissions.AppsView).RequireScope();
@@ -50,7 +54,7 @@ public static class DeployEndpoints
         });
 
         manage.MapPost("/repositories", async (RepositoryRequest request, HttpContext http, PanelDbContext db, DeployService deployments,
-            AuditLog audit, CancellationToken cancellationToken) =>
+            GitHubService github, AuditLog audit, CancellationToken cancellationToken) =>
         {
             if (DeployModels.ValidateRepository(request) is { } error)
             {
@@ -60,6 +64,11 @@ public static class DeployEndpoints
             if (await db.Repositories.AnyAsync(r => r.SystemUser == request.SystemUser && r.Name == request.Name, cancellationToken))
             {
                 return Invalid($"{request.SystemUser} already has a repository called {request.Name}.");
+            }
+
+            if (request.SetUpOnGitHub && await github.GetAccountAsync() is null)
+            {
+                return Invalid("Connect a GitHub account first, or add the deploy key by hand.");
             }
 
             var repository = new GitRepository
@@ -76,7 +85,12 @@ public static class DeployEndpoints
             audit.Record("repository.added", await CurrentUser.GetAsync(http, db), target: repository.FullName, details: $"user {repository.SystemUser}");
             await db.SaveChangesAsync(cancellationToken);
 
-            return Results.Ok(RepositoryView(repository, http.Request));
+            // The webhook URL needs the id, so GitHub is set up once the repository is saved.
+            var steps = request.SetUpOnGitHub
+                ? await github.InstallAsync(repository, request.Webhook ? WebhookUrl(repository, http.Request) : null, cancellationToken)
+                : [];
+
+            return Results.Ok(RepositoryView(repository, http.Request, steps));
         });
 
         manage.MapPut("/repositories/{id:int}", async (int id, RepositoryRequest request, HttpContext http, PanelDbContext db, DeployService deployments,
@@ -126,9 +140,10 @@ public static class DeployEndpoints
                 : Results.Ok(new { url = WebhookUrl(repository, http.Request), secret = deployments.Unprotect(repository.WebhookSecretProtected) });
         });
 
-        manage.MapPost("/repositories/{id:int}/webhook/rotate", async (int id, HttpContext http, PanelDbContext db, DeployService deployments, AuditLog audit) =>
+        manage.MapPost("/repositories/{id:int}/webhook/rotate", async (int id, HttpContext http, PanelDbContext db, DeployService deployments,
+            GitHubService github, AuditLog audit, CancellationToken cancellationToken) =>
         {
-            var repository = await db.Repositories.FindAsync(id);
+            var repository = await db.Repositories.FindAsync([id], cancellationToken);
 
             if (repository is null)
             {
@@ -136,16 +151,40 @@ public static class DeployEndpoints
             }
 
             var secret = DeployService.NewWebhookSecret();
+            var url = WebhookUrl(repository, http.Request);
             repository.WebhookSecretProtected = deployments.Protect(secret);
             audit.Record("repository.webhook_secret_rotated", await CurrentUser.GetAsync(http, db), target: repository.FullName);
-            await db.SaveChangesAsync();
+            await db.SaveChangesAsync(cancellationToken);
 
-            return Results.Ok(new { url = WebhookUrl(repository, http.Request), secret });
+            // A webhook the panel created is updated with the new secret; one added by hand has to be updated by hand.
+            var updated = await github.UpdateHookSecretAsync(repository, url, secret, cancellationToken);
+
+            return Results.Ok(new { url, secret, github = updated });
         });
 
-        manage.MapDelete("/repositories/{id:int}", async (int id, HttpContext http, PanelDbContext db, AuditLog audit) =>
+        // Installs the deploy keys (and optionally the push webhook) through the connected GitHub account.
+        manage.MapPost("/repositories/{id:int}/github", async (int id, GitHubSetupRequest request, HttpContext http, PanelDbContext db,
+            GitHubService github, AuditLog audit, CancellationToken cancellationToken) =>
         {
-            var repository = await db.Repositories.FindAsync(id);
+            var repository = await db.Repositories.FindAsync([id], cancellationToken);
+
+            if (repository is null)
+            {
+                return Results.NotFound();
+            }
+
+            var steps = await github.InstallAsync(repository, request.Webhook ? WebhookUrl(repository, http.Request) : null, cancellationToken);
+            audit.Record("repository.github_setup", await CurrentUser.GetAsync(http, db), target: repository.FullName,
+                details: string.Join("; ", steps.Select(s => $"{s.Label}: {s.Status}")));
+            await db.SaveChangesAsync(cancellationToken);
+
+            return Results.Ok(RepositoryView(repository, http.Request, steps));
+        }).AddEndpointFilter<GitHubErrorFilter>();
+
+        manage.MapDelete("/repositories/{id:int}", async (int id, HttpContext http, PanelDbContext db, GitHubService github, AuditLog audit,
+            CancellationToken cancellationToken) =>
+        {
+            var repository = await db.Repositories.FindAsync([id], cancellationToken);
 
             if (repository is null)
             {
@@ -157,12 +196,47 @@ public static class DeployEndpoints
                 return Results.Problem("Delete the apps that deploy from this repository first.", statusCode: StatusCodes.Status409Conflict);
             }
 
+            await github.RemoveAsync(repository, cancellationToken);
             db.Repositories.Remove(repository);
             audit.Record("repository.removed", await CurrentUser.GetAsync(http, db), target: repository.FullName);
-            await db.SaveChangesAsync();
+            await db.SaveChangesAsync(cancellationToken);
 
             return Results.NoContent();
         });
+
+        // ----- GitHub account (lists your repositories; installs deploy keys and webhooks) -----
+
+        var gitHubView = view.MapGroup("/github").AddEndpointFilter<GitHubErrorFilter>();
+        var gitHubManage = manage.MapGroup("/github").AddEndpointFilter<GitHubErrorFilter>();
+
+        gitHubView.MapGet("", async (GitHubService github) => Results.Ok(GitHubView(await github.GetAccountAsync())));
+
+        gitHubManage.MapPut("/token", async (GitHubTokenRequest request, HttpContext http, PanelDbContext db, GitHubService github,
+            CancellationToken cancellationToken) =>
+        {
+            if (string.IsNullOrWhiteSpace(request.Token))
+            {
+                return Results.ValidationProblem(new Dictionary<string, string[]> { ["token"] = ["Paste the access token."] });
+            }
+
+            return Results.Ok(GitHubView(await github.ConnectAsync(request.Token, await CurrentUser.GetAsync(http, db), cancellationToken)));
+        });
+
+        gitHubManage.MapDelete("/token", async (HttpContext http, PanelDbContext db, GitHubService github, CancellationToken cancellationToken) =>
+        {
+            await github.DisconnectAsync(await CurrentUser.GetAsync(http, db), cancellationToken);
+
+            return Results.NoContent();
+        });
+
+        gitHubManage.MapGet("/repositories", async (GitHubService github, CancellationToken cancellationToken) =>
+            Results.Ok(await github.ListRepositoriesAsync(cancellationToken)));
+
+        gitHubManage.MapGet("/repositories/{owner}/{name}/branches", async (string owner, string name, GitHubService github,
+            CancellationToken cancellationToken) =>
+            DeployModels.ParseRepository($"{owner}/{name}") is null
+                ? Results.NotFound()
+                : Results.Ok(await github.ListBranchesAsync(owner, name, cancellationToken)));
 
         // ----- Apps -----
 
@@ -183,6 +257,9 @@ public static class DeployEndpoints
                 a.AutoDeploy,
                 hasService = a.ServiceCommand is not null,
                 staticPath = StaticPath(a),
+                appDirectory = a.AppDirectory,
+                a.ServicePort,
+                a.Ports,
                 lastRelease = latest.FirstOrDefault(r => r.AppId == a.Id) is { } r
                     ? new { r.Name, status = r.Status.ToString().ToLowerInvariant(), r.StartedAt, r.CommitMessage }
                     : null,
@@ -492,7 +569,7 @@ public static class DeployEndpoints
         }).RequireRateLimiting(RateLimits.Webhooks);
     }
 
-    private static object RepositoryView(GitRepository repository, HttpRequest request) => new
+    private static object RepositoryView(GitRepository repository, HttpRequest request, List<GitHubSetupStep>? gitHubSetup = null) => new
     {
         repository.Id,
         repository.Name,
@@ -505,7 +582,13 @@ public static class DeployEndpoints
         repository.PublicKey,
         repository.KeyFingerprint,
         repository.Submodules,
-        submoduleKeys = repository.SubmoduleKeys.Select(k => new { repository = $"{k.Owner}/{k.Name}", k.PublicKey, k.Fingerprint }),
+        submoduleKeys = repository.SubmoduleKeys.Select(k => new
+        {
+            repository = $"{k.Owner}/{k.Name}", k.PublicKey, k.Fingerprint, installedOnGitHub = k.GitHubKeyId is not null,
+        }),
+        deployKeyInstalledOnGitHub = repository.GitHubDeployKeyId is not null,
+        webhookInstalledOnGitHub = repository.GitHubHookId is not null,
+        gitHubSetup,
         repository.LastSyncedAt,
         repository.LastCommit,
         repository.LastCommitMessage,
@@ -515,10 +598,48 @@ public static class DeployEndpoints
         webhooksUrl = $"https://github.com/{repository.FullName}/settings/hooks/new",
     };
 
+    private static object GitHubView(GitHubAccount? account) => new
+    {
+        connected = account is not null,
+        login = account?.Login,
+        name = account?.DisplayName,
+        avatarUrl = account?.AvatarUrl,
+        scopes = account?.Scopes,
+        connectedBy = account?.ConnectedBy,
+        connectedAt = account?.ConnectedAt,
+        createTokenUrl = GitHubService.CreateTokenUrl,
+    };
+
     private static string WebhookUrl(GitRepository repository, HttpRequest request) =>
         $"{request.Scheme}://{request.Host}/hooks/github/{repository.Id}";
 
     private static string? StaticPath(App app) => app.StaticOutput is null ? null : $"{app.AppDirectory}/current/{app.StaticOutput}";
 
     private static IResult Invalid(string message) => Results.ValidationProblem(new Dictionary<string, string[]> { ["app"] = [message] });
+}
+
+public sealed class GitHubErrorFilter : IEndpointFilter
+{
+    public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
+    {
+        try
+        {
+            return await next(context);
+        }
+        catch (GitHubApiException e)
+        {
+            return Results.Problem(e.Status == System.Net.HttpStatusCode.Unauthorized
+                    ? "GitHub rejected the token. It may have expired or been revoked: connect again with a new one."
+                    : $"GitHub: {e.Message}",
+                statusCode: e.IsPermissionError ? StatusCodes.Status403Forbidden : StatusCodes.Status502BadGateway);
+        }
+        catch (HttpRequestException e)
+        {
+            return Results.Problem($"Could not reach GitHub: {e.Message}", statusCode: StatusCodes.Status502BadGateway);
+        }
+        catch (InvalidOperationException e)
+        {
+            return Results.Problem(e.Message, statusCode: StatusCodes.Status409Conflict);
+        }
+    }
 }

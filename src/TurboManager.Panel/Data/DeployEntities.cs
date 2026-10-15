@@ -36,6 +36,12 @@ public sealed class GitRepository
     /// <summary>Private submodules, each with its own deploy key (GitHub deploy keys cover one repository).</summary>
     public List<SubmoduleKey> SubmoduleKeys { get; set; } = [];
 
+    /// <summary>The deploy key's id on GitHub when the panel added it through the connected account.</summary>
+    public long? GitHubDeployKeyId { get; set; }
+
+    /// <summary>The push webhook's id on GitHub when the panel created it through the connected account.</summary>
+    public long? GitHubHookId { get; set; }
+
     public required string WebhookSecretProtected { get; set; }
 
     public DateTimeOffset? LastSyncedAt { get; set; }
@@ -62,6 +68,8 @@ public sealed class SubmoduleKey
     public string? PublicKey { get; set; }
 
     public string? Fingerprint { get; set; }
+
+    public long? GitHubKeyId { get; set; }
 }
 
 public sealed class AppSharedPath
@@ -205,4 +213,26 @@ public sealed class WebhookDelivery
     public string? Ref { get; set; }
 
     public required string Result { get; set; }
+}
+
+/// <summary>Singleton (Id = 1): the GitHub account the panel lists repositories from and installs deploy keys and webhooks with.</summary>
+public sealed class GitHubAccount
+{
+    public int Id { get; set; } = 1;
+
+    /// <summary>Personal access token, protected with Data Protection. Never returned by the API.</summary>
+    public required string TokenProtected { get; set; }
+
+    public required string Login { get; set; }
+
+    public string? DisplayName { get; set; }
+
+    public string? AvatarUrl { get; set; }
+
+    /// <summary>Scopes of a classic token (X-OAuth-Scopes); null for a fine-grained token.</summary>
+    public string? Scopes { get; set; }
+
+    public string? ConnectedBy { get; set; }
+
+    public DateTimeOffset ConnectedAt { get; set; }
 }

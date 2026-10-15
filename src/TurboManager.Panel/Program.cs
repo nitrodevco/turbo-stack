@@ -64,6 +64,12 @@ builder.Services.AddScoped<DatabaseService>();
 builder.Services.AddHostedService<BackupScheduler>();
 builder.Services.AddSingleton<GitHubHostKeys>();
 builder.Services.AddScoped<DeployService>();
+builder.Services.AddHttpClient<GitHubClient>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(20);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd(Branding.Slug);
+});
+builder.Services.AddScoped<GitHubService>();
 builder.Services.AddSingleton(_ => new RecipeCatalog());
 builder.Services.AddScoped<RecipeService>();
 builder.Services.AddScoped<StackService>();

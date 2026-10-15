@@ -66,7 +66,7 @@ function RecipeList({ recipes, onPick }: { recipes: RecipeView[]; onPick: (id: s
                 <section key={category.id} className="space-y-3">
                     <div>
                         <h2 className="font-medium">{category.title}</h2>
-                        <p className="text-sm text-slate-500">{category.description}</p>
+                        <p className="text-sm text-muted">{category.description}</p>
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                         {recipes
@@ -79,7 +79,7 @@ function RecipeList({ recipes, onPick }: { recipes: RecipeView[]; onPick: (id: s
                                     className="rounded-xl border border-slate-200 bg-white p-4 text-left transition hover:border-brand-400 hover:shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:hover:border-brand-500"
                                 >
                                     <p className="font-medium">{recipe.name}</p>
-                                    <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{recipe.summary}</p>
+                                    <p className="mt-1 text-sm text-muted">{recipe.summary}</p>
                                     <div className="mt-3 flex flex-wrap gap-1.5">
                                         {recipe.hasService && <Badge tone="info">service</Badge>}
                                         {recipe.site?.directory && <Badge>uploaded files</Badge>}
@@ -289,11 +289,11 @@ function PlanView({ plan }: { plan: RecipePlanView }) {
         <Card className="space-y-4 p-5 text-sm">
             <h2 className="font-medium">What will be created</h2>
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">
-                <dt className="text-slate-500">Linux user</dt>
+                <dt className="text-muted">Linux user</dt>
                 <dd>{plan.systemUser}</dd>
                 {plan.repository && (
                     <>
-                        <dt className="text-slate-500">Repository</dt>
+                        <dt className="text-muted">Repository</dt>
                         <dd>
                             {plan.repository.fullName} ({plan.repository.branch}){plan.repository.reused ? ', already on this server' : ', new'}
                             {plan.repository.submodules && ', with submodules'}
@@ -303,7 +303,7 @@ function PlanView({ plan }: { plan: RecipePlanView }) {
                 )}
                 {plan.database && (
                     <>
-                        <dt className="text-slate-500">Database</dt>
+                        <dt className="text-muted">Database</dt>
                         <dd>
                             {plan.database.engine} database <code>{plan.database.name}</code> with user <code>{plan.database.user}</code>
                         </dd>
@@ -311,18 +311,18 @@ function PlanView({ plan }: { plan: RecipePlanView }) {
                 )}
                 {Object.keys(plan.ports).length > 0 && (
                     <>
-                        <dt className="text-slate-500">Ports</dt>
+                        <dt className="text-muted">Ports</dt>
                         <dd>
                             {Object.entries(plan.ports)
                                 .map(([name, port]) => `${name} ${port}`)
                                 .join(' · ')}{' '}
-                            <span className="text-slate-500">(127.0.0.1 only)</span>
+                            <span className="text-muted">(127.0.0.1 only)</span>
                         </dd>
                     </>
                 )}
                 {plan.siteDirectory && (
                     <>
-                        <dt className="text-slate-500">Folder</dt>
+                        <dt className="text-muted">Folder</dt>
                         <dd>
                             <code>{plan.siteDirectory}</code>
                         </dd>
@@ -330,10 +330,10 @@ function PlanView({ plan }: { plan: RecipePlanView }) {
                 )}
                 {plan.site && (
                     <>
-                        <dt className="text-slate-500">Site</dt>
+                        <dt className="text-muted">Site</dt>
                         <dd>
                             {plan.site.domains.join(', ')}
-                            <ul className="mt-1 space-y-0.5 text-xs text-slate-600 dark:text-slate-400">
+                            <ul className="mt-1 space-y-0.5 text-xs text-muted">
                                 {plan.site.routes.map((route) => (
                                     <li key={route.path}>
                                         <code>{route.path}</code> → {route.kind.toLowerCase()} <code className="break-all">{route.target}</code>
@@ -348,7 +348,7 @@ function PlanView({ plan }: { plan: RecipePlanView }) {
                 <div className="space-y-3">
                     {plan.app.build && (
                         <div>
-                            <p className="mb-1 text-slate-500">
+                            <p className="mb-1 text-muted">
                                 Build{plan.app.runtimes.length > 0 && ` (with ${plan.app.runtimes.join(' + ')})`}
                                 {plan.app.workingDirectory && ` in ${plan.app.workingDirectory}/`}
                             </p>
@@ -357,12 +357,12 @@ function PlanView({ plan }: { plan: RecipePlanView }) {
                     )}
                     {plan.app.staticOutput && (
                         <p>
-                            <span className="text-slate-500">Serves</span> <code>{plan.app.staticOutput}/</code>
+                            <span className="text-muted">Serves</span> <code>{plan.app.staticOutput}/</code>
                         </p>
                     )}
                     {plan.app.service && (
                         <p>
-                            <span className="text-slate-500">Runs</span> <code>{plan.app.service.command}</code>
+                            <span className="text-muted">Runs</span> <code>{plan.app.service.command}</code>
                             {plan.app.serviceDirectory && ` in ${plan.app.serviceDirectory}/`}
                             {plan.app.service.port && `, checked on port ${plan.app.service.port}${plan.app.service.healthPath ?? ''}`}
                             {plan.app.service.memoryMaxMb > 0 && `, memory limit ${plan.app.service.memoryMaxMb} MB`}
@@ -370,19 +370,19 @@ function PlanView({ plan }: { plan: RecipePlanView }) {
                     )}
                     {plan.app.sharedPaths.length > 0 && (
                         <p>
-                            <span className="text-slate-500">Kept between deploys</span> {plan.app.sharedPaths.map((p) => p.path).join(', ')}
+                            <span className="text-muted">Kept between deploys</span> {plan.app.sharedPaths.map((p) => p.path).join(', ')}
                         </p>
                     )}
                     {Object.keys(plan.app.environment).length > 0 && (
                         <details>
-                            <summary className="cursor-pointer text-slate-500">Environment ({Object.keys(plan.app.environment).length} variables)</summary>
-                            <div className="mt-2 max-h-72 overflow-auto rounded-lg border border-slate-200 dark:border-slate-800">
+                            <summary className="cursor-pointer text-muted">Environment ({Object.keys(plan.app.environment).length} variables)</summary>
+                            <div className="mt-2 max-h-72 overflow-auto rounded-lg border border-line">
                                 <table className="w-full text-xs">
                                     <tbody>
                                         {Object.entries(plan.app.environment).map(([key, value]) => (
                                             <tr key={key} className="border-b border-slate-100 last:border-0 dark:border-slate-800">
                                                 <td className="px-2 py-1 align-top font-mono">{key}</td>
-                                                <td className="break-all px-2 py-1 font-mono text-slate-600 dark:text-slate-400">{value}</td>
+                                                <td className="break-all px-2 py-1 font-mono text-muted">{value}</td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -393,7 +393,7 @@ function PlanView({ plan }: { plan: RecipePlanView }) {
                 </div>
             )}
             {plan.notes.length > 0 && (
-                <ul className="list-disc space-y-1 pl-5 text-slate-600 dark:text-slate-400">
+                <ul className="list-disc space-y-1 pl-5 text-muted">
                     {plan.notes.map((note) => (
                         <li key={note}>{note}</li>
                     ))}
@@ -405,7 +405,9 @@ function PlanView({ plan }: { plan: RecipePlanView }) {
 
 function RecipeDone({ recipe, result }: { recipe: RecipeView; result: RecipeResultView }) {
     const navigate = useNavigate();
-    const keysNeeded = result.repositoryCreated && result.deployKeys?.some((k) => k.publicKey);
+    // Keys the panel already added through the connected GitHub account come back without a public key.
+    const pendingKeys = result.repositoryCreated ? (result.deployKeys ?? []).filter((k) => k.publicKey) : [];
+    const keysNeeded = pendingKeys.length > 0;
     const deploy = useMutation({
         mutationFn: () => api.post(`/api/apps/${result.appId}/deploy`),
         onSuccess: () => void navigate(`/apps/${result.appId}`),
@@ -419,10 +421,10 @@ function RecipeDone({ recipe, result }: { recipe: RecipeView; result: RecipeResu
             {keysNeeded && (
                 <div className="space-y-2">
                     <p className="text-sm">
-                        Add {result.deployKeys!.length > 1 ? 'these deploy keys' : 'this deploy key'} on GitHub (repository → Settings → Deploy keys, read-only) before the first
+                        Add {pendingKeys.length > 1 ? 'these deploy keys' : 'this deploy key'} on GitHub (repository → Settings → Deploy keys, read-only) before the first
                         deploy:
                     </p>
-                    {result.deployKeys!.map((key) => (
+                    {pendingKeys.map((key) => (
                         <div key={key.repository}>
                             <p className="text-xs font-medium">
                                 <a className="text-brand-700 hover:underline dark:text-brand-100" href={`https://github.com/${key.repository}/settings/keys`} target="_blank" rel="noreferrer">
@@ -435,7 +437,7 @@ function RecipeDone({ recipe, result }: { recipe: RecipeView; result: RecipeResu
                 </div>
             )}
             {result.notes.length > 0 && (
-                <ul className="list-disc space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-400">
+                <ul className="list-disc space-y-1 pl-5 text-sm text-muted">
                     {result.notes.map((note) => (
                         <li key={note}>{note}</li>
                     ))}

@@ -42,6 +42,8 @@ public sealed class PanelDbContext(DbContextOptions<PanelDbContext> options) : D
 
     public DbSet<GitRepository> Repositories => Set<GitRepository>();
 
+    public DbSet<GitHubAccount> GitHubAccounts => Set<GitHubAccount>();
+
     public DbSet<App> Apps => Set<App>();
 
     public DbSet<AppRelease> Releases => Set<AppRelease>();

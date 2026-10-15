@@ -720,6 +720,40 @@ namespace TurboManager.Panel.Data.Migrations
                     b.ToTable("FirewallSettings");
                 });
 
+            modelBuilder.Entity("TurboManager.Panel.Data.GitHubAccount", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("AvatarUrl")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("ConnectedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ConnectedBy")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DisplayName")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Login")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Scopes")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TokenProtected")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("GitHubAccounts");
+                });
+
             modelBuilder.Entity("TurboManager.Panel.Data.GitRepository", b =>
                 {
                     b.Property<int>("Id")
@@ -736,6 +770,12 @@ namespace TurboManager.Panel.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("GitHubDeployKeyId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("GitHubHookId")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("KeyFingerprint")
@@ -1627,6 +1667,8 @@ namespace TurboManager.Panel.Data.Migrations
                                 .ValueGeneratedOnAddOrUpdate();
 
                             b1.Property<string>("Fingerprint");
+
+                            b1.Property<long?>("GitHubKeyId");
 
                             b1.Property<string>("KeyName")
                                 .IsRequired();

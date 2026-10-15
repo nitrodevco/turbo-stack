@@ -10,7 +10,9 @@ public sealed record RepositoryRequest(
     string? Branch,
     bool Private,
     bool Submodules,
-    List<string>? PrivateSubmodules);
+    List<string>? PrivateSubmodules,
+    bool SetUpOnGitHub = false,
+    bool Webhook = false);
 
 public sealed record SharedPathModel(string Path, bool Directory);
 

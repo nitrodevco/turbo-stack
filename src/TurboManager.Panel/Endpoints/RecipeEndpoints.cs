@@ -79,10 +79,10 @@ public static class RecipeEndpoints
                     result.SiteId,
                     result.RepositoryId,
                     result.RepositoryCreated,
-                    // Private repositories need their deploy keys added on GitHub before the first deploy.
+                    // Private repositories need their deploy keys added on GitHub before the first deploy (unless the panel did it).
                     deployKeys = repository is { Auth: RepositoryAuth.DeployKey }
-                        ? repository.SubmoduleKeys.Select(k => new { repository = $"{k.Owner}/{k.Name}", publicKey = k.PublicKey })
-                            .Prepend(new { repository = repository.FullName, publicKey = repository.PublicKey })
+                        ? repository.SubmoduleKeys.Where(k => k.GitHubKeyId is null).Select(k => new { repository = $"{k.Owner}/{k.Name}", publicKey = k.PublicKey })
+                            .Prepend(new { repository = repository.FullName, publicKey = repository.GitHubDeployKeyId is null ? repository.PublicKey : null })
                         : null,
                     site = result.Site,
                     result.Notes,

@@ -383,7 +383,11 @@ export type RepositoryView = {
     publicKey: string | null;
     keyFingerprint: string | null;
     submodules: boolean;
-    submoduleKeys: { repository: string; publicKey: string | null; fingerprint: string | null }[];
+    submoduleKeys: { repository: string; publicKey: string | null; fingerprint: string | null; installedOnGitHub: boolean }[];
+    deployKeyInstalledOnGitHub: boolean;
+    webhookInstalledOnGitHub: boolean;
+    /** Only in the response to adding a repository or setting it up on GitHub. */
+    gitHubSetup: GitHubSetupStep[] | null;
     lastSyncedAt: string | null;
     lastCommit: string | null;
     lastCommitMessage: string | null;
@@ -391,6 +395,30 @@ export type RepositoryView = {
     webhookUrl: string;
     deployKeysUrl: string;
     webhooksUrl: string;
+};
+
+export type GitHubSetupStep = { label: string; status: 'ok' | 'failed'; detail: string | null };
+
+export type GitHubAccountView = {
+    connected: boolean;
+    login: string | null;
+    name: string | null;
+    avatarUrl: string | null;
+    scopes: string | null;
+    connectedBy: string | null;
+    connectedAt: string | null;
+    createTokenUrl: string;
+};
+
+export type GitHubRepositoryChoice = {
+    fullName: string;
+    owner: string;
+    name: string;
+    private: boolean;
+    description: string | null;
+    defaultBranch: string;
+    pushedAt: string | null;
+    admin: boolean;
 };
 
 export type WebhookDeliveryView = { id: string; receivedAt: string; event: string; ref: string | null; result: string };
@@ -405,6 +433,11 @@ export type AppSummary = {
     autoDeploy: boolean;
     hasService: boolean;
     staticPath: string | null;
+    /** /home/<user>/apps/<name>: its releases, and the files a site may serve. */
+    appDirectory: string;
+    servicePort: number | null;
+    /** Ports reserved for the app on 127.0.0.1, by the recipe's name for them. */
+    ports: Record<string, number>;
     lastRelease: { name: string; status: ReleaseStatus; startedAt: string; commitMessage: string | null } | null;
 };
 
