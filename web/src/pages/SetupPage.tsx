@@ -55,7 +55,7 @@ function StepIndicator({ current }: { current: Step }) {
             {steps.map((s, i) => (
                 <li key={s.id} className="flex-1 space-y-1.5">
                     <div className={`h-1 rounded-full ${i <= currentIndex ? 'bg-brand-600' : 'bg-slate-200 dark:bg-slate-800'}`} />
-                    <span className={i === currentIndex ? 'text-slate-900 dark:text-slate-100' : 'text-slate-500'}>{s.label}</span>
+                    <span className={i === currentIndex ? 'text-slate-900 dark:text-slate-100' : 'text-muted'}>{s.label}</span>
                 </li>
             ))}
         </ol>
@@ -104,7 +104,7 @@ function TokenStep({ initialToken, onDone }: { initialToken: string; onDone: () 
         <Card className="space-y-5">
             <div className="space-y-1">
                 <h1 className="text-xl font-semibold">Welcome — let's set up your server</h1>
-                <p className="text-sm text-slate-600 dark:text-slate-400">
+                <p className="text-sm text-muted">
                     Enter the setup token the install script printed. It proves you have access to the server.
                 </p>
             </div>
@@ -117,7 +117,7 @@ function TokenStep({ initialToken, onDone }: { initialToken: string; onDone: () 
             >
                 <Field label="Setup token" value={token} onChange={(e) => setToken(e.target.value)} autoComplete="off" spellCheck={false} required />
                 <ErrorNote message={error} />
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-muted">
                     Lost it? Run <code className="rounded bg-slate-100 px-1 py-0.5 dark:bg-slate-800">sudo ts-setup-token</code> on the server to get a new link.
                 </p>
                 <Button type="submit" disabled={busy || !token.trim()} className="w-full">
@@ -139,7 +139,7 @@ function OwnerStep({ onDone }: { onDone: (result: { secret: string; otpauthUri: 
         <Card className="space-y-5">
             <div className="space-y-1">
                 <h1 className="text-xl font-semibold">Create the owner account</h1>
-                <p className="text-sm text-slate-600 dark:text-slate-400">The owner has full control of this server. You can invite others later.</p>
+                <p className="text-sm text-muted">The owner has full control of this server. You can invite others later.</p>
             </div>
             <form
                 className="space-y-4"
@@ -192,13 +192,13 @@ export function TotpStep({
         <Card className="space-y-5">
             <div className="space-y-1">
                 <h1 className="text-xl font-semibold">Turn on two-factor authentication</h1>
-                <p className="text-sm text-slate-600 dark:text-slate-400">
+                <p className="text-sm text-muted">
                     Scan this with an authenticator app (1Password, Bitwarden, Google Authenticator…), then enter the 6-digit code.
                 </p>
             </div>
             <div className="flex flex-col items-center gap-3">
                 {qr && <img src={qr} alt="Authenticator QR code" className="size-48 rounded-lg bg-white p-2" />}
-                <details className="w-full text-center text-xs text-slate-500">
+                <details className="w-full text-center text-xs text-muted">
                     <summary className="cursor-pointer">Can't scan? Enter the key manually</summary>
                     <code className="mt-2 block break-all rounded bg-slate-100 p-2 font-mono text-sm dark:bg-slate-800">{enrollment.secret}</code>
                 </details>
@@ -244,7 +244,7 @@ export function RecoveryStep({ codes }: { codes: string[] }) {
         <Card className="space-y-5">
             <div className="space-y-1">
                 <h1 className="text-xl font-semibold">Save your recovery codes</h1>
-                <p className="text-sm text-slate-600 dark:text-slate-400">
+                <p className="text-sm text-muted">
                     Each code works once if you lose your authenticator. They won't be shown again.
                 </p>
             </div>

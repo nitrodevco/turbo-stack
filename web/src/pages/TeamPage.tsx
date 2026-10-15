@@ -118,11 +118,11 @@ export function TeamPage() {
                                             <Badge tone="warning">invite pending</Badge>
                                         </span>
                                     )}
-                                    {m.invitedBy && <p className="text-xs text-slate-500">invited by {m.invitedBy}</p>}
+                                    {m.invitedBy && <p className="text-xs text-muted">invited by {m.invitedBy}</p>}
                                 </td>
                                 <td>{m.role === 'Custom' ? (roleCatalog.data?.custom.find((r) => r.id === m.customRoleId)?.name ?? 'Custom') : m.role}</td>
-                                <td className="text-sm text-slate-600 dark:text-slate-400">{scopeLabel(m) || 'Everything'}</td>
-                                <td className="text-sm text-slate-600 dark:text-slate-400">
+                                <td className="text-sm text-muted">{scopeLabel(m) || 'Everything'}</td>
+                                <td className="text-sm text-muted">
                                     {m.lastLoginAt ? formatRelative(m.lastLoginAt) : 'Never'}
                                     {m.activeSessions > 0 && <p className="text-xs">{m.activeSessions} signed-in browser(s)</p>}
                                 </td>
@@ -157,7 +157,7 @@ export function TeamPage() {
                             <li key={s.id} className="flex items-center justify-between gap-3 py-2">
                                 <span>
                                     <span className="font-medium">{s.username}</span> · {s.ipAddress ?? 'unknown address'} · active {formatRelative(s.lastSeenAt)}
-                                    <span className="block max-w-xl truncate text-xs text-slate-500">{s.userAgent}</span>
+                                    <span className="block max-w-xl truncate text-xs text-muted">{s.userAgent}</span>
                                 </span>
                                 <Button size="sm" variant="ghost" onClick={() => revoke.mutate(s.id)}>
                                     Sign out
@@ -166,7 +166,7 @@ export function TeamPage() {
                         ))}
                     </ul>
                 ) : (
-                    <p className="text-sm text-slate-500">None.</p>
+                    <p className="text-sm text-muted">None.</p>
                 )}
             </Card>
         </div>
@@ -294,7 +294,7 @@ function RolesCard({ catalog }: { catalog: RoleCatalog }) {
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <h2 className="font-medium">Roles</h2>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                    <p className="text-sm text-muted">
                         Built-in roles cover most teams. A custom role is exactly the permissions you tick; changes apply on the members' next click.
                     </p>
                 </div>
@@ -308,7 +308,7 @@ function RolesCard({ catalog }: { catalog: RoleCatalog }) {
                         <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
                             <span>
                                 <span className="font-medium">{r.name}</span> · {r.permissions.length} permissions · {r.members} member(s)
-                                {r.description && <span className="block text-xs text-slate-500">{r.description}</span>}
+                                {r.description && <span className="block text-xs text-muted">{r.description}</span>}
                             </span>
                             <span className="flex gap-1">
                                 <Button size="sm" variant="ghost" onClick={() => setEditing(r)}>
@@ -372,7 +372,7 @@ function RoleEditor({ catalog, role, onClose }: { catalog: RoleCatalog; role: Cu
                     <tr>
                         <th>Permission</th>
                         {builtIn.map((b) => (
-                            <th key={b.role} className="text-center text-xs font-normal text-slate-500">
+                            <th key={b.role} className="text-center text-xs font-normal text-muted">
                                 {b.role}
                             </th>
                         ))}
@@ -382,7 +382,7 @@ function RoleEditor({ catalog, role, onClose }: { catalog: RoleCatalog; role: Cu
                 <tbody>
                     {areas.flatMap((area) => [
                         <tr key={area}>
-                            <td colSpan={builtIn.length + 2} className="pt-3 text-xs font-medium tracking-wide text-slate-500 uppercase">
+                            <td colSpan={builtIn.length + 2} className="pt-3 text-xs font-medium tracking-wide text-muted uppercase">
                                 {area}
                             </td>
                         </tr>,
@@ -392,10 +392,10 @@ function RoleEditor({ catalog, role, onClose }: { catalog: RoleCatalog; role: Cu
                                 <tr key={c.permission}>
                                     <td>
                                         <span className="text-sm">{c.description}</span>
-                                        <span className="block font-mono text-xs text-slate-500">{c.permission}</span>
+                                        <span className="block font-mono text-xs text-muted">{c.permission}</span>
                                     </td>
                                     {builtIn.map((b) => (
-                                        <td key={b.role} className="text-center text-slate-500">
+                                        <td key={b.role} className="text-center text-muted">
                                             {b.permissions.includes(c.permission) ? '✓' : ''}
                                         </td>
                                     ))}

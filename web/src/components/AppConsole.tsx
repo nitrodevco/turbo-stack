@@ -1,7 +1,8 @@
 import { useMutation } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api, errorMessage, type JournalEntry } from '../api';
 import { Button, Card, ErrorNote } from './ui';
+import { useStickToBottom } from './useStickToBottom';
 
 /** The service's live output with a prompt that types into its console (stdin), AMP-style. */
 export function AppConsole({ appId, appName, canType }: { appId: number; appName: string; canType: boolean }) {
@@ -9,7 +10,6 @@ export function AppConsole({ appId, appName, canType }: { appId: number; appName
     const [line, setLine] = useState('');
     const [history, setHistory] = useState<string[]>([]);
     const [historyIndex, setHistoryIndex] = useState(-1);
-    const bottom = useRef<HTMLDivElement>(null);
     const send = useMutation({
         mutationFn: (command: string) => api.post(`/api/apps/${appId}/console`, { line: command }),
         onSuccess: (_, command) => {
@@ -30,21 +30,18 @@ export function AppConsole({ appId, appName, canType }: { appId: number; appName
         return () => source.close();
     }, [appName]);
 
-    useEffect(() => {
-        bottom.current?.scrollIntoView({ block: 'nearest' });
-    }, [lines]);
+    const box = useStickToBottom<HTMLDivElement>([lines]);
 
     return (
         <Card className="space-y-3 p-5">
             <h2 className="font-medium">Console</h2>
-            <div className="h-80 overflow-y-auto rounded-lg bg-slate-950 p-3 font-mono text-xs leading-relaxed text-slate-100">
+            <div ref={box} className="h-80 overflow-y-auto rounded-lg bg-slate-950 p-3 font-mono text-xs leading-relaxed text-slate-100">
                 {lines.map((entry) => (
                     <div key={entry.cursor} className={entry.priority <= 3 ? 'text-red-300' : entry.priority === 4 ? 'text-amber-200' : ''}>
-                        <span className="text-slate-500">{new Date(entry.timestampUsec / 1000).toLocaleTimeString()} </span>
+                        <span className="text-muted">{new Date(entry.timestampUsec / 1000).toLocaleTimeString()} </span>
                         {entry.message}
                     </div>
                 ))}
-                <div ref={bottom} />
             </div>
             {canType && (
                 <form
@@ -55,7 +52,7 @@ export function AppConsole({ appId, appName, canType }: { appId: number; appName
                     }}
                 >
                     <input
-                        className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-sm dark:border-slate-700 dark:bg-slate-900"
+                        className="flex-1 rounded-lg border border-line bg-canvas px-3 py-2 font-mono text-sm"
                         value={line}
                         onChange={(e) => setLine(e.target.value)}
                         onKeyDown={(e) => {

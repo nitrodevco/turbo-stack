@@ -101,7 +101,7 @@ export function LoginPage() {
                         </Button>
                         <button
                             type="button"
-                            className="w-full text-center text-xs text-slate-500 hover:underline"
+                            className="w-full text-center text-xs text-muted hover:underline"
                             onClick={() => {
                                 setUseRecovery(!useRecovery);
                                 setCode('');

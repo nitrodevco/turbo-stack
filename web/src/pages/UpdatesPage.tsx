@@ -65,7 +65,7 @@ export function UpdatesPage() {
                                 {security > 0 && <span className="ml-2"><Badge tone="warning">⚠ {security} security</Badge></span>}
                             </p>
                             {packages.data && packages.data.listsUpdatedUnixMs > 0 && (
-                                <p className="text-xs text-slate-500">Package lists updated {formatRelative(packages.data.listsUpdatedUnixMs)}</p>
+                                <p className="text-xs text-muted">Package lists updated {formatRelative(packages.data.listsUpdatedUnixMs)}</p>
                             )}
                         </div>
                         {can('packages.manage') && list.length > 0 && (
@@ -75,8 +75,8 @@ export function UpdatesPage() {
                                         Install security updates
                                     </Button>
                                 )}
-                                <Button disabled={upgrade.isPending || !!runningJob} onClick={() => confirm(`Install all ${list.length} updates?`) && upgrade.mutate({ mode: 'all' })}>
-                                    Install all
+                                <Button disabled={upgrade.isPending || !!runningJob} onClick={() => confirm(`Update all ${list.length} packages?`) && upgrade.mutate({ mode: 'all' })}>
+                                    Update all
                                 </Button>
                             </div>
                         )}
@@ -97,7 +97,7 @@ export function UpdatesPage() {
                                         <td className="font-medium">
                                             {p.name} {p.security && <Badge tone="warning">security</Badge>}
                                         </td>
-                                        <td className="font-mono text-xs text-slate-500">{p.currentVersion}</td>
+                                        <td className="font-mono text-xs text-muted">{p.currentVersion}</td>
                                         <td className="font-mono text-xs">{p.candidateVersion}</td>
                                         <td className="text-right">
                                             {can('packages.manage') && (
@@ -115,15 +115,15 @@ export function UpdatesPage() {
             )}
             {(recentJobs.data?.length ?? 0) > 0 && (
                 <div className="space-y-2">
-                    <h2 className="text-sm font-medium text-slate-600 dark:text-slate-400">Recent update runs</h2>
+                    <h2 className="text-sm font-medium text-muted">Recent update runs</h2>
                     <TableWrap>
                         <tbody>
                             {recentJobs.data!.map((job) => (
                                 <tr key={job.id} className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50" onClick={() => setJobId(job.id)}>
                                     <td>{job.title}</td>
                                     <td>{job.status === 'succeeded' ? <Badge tone="good">✓ succeeded</Badge> : job.status === 'failed' ? <Badge tone="danger">✕ failed</Badge> : <Badge tone="info">running</Badge>}</td>
-                                    <td className="text-slate-500">{formatDateTime(job.startedAt)}</td>
-                                    <td className="text-slate-500">{job.startedBy}</td>
+                                    <td className="text-muted">{formatDateTime(job.startedAt)}</td>
+                                    <td className="text-muted">{job.startedBy}</td>
                                 </tr>
                             ))}
                         </tbody>

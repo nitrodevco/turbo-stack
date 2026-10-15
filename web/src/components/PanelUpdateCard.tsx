@@ -52,7 +52,7 @@ export function PanelUpdateCard() {
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="space-y-1">
                     <h2 className="font-medium">Turbo Stack {s.currentVersion}</h2>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                    <p className="text-sm text-muted">
                         {s.checkedAt ? `Checked ${formatRelative(s.checkedAt)}` : 'Not checked yet'} · releases are verified against the signing key from install time.
                     </p>
                 </div>
@@ -60,7 +60,7 @@ export function PanelUpdateCard() {
                     {can('panel.update') ? (
                         <select
                             aria-label="Release channel"
-                            className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-950"
+                            className="rounded-lg border border-line bg-canvas px-2 py-1.5 text-sm"
                             value={s.channel}
                             disabled={channel.isPending || !!updatingTo}
                             onChange={(e) => channel.mutate(e.target.value)}
@@ -88,7 +88,7 @@ export function PanelUpdateCard() {
                 <div className="space-y-3 rounded-lg border border-slate-200 p-4 dark:border-slate-800">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <p className="font-medium">
-                            {s.latestVersion} is available{s.published && <span className="font-normal text-slate-500"> · released {formatDateTime(s.published)}</span>}
+                            {s.latestVersion} is available{s.published && <span className="font-normal text-muted"> · released {formatDateTime(s.published)}</span>}
                         </p>
                         {can('panel.update') && (
                             <Button disabled={apply.isPending} onClick={() => confirm(`Update the panel to ${s.latestVersion}? It restarts (about a minute); apps keep running.`) && apply.mutate(s.latestVersion!)}>
@@ -99,7 +99,7 @@ export function PanelUpdateCard() {
                     {s.notes && <pre className="max-h-64 overflow-auto text-sm whitespace-pre-wrap text-slate-700 dark:text-slate-300">{s.notes}</pre>}
                 </div>
             ) : (
-                !s.error && s.checkedAt && <p className="text-sm text-slate-600 dark:text-slate-400">✓ Up to date on the {s.channel} channel.</p>
+                !s.error && s.checkedAt && <p className="text-sm text-muted">✓ Up to date on the {s.channel} channel.</p>
             )}
 
             {s.error && <Notice tone="warning">{s.error}</Notice>}
@@ -112,7 +112,7 @@ export function PanelUpdateCard() {
 function LastUpdate({ last }: { last: NonNullable<PanelUpdate['last']> }) {
     if (last.state === 'done') {
         return (
-            <p className="text-sm text-slate-600 dark:text-slate-400">
+            <p className="text-sm text-muted">
                 Last update: {last.from} → {last.to}, {formatRelative(last.at)}.
             </p>
         );

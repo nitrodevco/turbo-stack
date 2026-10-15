@@ -58,8 +58,8 @@ export function AlertsPage() {
                     <ul className="divide-y divide-slate-100 text-sm dark:divide-slate-800">
                         {alerts.data!.recent.map((a) => (
                             <li key={a.id} className="py-2">
-                                <span className={a.severity === 'Critical' ? 'text-red-700 dark:text-red-400' : 'text-amber-700 dark:text-amber-400'}>●</span> {a.title}
-                                <span className="text-xs text-slate-500">
+                                <span className={a.severity === 'Critical' ? 'text-bad' : 'text-warn'}>●</span> {a.title}
+                                <span className="text-xs text-muted">
                                     {' '}
                                     · {formatRelative(a.firedAt)}
                                     {!a.oneOff && a.resolvedAt && ` · fixed ${formatRelative(a.resolvedAt)}`}
@@ -139,7 +139,7 @@ function AlertSettingsCard() {
                         <input type="checkbox" className="size-4 accent-brand-600" checked={form.securityUpdates} onChange={(e) => set('securityUpdates', e.target.checked)} />
                         Security updates waiting
                     </label>
-                    <p className="text-sm text-slate-500">Always: failed or crash-looping services, failed deploys, hotel installs, backups and certificates.</p>
+                    <p className="text-sm text-muted">Always: failed or crash-looping services, failed deploys, hotel installs, backups and certificates.</p>
                     <details className="text-sm">
                         <summary className="cursor-pointer font-medium">Mail server (for email alerts)</summary>
                         <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -179,9 +179,9 @@ function ChannelRow({ channel, onChanged }: { channel: ChannelView; onChanged: (
             <span>
                 <span className="font-medium">{channel.name}</span> <Badge>{channel.kind}</Badge> {channel.criticalOnly && <Badge tone="danger">critical only</Badge>}{' '}
                 {!channel.enabled && <Badge>paused</Badge>}
-                <span className="block text-xs text-slate-500">{channel.target}</span>
-                {channel.lastError && <span className="block text-xs text-red-600 dark:text-red-400">Last send failed: {channel.lastError}</span>}
-                {test.isSuccess && <span className="block text-xs text-green-700 dark:text-green-400">Test sent.</span>}
+                <span className="block text-xs text-muted">{channel.target}</span>
+                {channel.lastError && <span className="block text-xs text-bad">Last send failed: {channel.lastError}</span>}
+                {test.isSuccess && <span className="block text-xs text-good">Test sent.</span>}
             </span>
             <span className="whitespace-nowrap">
                 <Button size="sm" variant="ghost" onClick={() => test.mutate()} disabled={test.isPending}>

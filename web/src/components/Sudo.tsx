@@ -78,7 +78,7 @@ export function SudoProvider({ children }: { children: ReactNode }) {
                         void confirm();
                     }}
                 >
-                    <p className="text-sm text-slate-600 dark:text-slate-400">This needs your second factor again. You won't be asked for the next 10 minutes.</p>
+                    <p className="text-sm text-muted">This needs your second factor again. You won't be asked for the next 10 minutes.</p>
                     <Field
                         label={useRecovery ? 'Recovery code' : '6-digit code'}
                         value={code}
@@ -91,11 +91,11 @@ export function SudoProvider({ children }: { children: ReactNode }) {
                     <ErrorNote message={error} />
                     <div className="flex items-center justify-between gap-2">
                         <span className="flex flex-col items-start gap-1">
-                            <button type="button" className="text-xs text-slate-500 hover:underline" onClick={() => setUseRecovery(!useRecovery)}>
+                            <button type="button" className="text-xs text-muted hover:underline" onClick={() => setUseRecovery(!useRecovery)}>
                                 {useRecovery ? 'Use the authenticator app' : 'Use a recovery code'}
                             </button>
                             {passkeysSupported() && (
-                                <button type="button" className="text-xs text-slate-500 hover:underline" disabled={busy} onClick={() => void confirmPasskey()}>
+                                <button type="button" className="text-xs text-muted hover:underline" disabled={busy} onClick={() => void confirmPasskey()}>
                                     Use a passkey
                                 </button>
                             )}

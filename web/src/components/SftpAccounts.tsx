@@ -38,7 +38,7 @@ export function SftpAccounts() {
         <Card className="space-y-4 p-5">
             <div>
                 <h2 className="font-medium">SFTP accounts</h2>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-muted">
                     Upload-only logins (FileZilla, WinSCP, sftp): locked into one folder, no shell. Connect to this server on port 22.
                 </p>
             </div>

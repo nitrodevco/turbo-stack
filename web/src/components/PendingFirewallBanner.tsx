@@ -44,7 +44,7 @@ export function PendingFirewallBanner() {
 
     if (reverted) {
         return (
-            <div role="status" className="flex flex-wrap items-center justify-between gap-3 border-b border-sky-300 bg-sky-50 px-6 py-3 text-sm text-sky-900 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-200">
+            <div role="status" className="flex flex-wrap items-center justify-between gap-3 border-b border-accent/40 bg-accent-soft px-3 py-3 text-sm text-ink sm:px-4 lg:px-6">
                 <span>
                     The firewall change "{reverted}" was not confirmed and has been reverted.
                 </span>
@@ -60,13 +60,13 @@ export function PendingFirewallBanner() {
     const seconds = Math.max(0, Math.ceil((pending.revertAt - now) / 1000));
 
     return (
-        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-300 bg-amber-50 px-6 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 border-b border-warn-line bg-warn-soft px-3 py-3 text-sm text-warn sm:px-4 lg:px-6">
             <span>
                 <strong>Firewall change applied: </strong>
                 {pending.summary}. If you can still use the panel, keep it. It reverts automatically in <strong className="tabular-nums">{seconds}s</strong>.
             </span>
             <div className="flex items-center gap-2">
-                {confirm.error && <span className="text-red-700 dark:text-red-300">{errorMessage(confirm.error)}</span>}
+                {confirm.error && <span className="text-bad">{errorMessage(confirm.error)}</span>}
                 <Button size="sm" disabled={confirm.isPending} onClick={() => confirm.mutate(pending.id)}>
                     Keep this change
                 </Button>

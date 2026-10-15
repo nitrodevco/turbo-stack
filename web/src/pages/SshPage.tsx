@@ -24,13 +24,13 @@ export function SshPage() {
                             <button
                                 key={u.name}
                                 onClick={() => setSelected(u.name)}
-                                className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm ${u.name === user ? 'bg-brand-50 font-medium text-brand-700 dark:bg-brand-600/20 dark:text-brand-100' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                                className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm ${u.name === user ? 'bg-brand-50 font-medium text-brand-700 dark:bg-brand-600/20 dark:text-brand-100' : 'hover:bg-subtle'}`}
                             >
                                 <span>
                                     {u.name}
-                                    {u.sudo && <span className="ml-2 text-xs text-slate-500">admin</span>}
+                                    {u.sudo && <span className="ml-2 text-xs text-muted">admin</span>}
                                 </span>
-                                <span className="text-xs text-slate-500">{u.keyCount} keys</span>
+                                <span className="text-xs text-muted">{u.keyCount} keys</span>
                             </button>
                         ))}
                     </nav>
@@ -82,7 +82,7 @@ function SshdSettingsCard({ users }: { users: LoginUser[] }) {
                     {can('ssh.manage') && (
                         <select
                             aria-label="Root login"
-                            className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-950"
+                            className="rounded-lg border border-line bg-canvas px-2 py-1 text-xs"
                             value={s.permitRootLogin}
                             disabled={update.isPending}
                             onChange={(e) => update.mutate({ permitRootLogin: e.target.value })}
@@ -106,7 +106,7 @@ function SshdSettingsCard({ users }: { users: LoginUser[] }) {
 function Setting({ label, value, children }: { label: string; value: React.ReactNode; children?: React.ReactNode }) {
     return (
         <div className="space-y-2">
-            <p className="text-sm text-slate-600 dark:text-slate-400">{label}</p>
+            <p className="text-sm text-muted">{label}</p>
             <div className="flex flex-wrap items-center gap-2">
                 {value}
                 {children}
@@ -144,13 +144,13 @@ function KeysCard({ user }: { user: string }) {
         <Card className="space-y-4 p-5">
             <h2 className="font-medium">Authorized keys for {user}</h2>
             {keys.isPending && <Spinner />}
-            {keys.data?.length === 0 && <p className="text-sm text-slate-500">No keys yet.</p>}
-            <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+            {keys.data?.length === 0 && <p className="text-sm text-muted">No keys yet.</p>}
+            <ul className="divide-y divide-line">
                 {(keys.data ?? []).map((key) => (
                     <li key={key.fingerprint} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
                         <div className="min-w-0">
                             <p className="text-sm font-medium">{key.comment || '(no comment)'}</p>
-                            <p className="truncate font-mono text-xs text-slate-500">
+                            <p className="truncate font-mono text-xs text-muted">
                                 {key.type} · {key.fingerprint}
                                 {key.options && ` · ${key.options}`}
                             </p>
@@ -172,12 +172,12 @@ function KeysCard({ user }: { user: string }) {
                     }}
                 >
                     <textarea
-                        className="block min-h-20 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-xs dark:border-slate-700 dark:bg-slate-950"
+                        className="block min-h-20 w-full rounded-lg border border-line bg-canvas px-3 py-2 font-mono text-xs"
                         placeholder="ssh-ed25519 AAAA… you@laptop"
                         value={publicKey}
                         onChange={(e) => setPublicKey(e.target.value)}
                     />
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-muted">
                         Paste a public key (the contents of <code>~/.ssh/id_ed25519.pub</code>). Don't have one? Run <code>ssh-keygen -t ed25519</code> on your computer.
                     </p>
                     <ErrorNote message={add.error ? errorMessage(add.error) : remove.error ? errorMessage(remove.error) : null} />

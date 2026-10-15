@@ -43,7 +43,7 @@ export function PanelAddressCard() {
         <Card className="space-y-4 p-5">
             <div>
                 <h2 className="font-medium">Panel address</h2>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-muted">
                     Give the panel its own domain (e.g. panel.myhotel.com), ideally behind Cloudflare, then close the temporary setup address (port 8443).
                 </p>
             </div>

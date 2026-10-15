@@ -53,7 +53,7 @@ function ConnectGuide() {
                 </ol>
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm">
-                        <thead className="text-xs text-slate-500 uppercase">
+                        <thead className="text-xs text-muted uppercase">
                             <tr>
                                 <th className="py-1 pr-3">Permission</th>
                                 <th className="py-1 pr-3">Access</th>
@@ -62,13 +62,13 @@ function ConnectGuide() {
                         </thead>
                         <tbody>
                             {tokenPermissions.map((p) => (
-                                <tr key={p.permission} className="border-t border-slate-100 dark:border-slate-800">
+                                <tr key={p.permission} className="border-t border-line">
                                     <td className="py-1.5 pr-3 whitespace-nowrap">
                                         {p.scope} → <strong>{p.permission}</strong>
-                                        {!p.required && <span className="ml-1 text-xs text-slate-500">(optional)</span>}
+                                        {!p.required && <span className="ml-1 text-xs text-muted">(optional)</span>}
                                     </td>
                                     <td className="py-1.5 pr-3">{p.access}</td>
-                                    <td className="py-1.5 text-slate-600 dark:text-slate-400">{p.why}</td>
+                                    <td className="py-1.5 text-muted">{p.why}</td>
                                 </tr>
                             ))}
                         </tbody>
@@ -83,7 +83,7 @@ function ConnectGuide() {
                         Click <strong>Continue to summary</strong>, then <strong>Create Token</strong>, and copy it. Cloudflare shows it only once.
                     </li>
                 </ol>
-                <p className="text-xs text-slate-500">Use an API <em>token</em>, not the Global API Key: a token can only do what you allow here.</p>
+                <p className="text-xs text-muted">Use an API <em>token</em>, not the Global API Key: a token can only do what you allow here.</p>
             </Card>
             <Card className="h-fit space-y-4 p-5">
                 <h2 className="font-medium">2. Paste it here</h2>
@@ -99,7 +99,7 @@ function ConnectGuide() {
                     <Button type="submit" disabled={!token.trim() || connect.isPending || !can('sites.manage')}>
                         {connect.isPending ? 'Checking the token…' : 'Connect'}
                     </Button>
-                    <p className="text-xs text-slate-500">The panel tests each permission (it creates and immediately deletes a test DNS record) and stores the token encrypted.</p>
+                    <p className="text-xs text-muted">The panel tests each permission (it creates and immediately deletes a test DNS record) and stores the token encrypted.</p>
                 </form>
             </Card>
         </div>
@@ -123,9 +123,9 @@ function Connected({ overview }: { overview: Extract<CloudflareOverview, { conne
                 <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                         <p className="font-medium">
-                            <Badge tone="good">● Connected</Badge> <span className="ml-2 text-sm text-slate-500">checked {formatRelative(overview.token.verifiedAt)}</span>
+                            <Badge tone="good">● Connected</Badge> <span className="ml-2 text-sm text-muted">checked {formatRelative(overview.token.verifiedAt)}</span>
                         </p>
-                        {overview.token.expiresOn && <p className="mt-1 text-sm text-slate-500">Token expires {formatDateTime(overview.token.expiresOn)}</p>}
+                        {overview.token.expiresOn && <p className="mt-1 text-sm text-muted">Token expires {formatDateTime(overview.token.expiresOn)}</p>}
                     </div>
                     {can('sites.manage') && (
                         <div className="flex gap-2">
@@ -154,7 +154,7 @@ function Connected({ overview }: { overview: Extract<CloudflareOverview, { conne
                     <input type="checkbox" className="mt-0.5 size-4 accent-brand-600" checked={overview.realIpEnabled} disabled={!can('sites.manage') || settings.isPending} onChange={(e) => settings.mutate(e.target.checked)} />
                     <span>
                         <strong>Restore visitor IP addresses.</strong> Without this, every visitor looks like a Cloudflare server to your apps (bans, logs, rate limits).
-                        {overview.ipRangesUpdatedAt && <span className="block text-xs text-slate-500">Cloudflare's address ranges updated {formatRelative(overview.ipRangesUpdatedAt)}.</span>}
+                        {overview.ipRangesUpdatedAt && <span className="block text-xs text-muted">Cloudflare's address ranges updated {formatRelative(overview.ipRangesUpdatedAt)}.</span>}
                     </span>
                 </label>
                 <label className="flex items-start gap-3 text-sm">
@@ -193,7 +193,7 @@ function CheckRow({ check }: { check: PermissionCheck }) {
             {check.status === 'ok' ? <Badge tone="good">✓</Badge> : check.required ? <Badge tone="danger">✕</Badge> : <Badge tone="warning">⚠</Badge>}
             <span>
                 <strong>{check.label}</strong>
-                <span className="block text-xs text-slate-500">
+                <span className="block text-xs text-muted">
                     {check.usedFor}
                     {check.status !== 'ok' && ` — ${check.status === 'missing' ? 'not granted' : (check.error ?? check.status)}`}
                 </span>
@@ -219,7 +219,7 @@ function ZoneCard({ zone, canEdit }: { zone: CloudflareZone; canEdit: boolean })
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <p className="font-medium">{zone.name}</p>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-muted">
                         {zone.plan ?? 'Unknown plan'} · {zone.status}
                     </p>
                 </div>
@@ -244,7 +244,7 @@ function ZoneCard({ zone, canEdit }: { zone: CloudflareZone; canEdit: boolean })
                                 <span className="flex items-center gap-2">
                                     <code className="text-xs">{s.current ?? '—'}</code>
                                     {s.ok ? <Badge tone="good">✓</Badge> : <Badge tone="warning">recommended: {s.recommended}</Badge>}
-                                    {s.error && <span className="text-xs text-red-700 dark:text-red-300">{s.error}</span>}
+                                    {s.error && <span className="text-xs text-bad">{s.error}</span>}
                                 </span>
                             </li>
                         ))}

@@ -7,7 +7,8 @@ import { usePermissions } from '../auth';
 import { JobOutput } from '../components/JobOutput';
 import { Button, Card, ErrorNote, Field, Notice, PageHeader, Spinner } from '../components/ui';
 import { formatDateTime } from '../format';
-import { StatusBadge } from './AppsPage';
+import { newSiteLink, useAppsAndSites } from '../siteLinks';
+import { SiteChip, StatusBadge } from './AppsPage';
 
 type Detail = { app: AppSettings; releases: ReleaseView[] };
 
@@ -59,8 +60,8 @@ export function AppDetailPage() {
                     .join(' · ')}
                 actions={
                     <>
-                        <Link to="/apps" className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800">
-                            ← Apps
+                        <Link to="/apps" className="rounded-lg px-4 py-2 text-sm font-medium text-muted hover:bg-subtle hover:text-ink">
+                            ← Apps & sites
                         </Link>
                         {can('apps.deploy') && app.serviceCommand && app.currentRelease && (
                             <Button variant="secondary" disabled={restart.isPending} onClick={() => restart.mutate()}>
@@ -89,25 +90,12 @@ export function AppDetailPage() {
                 </Card>
             )}
 
-            {app.staticPath && (
-                <Card className="flex flex-wrap items-center justify-between gap-3 p-5">
-                    <div>
-                        <p className="font-medium">Static files</p>
-                        <code className="text-xs">{app.staticPath}</code>
-                    </div>
-                    <Link
-                        to={`/sites/new?target=${encodeURIComponent(app.staticPath)}&kind=Spa`}
-                        className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
-                    >
-                        Serve them with a site
-                    </Link>
-                </Card>
-            )}
+            <SitesCard app={app} />
 
             <Card className="space-y-3 p-5">
                 <h2 className="font-medium">Releases</h2>
-                {releases.length === 0 && <p className="text-sm text-slate-500">Not deployed yet.</p>}
-                <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                {releases.length === 0 && <p className="text-sm text-muted">Not deployed yet.</p>}
+                <ul className="divide-y divide-line">
                     {releases.map((release) => (
                         <li key={release.name} className="flex flex-wrap items-start justify-between gap-3 py-2.5">
                             <div className="min-w-0">
@@ -116,12 +104,12 @@ export function AppDetailPage() {
                                     <code className="text-xs">{release.commit?.slice(0, 7)}</code>
                                     <span className="truncate">{release.commitMessage}</span>
                                 </p>
-                                <p className="text-xs text-slate-500">
+                                <p className="text-xs text-muted">
                                     {formatDateTime(release.startedAt)} · {release.trigger}
                                     {release.triggeredBy && ` by ${release.triggeredBy}`}
                                     {release.commitAuthor && ` · commit by ${release.commitAuthor}`}
                                 </p>
-                                {release.error && <p className="text-xs text-red-700 dark:text-red-300">{release.error}</p>}
+                                {release.error && <p className="text-xs text-bad">{release.error}</p>}
                             </div>
                             <div className="flex gap-1">
                                 {release.jobId && (
@@ -147,7 +135,7 @@ export function AppDetailPage() {
             {can('apps.manage') && (
                 <Card className="space-y-2 p-5">
                     <h2 className="font-medium">Delete app</h2>
-                    <p className="text-sm text-slate-500">Stops its service and removes its releases and shared files from the server.</p>
+                    <p className="text-sm text-muted">Stops its service and removes its releases and shared files from the server.</p>
                     <Button variant="danger" size="sm" disabled={remove.isPending} onClick={() => prompt(`Type ${app.name} to delete it and its files:`) === app.name && remove.mutate()}>
                         Delete {app.name}
                     </Button>
@@ -237,23 +225,23 @@ function SettingsCard({ app, onSaved }: { app: AppSettings; onSaved: () => void 
                 <label className="block space-y-1.5">
                     <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Build script</span>
                     <textarea
-                        className="block min-h-28 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-xs dark:border-slate-700 dark:bg-slate-950"
+                        className="block min-h-28 w-full rounded-lg border border-line bg-canvas px-3 py-2 font-mono text-xs"
                         value={form.buildScript}
                         onChange={(e) => set('buildScript', e.target.value)}
                         placeholder={'corepack yarn install --immutable\ncorepack yarn build'}
                     />
-                    <span className="block text-xs text-slate-500">Runs with bash as {app.systemUser} in the new release. $TS_SHARED_DIR points at the shared folder.</span>
+                    <span className="block text-xs text-muted">Runs with bash as {app.systemUser} in the new release. $TS_SHARED_DIR points at the shared folder.</span>
                 </label>
                 <div className="grid gap-4 md:grid-cols-2">
                     <label className="block space-y-1.5">
                         <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Shared between releases</span>
                         <textarea
-                            className="block min-h-20 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-xs dark:border-slate-700 dark:bg-slate-950"
+                            className="block min-h-20 w-full rounded-lg border border-line bg-canvas px-3 py-2 font-mono text-xs"
                             value={form.sharedPaths}
                             onChange={(e) => set('sharedPaths', e.target.value)}
                             placeholder={'.env\nassets/\ncamera/'}
                         />
-                        <span className="block text-xs text-slate-500">One per line; end folders with "/". Kept across deploys (uploads, config, data).</span>
+                        <span className="block text-xs text-muted">One per line; end folders with "/". Kept across deploys (uploads, config, data).</span>
                     </label>
                     <Field label="Built static files" value={form.staticOutput} onChange={(e) => set('staticOutput', e.target.value)} placeholder="dist" hint="Folder a site serves, relative to the repository root." />
                 </div>
@@ -263,7 +251,7 @@ function SettingsCard({ app, onSaved }: { app: AppSettings; onSaved: () => void 
                     <Field label="Port" value={form.servicePort} onChange={(e) => set('servicePort', e.target.value)} placeholder="9001" inputMode="numeric" />
                     <Field label="Health path" value={form.healthPath} onChange={(e) => set('healthPath', e.target.value)} placeholder="/health" />
                 </div>
-                {form.serviceCommand && !form.servicePort && <p className="text-xs text-slate-500">Without a port the deploy can't check that the service actually started.</p>}
+                {form.serviceCommand && !form.servicePort && <p className="text-xs text-muted">Without a port the deploy can't check that the service actually started.</p>}
                 {form.serviceCommand && (
                     <label className="flex items-center gap-2 text-sm">
                         <input type="checkbox" className="size-4 accent-brand-600" checked={form.console} onChange={(e) => set('console', e.target.checked)} />
@@ -282,7 +270,7 @@ function SettingsCard({ app, onSaved }: { app: AppSettings; onSaved: () => void 
                     <label className="block space-y-1.5">
                         <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Only when these paths change (optional)</span>
                         <textarea
-                            className="block min-h-16 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-xs dark:border-slate-700 dark:bg-slate-950"
+                            className="block min-h-16 w-full rounded-lg border border-line bg-canvas px-3 py-2 font-mono text-xs"
                             value={form.deployPaths}
                             onChange={(e) => set('deployPaths', e.target.value)}
                             placeholder={'packages/nitro-imager/\npackages/nitro-renderer/'}
@@ -327,11 +315,11 @@ function EnvironmentCard({ appId, hasService }: { appId: number; hasService: boo
     return (
         <Card className="space-y-3 p-5">
             <h2 className="font-medium">Environment variables</h2>
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-muted">
                 Available to the build{hasService && ' and the service'}. Stored encrypted. One KEY=value per line.
             </p>
             <textarea
-                className="block min-h-32 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-xs dark:border-slate-700 dark:bg-slate-950"
+                className="block min-h-32 w-full rounded-lg border border-line bg-canvas px-3 py-2 font-mono text-xs"
                 value={value}
                 onChange={(e) => setText(e.target.value)}
                 placeholder={'DOTNET_ENVIRONMENT=Production\nTURBO__Turbo__HotelName=My Hotel'}
@@ -342,6 +330,52 @@ function EnvironmentCard({ appId, hasService }: { appId: number; hasService: boo
             <Button variant="secondary" disabled={save.isPending || text === null} onClick={() => save.mutate()}>
                 Save variables
             </Button>
+        </Card>
+    );
+}
+
+/** The sites that serve this app (by its name, its files or its ports), and a site to add for it. Not every app needs one: the emulator has none. */
+function SitesCard({ app }: { app: AppSettings }) {
+    const can = usePermissions();
+    const { apps, sitesOf } = useAppsAndSites();
+    const summary = apps.data?.find((a) => a.id === app.id);
+    const sites = summary ? sitesOf(summary) : [];
+    const servable = !!app.staticPath || !!app.servicePort;
+
+    if (!can('sites.view') && !app.staticPath) return null;
+
+    return (
+        <Card className="space-y-3 p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="font-medium">Sites</h2>
+                {can('sites.manage') && servable && (
+                    <Link to={newSiteLink(app)}>
+                        <Button variant="secondary" size="sm">
+                            Add a site
+                        </Button>
+                    </Link>
+                )}
+            </div>
+            <div className="space-y-1 text-sm text-muted">
+                {app.staticPath && (
+                    <p>
+                        Static files: <code className="text-xs">{app.staticPath}</code>
+                    </p>
+                )}
+                {app.servicePort && <p>Service on 127.0.0.1:{app.servicePort}</p>}
+            </div>
+            {can('sites.view') &&
+                (sites.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                        {sites.map((site) => (
+                            <SiteChip key={site.id} site={site} />
+                        ))}
+                    </div>
+                ) : (
+                    <p className="text-sm text-muted">
+                        {servable ? 'No site serves this app yet.' : "This app doesn't serve files or a web port, so it doesn't need a site."}
+                    </p>
+                ))}
         </Card>
     );
 }

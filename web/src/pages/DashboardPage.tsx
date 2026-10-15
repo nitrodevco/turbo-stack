@@ -105,7 +105,7 @@ export function DashboardPage() {
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
     return (
         <Card className="space-y-3 p-5">
-            <h3 className="text-sm font-medium text-slate-600 dark:text-slate-400">{title}</h3>
+            <h3 className="text-sm font-medium text-muted">{title}</h3>
             {children}
         </Card>
     );
@@ -117,7 +117,7 @@ function ServerCard({ info }: { info: SystemInfo }) {
             <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <div>
                     <p className="text-lg font-semibold">{info.hostname}</p>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                    <p className="text-sm text-muted">
                         {info.osName} · kernel {info.kernel} · {info.architecture} · {info.cpuCount} cores
                     </p>
                 </div>
@@ -153,7 +153,7 @@ function LiveTiles({ metrics }: { metrics: MetricsSnapshot }) {
                 />
             ))}
             <Card className="space-y-1 p-5">
-                <p className="text-sm text-slate-600 dark:text-slate-400">Network</p>
+                <p className="text-sm text-muted">Network</p>
                 <p className="text-lg font-semibold tabular-nums">↓ {formatRate(metrics.netRxBytesPerSec)}</p>
                 <p className="text-lg font-semibold tabular-nums">↑ {formatRate(metrics.netTxBytesPerSec)}</p>
             </Card>
@@ -163,18 +163,18 @@ function LiveTiles({ metrics }: { metrics: MetricsSnapshot }) {
 
 function Meter({ label, value, detail, ratio }: { label: string; value: string; detail: string; ratio: number }) {
     const percent = Math.min(Math.max(ratio, 0), 1) * 100;
-    const status = percent > 90 ? { color: 'bg-red-600', text: 'Critical' } : percent > 75 ? { color: 'bg-amber-500', text: 'High' } : null;
+    const status = percent > 90 ? { color: 'bg-bad', text: 'Critical' } : percent > 75 ? { color: 'bg-warn', text: 'High' } : null;
 
     return (
         <Card className="space-y-3 p-5">
             <div className="flex items-center justify-between">
-                <p className="text-sm text-slate-600 dark:text-slate-400">{label}</p>
+                <p className="text-sm text-muted">{label}</p>
                 {status && <Badge tone={percent > 90 ? 'danger' : 'warning'}>⚠ {status.text}</Badge>}
             </div>
             <p className="text-2xl font-semibold tabular-nums">
-                {value} <span className="text-sm font-normal text-slate-500">{detail}</span>
+                {value} <span className="text-sm font-normal text-muted">{detail}</span>
             </p>
-            <div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800" role="meter" aria-valuenow={Math.round(percent)} aria-valuemin={0} aria-valuemax={100} aria-label={label}>
+            <div className="h-2 overflow-hidden rounded-full bg-subtle" role="meter" aria-valuenow={Math.round(percent)} aria-valuemin={0} aria-valuemax={100} aria-label={label}>
                 <div className={`h-full rounded-full ${status?.color ?? 'bg-brand-600'}`} style={{ width: `${percent}%` }} />
             </div>
         </Card>

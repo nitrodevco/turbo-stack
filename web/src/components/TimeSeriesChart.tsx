@@ -61,7 +61,7 @@ export function TimeSeriesChart<T extends { at: number }>({ points, series, form
 
     if (!geometry) {
         return (
-            <div ref={containerRef} className="flex items-center justify-center text-sm text-slate-500" style={{ height }}>
+            <div ref={containerRef} className="flex items-center justify-center text-sm text-muted" style={{ height }}>
                 No data yet — samples are collected every 10 seconds.
             </div>
         );
@@ -80,7 +80,7 @@ export function TimeSeriesChart<T extends { at: number }>({ points, series, form
     return (
         <div ref={containerRef} className="relative">
             {multi && (
-                <ul className="mb-2 flex flex-wrap gap-4 text-xs text-slate-600 dark:text-slate-400">
+                <ul className="mb-2 flex flex-wrap gap-4 text-xs text-muted">
                     {series.map((s) => (
                         <li key={s.key} className="flex items-center gap-1.5">
                             <span className="h-0.5 w-4 rounded-full" style={{ background: s.color }} />
@@ -153,11 +153,11 @@ export function TimeSeriesChart<T extends { at: number }>({ points, series, form
                     className="pointer-events-none absolute top-0 z-10 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs shadow-md dark:border-slate-700 dark:bg-slate-900"
                     style={x(hovered.at) > width / 2 ? { right: width - x(hovered.at) + 12 } : { left: x(hovered.at) + 12 }}
                 >
-                    <p className="mb-1 text-slate-500 tabular-nums">{formatTime(hovered.at)}</p>
+                    <p className="mb-1 text-muted tabular-nums">{formatTime(hovered.at)}</p>
                     {series.map((s) => (
                         <p key={s.key} className="flex items-center gap-2 whitespace-nowrap">
                             <span className="size-2 rounded-full" style={{ background: s.color }} />
-                            <span className="text-slate-600 dark:text-slate-400">{s.label}</span>
+                            <span className="text-muted">{s.label}</span>
                             <span className="ml-auto font-medium tabular-nums">{formatValue(s.value(hovered))}</span>
                         </p>
                     ))}

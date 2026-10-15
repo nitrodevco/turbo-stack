@@ -60,7 +60,7 @@ function FirewallStatus({ overview }: { overview: FirewallOverview }) {
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-3">
                     {actual.enabled ? <Badge tone="good">● Firewall on</Badge> : <Badge tone="danger">✕ Firewall off</Badge>}
-                    <span className="text-sm text-slate-600 dark:text-slate-400">
+                    <span className="text-sm text-muted">
                         Incoming traffic not matched by a rule is <strong>{actual.defaultIncoming === 'allow' ? 'allowed' : `${actual.defaultIncoming === 'reject' ? 'rejected' : 'dropped'}`}</strong>.
                     </span>
                 </div>
@@ -79,7 +79,7 @@ function FirewallStatus({ overview }: { overview: FirewallOverview }) {
                         </Button>
                         <select
                             aria-label="Default for incoming traffic"
-                            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+                            className="rounded-lg border border-line bg-canvas px-3 py-2 text-sm"
                             value={settings.defaultIncoming}
                             disabled={commit.isPending}
                             onChange={(e) => commit.mutate({ enabled: settings.enabled, defaultIncoming: e.target.value })}
@@ -140,7 +140,7 @@ function RulesTab({ overview }: { overview: FirewallOverview }) {
                         <tr key={rule.id} className={rule.enabled ? '' : 'opacity-60'}>
                             <td>
                                 <p className="font-medium">{rule.name}</p>
-                                {rule.system && <p className="text-xs text-slate-500">Created by the installer</p>}
+                                {rule.system && <p className="text-xs text-muted">Created by the installer</p>}
                             </td>
                             <td>
                                 <Badge tone={actionTone[rule.action]}>{rule.action === 'limit' ? 'allow (rate-limited)' : rule.action}</Badge>
@@ -181,7 +181,7 @@ function RulesTab({ overview }: { overview: FirewallOverview }) {
             </TableWrap>
             {overview.external.length > 0 && (
                 <div className="space-y-2">
-                    <h3 className="text-sm font-medium text-slate-600 dark:text-slate-400">Other rules in ufw (not managed by the panel)</h3>
+                    <h3 className="text-sm font-medium text-muted">Other rules in ufw (not managed by the panel)</h3>
                     <TableWrap>
                         <tbody>
                             {overview.external.map((rule, i) => (
@@ -193,7 +193,7 @@ function RulesTab({ overview }: { overview: FirewallOverview }) {
                                         {rule.ports}/{rule.protocol}
                                     </td>
                                     <td>{rule.source === 'any' ? 'Anywhere' : rule.source}</td>
-                                    <td className="text-slate-500">
+                                    <td className="text-muted">
                                         {rule.direction}
                                         {rule.ipv6Only ? ' · IPv6' : ''}
                                         {rule.comment ? ` · ${rule.comment}` : ''}
@@ -297,18 +297,18 @@ function IpListsTab() {
     return (
         <div className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-sm text-slate-600 dark:text-slate-400">Named address lists you can use in rules, e.g. "Staff IPs". Editing a list updates every rule that uses it.</p>
+                <p className="text-sm text-muted">Named address lists you can use in rules, e.g. "Staff IPs". Editing a list updates every rule that uses it.</p>
                 {can('firewall.manage') && <Button onClick={() => setEditing('new')}>New list</Button>}
             </div>
             <ErrorNote message={remove.error ? errorMessage(remove.error) : lists.error ? errorMessage(lists.error) : null} />
-            {lists.data?.length === 0 && <p className="text-sm text-slate-500">No IP lists yet.</p>}
+            {lists.data?.length === 0 && <p className="text-sm text-muted">No IP lists yet.</p>}
             <div className="grid gap-4 md:grid-cols-2">
                 {(lists.data ?? []).map((list) => (
                     <Card key={list.id} className="space-y-3 p-5">
                         <div className="flex items-start justify-between gap-2">
                             <div>
                                 <p className="font-medium">{list.name}</p>
-                                {list.description && <p className="text-sm text-slate-500">{list.description}</p>}
+                                {list.description && <p className="text-sm text-muted">{list.description}</p>}
                             </div>
                             {can('firewall.manage') && (
                                 <div className="flex gap-1">
@@ -325,11 +325,11 @@ function IpListsTab() {
                             {list.entries.map((entry) => (
                                 <li key={entry.source}>
                                     {entry.source}
-                                    {entry.note && <span className="font-sans text-slate-500"> — {entry.note}</span>}
+                                    {entry.note && <span className="font-sans text-muted"> — {entry.note}</span>}
                                 </li>
                             ))}
                         </ul>
-                        {list.usedBy.length > 0 && <p className="text-xs text-slate-500">Used by: {list.usedBy.join(', ')}</p>}
+                        {list.usedBy.length > 0 && <p className="text-xs text-muted">Used by: {list.usedBy.join(', ')}</p>}
                     </Card>
                 ))}
             </div>
@@ -382,12 +382,12 @@ function IpListModal({ list, onClose }: { list: IpListView | null; onClose: () =
                 <label className="block space-y-1.5">
                     <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Addresses</span>
                     <textarea
-                        className="block min-h-40 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-sm dark:border-slate-700 dark:bg-slate-950"
+                        className="block min-h-40 w-full rounded-lg border border-line bg-canvas px-3 py-2 font-mono text-sm"
                         value={entries}
                         onChange={(e) => setEntries(e.target.value)}
                         placeholder={'203.0.113.7 # Bill (home)\n198.51.100.0/24 # Office'}
                     />
-                    <span className="block text-xs text-slate-500">One address or network per line. Add a note after #.</span>
+                    <span className="block text-xs text-muted">One address or network per line. Add a note after #.</span>
                 </label>
                 <ErrorNote message={save.error ? errorMessage(save.error) : null} />
                 <div className="flex justify-end gap-2">
@@ -411,7 +411,7 @@ function ExposureTab() {
 
     return (
         <div className="space-y-4">
-            <p className="text-sm text-slate-600 dark:text-slate-400">Every port a program is listening on, compared with the firewall: what can the internet actually reach?</p>
+            <p className="text-sm text-muted">Every port a program is listening on, compared with the firewall: what can the internet actually reach?</p>
             {dangers > 0 && <Notice tone="danger">✕ {dangers} sensitive {dangers === 1 ? 'port is' : 'ports are'} reachable from the internet.</Notice>}
             <ErrorNote message={items.error ? errorMessage(items.error) : null} />
             {items.isPending ? (
@@ -444,7 +444,7 @@ function ExposureTab() {
                                         <Badge tone={exposureTone[item.exposure]}>{item.exposure}</Badge>
                                     )}
                                 </td>
-                                <td className="text-slate-600 dark:text-slate-400">{item.note}</td>
+                                <td className="text-muted">{item.note}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -468,7 +468,7 @@ function Fail2banTab() {
 
     return (
         <div className="space-y-4">
-            <p className="text-sm text-slate-600 dark:text-slate-400">
+            <p className="text-sm text-muted">
                 fail2ban bans addresses that keep failing to sign in (SSH and this panel). Banned addresses are blocked for the ban time.
             </p>
             <ErrorNote message={status.error ? errorMessage(status.error) : ban.error ? errorMessage(ban.error) : null} />
@@ -478,7 +478,7 @@ function Fail2banTab() {
                     <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                             <p className="font-medium">{jail.name === 'sshd' ? 'SSH' : jail.name === 'turbo-stack-panel' ? 'Panel sign-in' : jail.name}</p>
-                            <p className="text-sm text-slate-500">
+                            <p className="text-sm text-muted">
                                 Ban for {formatSeconds(jail.banTimeSeconds)} after {jail.maxRetry} failures within {formatSeconds(jail.findTimeSeconds)} · {jail.totalBanned} banned so far
                             </p>
                         </div>
@@ -489,7 +489,7 @@ function Fail2banTab() {
                         )}
                     </div>
                     {jail.bannedIps.length === 0 ? (
-                        <p className="text-sm text-slate-500">Nobody is banned right now.</p>
+                        <p className="text-sm text-muted">Nobody is banned right now.</p>
                     ) : (
                         <ul className="flex flex-wrap gap-2">
                             {jail.bannedIps.map((ip) => (
@@ -571,12 +571,12 @@ function JailModal({ jail, onClose }: { jail: Fail2banJail; onClose: () => void 
                 <label className="block space-y-1.5">
                     <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Never ban</span>
                     <textarea
-                        className="block min-h-24 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-sm dark:border-slate-700 dark:bg-slate-950"
+                        className="block min-h-24 w-full rounded-lg border border-line bg-canvas px-3 py-2 font-mono text-sm"
                         value={form.ignoreIps}
                         onChange={(e) => setForm({ ...form, ignoreIps: e.target.value })}
                         placeholder="203.0.113.7"
                     />
-                    <span className="block text-xs text-slate-500">One address or network per line. This server itself is always excluded.</span>
+                    <span className="block text-xs text-muted">One address or network per line. This server itself is always excluded.</span>
                 </label>
                 <ErrorNote message={save.error ? errorMessage(save.error) : null} />
                 <div className="flex justify-end gap-2">

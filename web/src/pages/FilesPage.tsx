@@ -132,7 +132,7 @@ function Browser({ user, path, onOpen }: { user: string; path: string; onOpen: (
             {listing.isPending ? (
                 <Spinner />
             ) : listing.data?.entries.length === 0 ? (
-                <p className="py-6 text-center text-sm text-slate-500">This folder is empty.</p>
+                <p className="py-6 text-center text-sm text-muted">This folder is empty.</p>
             ) : (
                 <ul className="divide-y divide-slate-100 text-sm dark:divide-slate-800">
                     {listing.data?.entries.map((entry) => {
@@ -147,13 +147,13 @@ function Browser({ user, path, onOpen }: { user: string; path: string; onOpen: (
                                 >
                                     {entry.name}
                                 </button>
-                                <span className="w-20 text-right text-xs text-slate-500">{entry.type === 'f' ? formatBytes(entry.size) : ''}</span>
-                                <span className="hidden w-28 text-xs text-slate-500 sm:inline">{entry.modified ? formatRelative(new Date(entry.modified).toISOString()) : ''}</span>
-                                <span className="w-10 font-mono text-xs text-slate-500">{entry.mode}</span>
+                                <span className="w-20 text-right text-xs text-muted">{entry.type === 'f' ? formatBytes(entry.size) : ''}</span>
+                                <span className="hidden w-28 text-xs text-muted sm:inline">{entry.modified ? formatRelative(new Date(entry.modified).toISOString()) : ''}</span>
+                                <span className="w-10 font-mono text-xs text-muted">{entry.mode}</span>
                                 <span className="flex gap-1">
                                     {entry.type === 'f' && (
                                         <a
-                                            className="rounded px-2 py-1 text-xs hover:bg-slate-100 dark:hover:bg-slate-800"
+                                            className="rounded px-2 py-1 text-xs hover:bg-subtle"
                                             href={`/api/files/download?user=${encodeURIComponent(user)}&path=${encodeURIComponent(full)}`}
                                         >
                                             Download
@@ -216,7 +216,7 @@ function Editor({ user, path, onClose }: { user: string; path: string; onClose: 
         <Card className="space-y-3 p-4">
             <div className="flex items-center justify-between gap-2">
                 <p className="truncate font-mono text-sm">
-                    ~/{path} {isNew && <span className="text-slate-500">(new)</span>}
+                    ~/{path} {isNew && <span className="text-muted">(new)</span>}
                 </p>
                 <div className="flex gap-2">
                     <Button size="sm" variant="ghost" onClick={onClose}>

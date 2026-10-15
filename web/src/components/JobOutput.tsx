@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { Badge } from './ui';
+import { useStickToBottom } from './useStickToBottom';
 
 /** Streams a background job's output (Server-Sent Events) and reports when it ends. */
 export function JobOutput({ jobId, onEnd }: { jobId: number; onEnd?: (status: string) => void }) {
     const [lines, setLines] = useState<string[]>([]);
     const [status, setStatus] = useState('running');
-    const bottomRef = useRef<HTMLDivElement>(null);
     const onEndRef = useRef(onEnd);
     onEndRef.current = onEnd;
 
@@ -24,9 +24,7 @@ export function JobOutput({ jobId, onEnd }: { jobId: number; onEnd?: (status: st
         return () => source.close();
     }, [jobId]);
 
-    useEffect(() => {
-        bottomRef.current?.scrollIntoView({ block: 'end' });
-    }, [lines.length]);
+    const box = useStickToBottom<HTMLDivElement>([lines.length]);
 
     return (
         <div className="space-y-2">
@@ -35,9 +33,8 @@ export function JobOutput({ jobId, onEnd }: { jobId: number; onEnd?: (status: st
                 {status === 'succeeded' && <Badge tone="good">✓ Succeeded</Badge>}
                 {status === 'failed' && <Badge tone="danger">✕ Failed</Badge>}
             </div>
-            <div className="max-h-96 overflow-auto rounded-lg bg-slate-950 p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap text-slate-200">
+            <div ref={box} className="max-h-96 overflow-auto rounded-lg bg-slate-950 p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap text-slate-200">
                 {lines.join('\n') || 'Starting…'}
-                <div ref={bottomRef} />
             </div>
         </div>
     );

@@ -6,6 +6,8 @@ import { usePermissions } from '../auth';
 import { JobOutput } from '../components/JobOutput';
 import { Badge, Button, Card, ErrorNote, Field, Input, Modal, Notice, PageHeader, Select, SelectField, Spinner, Tabs } from '../components/ui';
 import { formatDateTime } from '../format';
+import { useAppsAndSites } from '../siteLinks';
+import { AppChip } from './AppsPage';
 
 const routeKinds: { value: RouteKind; label: string; placeholder: string; hint: string }[] = [
     { value: 'Spa', label: 'Single-page app', placeholder: '/var/www/site', hint: 'Unknown paths load index.html (React/Vite apps).' },
@@ -55,13 +57,18 @@ function SiteEditor({ siteId, detail }: { siteId: number | null; detail: SiteDet
     const navigate = useNavigate();
     const queryClient = useQueryClient();
     const [params] = useSearchParams();
-    // "Serve them with a site" on an app page pre-fills the route.
+    // "Add a site" for an app pre-fills its name and the route to its files or port.
     const [model, setModel] = useState<SiteModel>(() => {
-        const initial = detail?.model ?? newModel();
+        if (detail) return detail.model;
+
+        const initial = { ...newModel(), name: params.get('name') ?? '' };
         const target = params.get('target');
 
-        return !detail && target ? { ...initial, routes: [{ ...initial.routes[0], target, kind: (params.get('kind') as RouteKind) ?? 'Spa' }] } : initial;
+        return target ? { ...initial, routes: [{ ...initial.routes[0], target, kind: (params.get('kind') as RouteKind) ?? 'Spa' }] } : initial;
     });
+    const { sites, appsOf } = useAppsAndSites();
+    const saved = sites.data?.find((s) => s.id === siteId);
+    const servedApps = saved ? appsOf(saved) : [];
     const [domainsText, setDomainsText] = useState((detail?.model.domains ?? []).join('\n'));
     const [tab, setTab] = useState<'preview' | 'dns' | 'history'>('preview');
     const [result, setResult] = useState<SiteApplyResponse | null>(null);
@@ -92,7 +99,7 @@ function SiteEditor({ siteId, detail }: { siteId: number | null; detail: SiteDet
         mutationFn: () => api.delete(`/api/sites/${siteId}`),
         onSuccess: () => {
             void queryClient.invalidateQueries({ queryKey: ['sites'] });
-            void navigate('/sites');
+            void navigate('/apps?show=sites');
         },
     });
 
@@ -100,13 +107,21 @@ function SiteEditor({ siteId, detail }: { siteId: number | null; detail: SiteDet
         <div className="space-y-6">
             <PageHeader
                 title={siteId ? (detail!.model.domains[0] ?? model.name) : 'Add site'}
-                description={siteId ? `Config file ts-${model.name}.conf` : 'Serve one or more domains from this server.'}
+                description={siteId ? `Config file ts-${model.name}.conf` : 'Serve one or more domains from this server: an app, a folder, a proxy or a redirect.'}
                 actions={
-                    <Link to="/sites" className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800">
-                        ← All sites
+                    <Link to="/apps" className="rounded-lg px-4 py-2 text-sm font-medium text-muted hover:bg-subtle hover:text-ink">
+                        ← Apps & sites
                     </Link>
                 }
             />
+            {servedApps.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
+                    Serves
+                    {servedApps.map((app) => (
+                        <AppChip key={app.id} app={app} />
+                    ))}
+                </div>
+            )}
             {detail?.lastError && !result && (
                 <Notice tone="danger">
                     <p className="font-medium">The last change was not applied; nginx is still running the previous version.</p>
@@ -128,13 +143,13 @@ function SiteEditor({ siteId, detail }: { siteId: number | null; detail: SiteDet
                             <label className="block space-y-1.5">
                                 <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Domains</span>
                                 <textarea
-                                    className="block min-h-20 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-sm dark:border-slate-700 dark:bg-slate-950"
+                                    className="block min-h-20 w-full rounded-lg border border-line bg-canvas px-3 py-2 font-mono text-sm"
                                     value={domainsText}
                                     onChange={(e) => setDomainsText(e.target.value)}
                                     placeholder={'play.myhotel.com'}
                                     required
                                 />
-                                <span className="block text-xs text-slate-500">One per line; the first is the main domain. Point their DNS at this server.</span>
+                                <span className="block text-xs text-muted">One per line; the first is the main domain. Point their DNS at this server.</span>
                             </label>
                             {!siteId && (
                                 <Field
@@ -191,9 +206,9 @@ function SiteEditor({ siteId, detail }: { siteId: number | null; detail: SiteDet
                                                     Remove
                                                 </Button>
                                             </div>
-                                            <p className="text-xs text-slate-500">{kind.hint}</p>
+                                            <p className="text-xs text-muted">{kind.hint}</p>
                                             <details className="text-sm">
-                                                <summary className="cursor-pointer text-xs text-slate-500">Options</summary>
+                                                <summary className="cursor-pointer text-xs text-muted">Options</summary>
                                                 <div className="mt-3 space-y-3">
                                                     {(route.kind === 'Static' || route.kind === 'Spa') && (
                                                         <div className="flex flex-wrap items-center gap-4">
@@ -214,7 +229,7 @@ function SiteEditor({ siteId, detail }: { siteId: number | null; detail: SiteDet
                                                         </div>
                                                     )}
                                                     <textarea
-                                                        className="block min-h-16 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-xs dark:border-slate-700 dark:bg-slate-950"
+                                                        className="block min-h-16 w-full rounded-lg border border-line bg-canvas px-3 py-2 font-mono text-xs"
                                                         placeholder="Extra nginx directives for this route"
                                                         value={route.snippet ?? ''}
                                                         onChange={(e) => setRoute(index, { snippet: e.target.value || null })}
@@ -228,9 +243,9 @@ function SiteEditor({ siteId, detail }: { siteId: number | null; detail: SiteDet
                         ) : (
                             <Card className="space-y-3 p-5">
                                 <h2 className="font-medium">Custom config</h2>
-                                <p className="text-sm text-slate-500">This site uses your config verbatim. It is still checked for unsafe directives and by nginx before it goes live.</p>
+                                <p className="text-sm text-muted">This site uses your config verbatim. It is still checked for unsafe directives and by nginx before it goes live.</p>
                                 <textarea
-                                    className="block min-h-96 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-xs dark:border-slate-700 dark:bg-slate-950"
+                                    className="block min-h-96 w-full rounded-lg border border-line bg-canvas px-3 py-2 font-mono text-xs"
                                     value={model.customConfig}
                                     onChange={(e) => set('customConfig', e.target.value)}
                                 />
@@ -252,7 +267,7 @@ function SiteEditor({ siteId, detail }: { siteId: number | null; detail: SiteDet
                                     <label className="block space-y-1.5">
                                         <span className="font-medium text-slate-700 dark:text-slate-300">Extra server directives</span>
                                         <textarea
-                                            className="block min-h-20 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-xs dark:border-slate-700 dark:bg-slate-950"
+                                            className="block min-h-20 w-full rounded-lg border border-line bg-canvas px-3 py-2 font-mono text-xs"
                                             value={model.serverSnippet ?? ''}
                                             onChange={(e) => set('serverSnippet', e.target.value || null)}
                                             placeholder='add_header Content-Security-Policy "default-src &apos;self&apos;" always;'
@@ -340,7 +355,7 @@ function ApplyResult({ result, siteId }: { result: SiteApplyResponse; siteId: nu
             {result.certificateJobId && (
                 <Card className="space-y-2 p-5">
                     <p className="font-medium">Getting a certificate…</p>
-                    <p className="text-sm text-slate-500">The site works over HTTP meanwhile; HTTPS switches on automatically when the certificate is ready.</p>
+                    <p className="text-sm text-muted">The site works over HTTP meanwhile; HTTPS switches on automatically when the certificate is ready.</p>
                     <JobOutput jobId={result.certificateJobId} onEnd={() => void queryClient.invalidateQueries({ queryKey: ['sites'] })} />
                 </Card>
             )}
@@ -373,7 +388,7 @@ function Preview({ model, enabled }: { model: SiteModel; enabled: boolean }) {
         placeholderData: (previous) => previous,
     });
 
-    if (!enabled) return <p className="text-sm text-slate-500">You can view this site but not edit it.</p>;
+    if (!enabled) return <p className="text-sm text-muted">You can view this site but not edit it.</p>;
 
     return (
         <pre className="max-h-[75vh] overflow-auto rounded-xl bg-slate-950 p-4 font-mono text-xs leading-relaxed text-slate-200">
@@ -416,7 +431,7 @@ function DnsPanel({ siteId }: { siteId: number }) {
                 <div key={entry.domain} className="flex flex-wrap items-center justify-between gap-2">
                     <div>
                         <p className="font-mono text-sm">{entry.domain}</p>
-                        <p className="text-xs text-slate-500">{entry.addresses.length ? entry.addresses.join(', ') : 'Does not resolve'}</p>
+                        <p className="text-xs text-muted">{entry.addresses.length ? entry.addresses.join(', ') : 'Does not resolve'}</p>
                     </div>
                     {entry.pointsHere === true && <Badge tone="good">✓ Points here</Badge>}
                     {entry.pointsHere === false && <Badge tone="warning">⚠ Points elsewhere</Badge>}
@@ -424,7 +439,7 @@ function DnsPanel({ siteId }: { siteId: number }) {
                 </div>
             ))}
             {dns.data?.some((d) => d.pointsHere === null) && (
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-muted">
                     Set this server's public IP in <Link to="/settings" className="underline">Settings</Link> to check where domains point.
                 </p>
             )}
@@ -455,13 +470,13 @@ function HistoryPanel({ siteId, detail, onRestored }: { siteId: number; detail: 
     return (
         <Card className="space-y-2 p-5">
             <ErrorNote message={restore.error ? errorMessage(restore.error) : null} />
-            <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+            <ul className="divide-y divide-line">
                 {detail.revisions.map((revision) => (
                     <li key={revision.number} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
                         <div>
                             <span className="font-medium">#{revision.number}</span>{' '}
                             {revision.applied ? (revision.number === detail.lastAppliedRevision ? <Badge tone="good">live</Badge> : null) : <Badge tone="danger">rejected</Badge>}
-                            <p className="text-xs text-slate-500">
+                            <p className="text-xs text-muted">
                                 {formatDateTime(revision.createdAt)}
                                 {revision.createdBy && ` · ${revision.createdBy}`}
                             </p>

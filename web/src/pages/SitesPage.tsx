@@ -46,13 +46,13 @@ export function SitesPage() {
                                     <Link to={`/sites/${site.id}`} className="font-medium text-brand-700 hover:underline dark:text-brand-100">
                                         {site.domains[0]}
                                     </Link>
-                                    <p className="text-xs text-slate-500">
+                                    <p className="text-xs text-muted">
                                         {site.name}
                                         {site.domains.length > 1 && ` · +${site.domains.length - 1} more`}
                                         {site.system && ' · panel'}
                                     </p>
                                 </td>
-                                <td className="text-slate-600 dark:text-slate-400">
+                                <td className="text-muted">
                                     {site.custom
                                         ? 'Custom config'
                                         : site.routes.map((r) => (

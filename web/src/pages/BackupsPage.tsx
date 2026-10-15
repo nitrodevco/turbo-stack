@@ -84,7 +84,7 @@ function TargetsCard({ targets, plans }: { targets: BackupTarget[]; plans: Backu
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <h2 className="font-medium">Targets</h2>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">Where snapshots are stored. Each target is a repository with its own encryption password.</p>
+                    <p className="text-sm text-muted">Where snapshots are stored. Each target is a repository with its own encryption password.</p>
                 </div>
                 {can('backups.manage') && <Button onClick={() => setAdding(true)}>Add target</Button>}
             </div>
@@ -104,9 +104,9 @@ function TargetsCard({ targets, plans }: { targets: BackupTarget[]; plans: Backu
                 </Notice>
             )}
             {targets.length === 0 ? (
-                <p className="text-sm text-slate-500">No targets yet. Add one to start backing up.</p>
+                <p className="text-sm text-muted">No targets yet. Add one to start backing up.</p>
             ) : (
-                <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                <ul className="divide-y divide-line">
                     {targets.map((target) => (
                         <li key={target.id} className="space-y-3 py-3">
                             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -115,8 +115,8 @@ function TargetsCard({ targets, plans }: { targets: BackupTarget[]; plans: Backu
                                         {target.name} <Badge>{kindLabels[target.kind]}</Badge>{' '}
                                         {target.ready ? <Badge tone="good">✓ Ready</Badge> : target.lastError ? <Badge tone="danger">✕ Unreachable</Badge> : <Badge tone="warning">Needs setup</Badge>}
                                     </p>
-                                    <p className="truncate font-mono text-xs text-slate-500">{location(target)}</p>
-                                    {target.checkedAt && <p className="text-xs text-slate-500">Checked {formatRelative(target.checkedAt)}</p>}
+                                    <p className="truncate font-mono text-xs text-muted">{location(target)}</p>
+                                    {target.checkedAt && <p className="text-xs text-muted">Checked {formatRelative(target.checkedAt)}</p>}
                                 </div>
                                 {can('backups.manage') && (
                                     <div className="flex flex-wrap gap-2">
@@ -295,7 +295,7 @@ function PlansCard({ targets, plans, onJob }: { targets: BackupTarget[]; plans: 
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <h2 className="font-medium">Plans</h2>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">What to back up, every day at a set time, and how many snapshots to keep.</p>
+                    <p className="text-sm text-muted">What to back up, every day at a set time, and how many snapshots to keep.</p>
                 </div>
                 {can('backups.manage') && (
                     <Button disabled={targets.length === 0} onClick={() => setEditing('new')}>
@@ -304,11 +304,11 @@ function PlansCard({ targets, plans, onJob }: { targets: BackupTarget[]; plans: 
                 )}
             </div>
             {plans.length === 0 ? (
-                <p className="text-sm text-slate-500">{targets.length === 0 ? 'Add a target first.' : 'No plans yet.'}</p>
+                <p className="text-sm text-muted">{targets.length === 0 ? 'Add a target first.' : 'No plans yet.'}</p>
             ) : (
                 <TableWrap>
                     <table className="w-full text-sm">
-                        <thead className="text-left text-xs text-slate-500">
+                        <thead className="text-left text-xs text-muted">
                             <tr>
                                 <th className="py-2 pr-3 font-medium">Plan</th>
                                 <th className="py-2 pr-3 font-medium">Contents</th>
@@ -317,19 +317,19 @@ function PlansCard({ targets, plans, onJob }: { targets: BackupTarget[]; plans: 
                                 <th />
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                        <tbody className="divide-y divide-line">
                             {plans.map((plan) => (
                                 <tr key={plan.id} className="align-top">
                                     <td className="py-2 pr-3">
                                         <p className="font-medium">{plan.name}</p>
-                                        <p className="text-xs text-slate-500">→ {targets.find((t) => t.id === plan.targetId)?.name}</p>
+                                        <p className="text-xs text-muted">→ {targets.find((t) => t.id === plan.targetId)?.name}</p>
                                     </td>
                                     <td className="py-2 pr-3 text-xs">
                                         {[...plan.databases, ...plan.folders, ...(plan.panelState ? ['panel state'] : [])].join(', ')}
                                     </td>
                                     <td className="py-2 pr-3 text-xs">
                                         {plan.enabled ? `Daily at ${plan.timeOfDay}` : <Badge>Paused</Badge>}
-                                        <p className="text-slate-500">
+                                        <p className="text-muted">
                                             Keeps {plan.keepDaily} daily, {plan.keepWeekly} weekly, {plan.keepMonthly} monthly
                                         </p>
                                     </td>
@@ -338,10 +338,10 @@ function PlansCard({ targets, plans, onJob }: { targets: BackupTarget[]; plans: 
                                             <>
                                                 <span title={formatDateTime(plan.lastRunAt)}>{formatRelative(plan.lastRunAt)}</span>{' '}
                                                 {plan.lastResult === 'OK' ? <Badge tone="good">✓ OK</Badge> : <Badge tone="danger">✕ Failed</Badge>}
-                                                {plan.lastResult !== 'OK' && <p className="mt-1 text-red-700 dark:text-red-300">{plan.lastResult}</p>}
+                                                {plan.lastResult !== 'OK' && <p className="mt-1 text-bad">{plan.lastResult}</p>}
                                             </>
                                         ) : (
-                                            <span className="text-slate-500">Never</span>
+                                            <span className="text-muted">Never</span>
                                         )}
                                     </td>
                                     <td className="py-2 text-right whitespace-nowrap">
@@ -438,7 +438,7 @@ function PlanModal({ plan, targets, onClose, onSaved }: { plan: BackupPlan | nul
                 </div>
                 <fieldset className="space-y-2">
                     <legend className="text-sm font-medium">Databases</legend>
-                    {databases.length === 0 && <p className="text-sm text-slate-500">No databases yet.</p>}
+                    {databases.length === 0 && <p className="text-sm text-muted">No databases yet.</p>}
                     <div className="grid gap-1 sm:grid-cols-2">
                         {[...new Set([...databases, ...form.databases])].map((d) => (
                             <label key={d} className="flex items-center gap-2 text-sm">
@@ -450,12 +450,12 @@ function PlanModal({ plan, targets, onClose, onSaved }: { plan: BackupPlan | nul
                 <label className="block space-y-1 text-sm">
                     <span className="font-medium">Folders</span>
                     <textarea
-                        className="block min-h-20 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-xs dark:border-slate-700 dark:bg-slate-950"
+                        className="block min-h-20 w-full rounded-lg border border-line bg-canvas px-3 py-2 font-mono text-xs"
                         value={form.folders}
                         onChange={(e) => set({ folders: e.target.value })}
                         placeholder={'hotel:sites/assets\nhotel:apps/emulator/shared'}
                     />
-                    <span className="text-xs text-slate-500">One per line: app user, colon, folder inside its home.</span>
+                    <span className="text-xs text-muted">One per line: app user, colon, folder inside its home.</span>
                 </label>
                 <label className="flex items-center gap-2 text-sm">
                     <input type="checkbox" checked={form.panelState} onChange={(e) => set({ panelState: e.target.checked })} />
@@ -501,11 +501,11 @@ function SnapshotsCard({ targets, plans, onJob }: { targets: BackupTarget[]; pla
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <h2 className="font-medium">Snapshots</h2>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">Restoring never overwrites anything: you choose what to bring back, and where it goes is shown.</p>
+                    <p className="text-sm text-muted">Restoring never overwrites anything: you choose what to bring back, and where it goes is shown.</p>
                 </div>
                 <select
                     aria-label="Target"
-                    className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-950"
+                    className="rounded-lg border border-line bg-canvas px-2 py-1.5 text-sm"
                     value={target.id}
                     onChange={(e) => setTargetId(Number(e.target.value))}
                 >
@@ -517,17 +517,17 @@ function SnapshotsCard({ targets, plans, onJob }: { targets: BackupTarget[]; pla
                 </select>
             </div>
             {!target.ready ? (
-                <p className="text-sm text-slate-500">This target isn't ready yet.</p>
+                <p className="text-sm text-muted">This target isn't ready yet.</p>
             ) : snapshots.isPending ? (
                 <Spinner />
             ) : (snapshots.data ?? []).length === 0 ? (
-                <p className="text-sm text-slate-500">No snapshots yet.</p>
+                <p className="text-sm text-muted">No snapshots yet.</p>
             ) : (
-                <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                <ul className="divide-y divide-line">
                     {(snapshots.data ?? []).map((s) => (
                         <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
                             <span>
-                                {formatDateTime(s.time)} <span className="text-slate-500">· {planName(s.planId)} ·</span> <code className="text-xs">{s.shortId}</code>
+                                {formatDateTime(s.time)} <span className="text-muted">· {planName(s.planId)} ·</span> <code className="text-xs">{s.shortId}</code>
                             </span>
                             {can('backups.manage') && (
                                 <Button size="sm" variant="secondary" onClick={() => setRestoring(s)}>
@@ -596,7 +596,7 @@ function RestoreModal({ target, snapshot, onClose, onStarted }: { target: Backup
                     {m.databases.length > 0 && (
                         <fieldset className="space-y-1">
                             <legend className="font-medium">Databases</legend>
-                            <p className="text-xs text-slate-500">The dump joins the database's backups list; restore it from the Databases page.</p>
+                            <p className="text-xs text-muted">The dump joins the database's backups list; restore it from the Databases page.</p>
                             {m.databases.map((d) => (
                                 <label key={d} className="flex items-center gap-2">
                                     <input type="checkbox" checked={chosen.has(`db:${d}`)} onChange={() => flip(`db:${d}`)} /> <code>{d}</code>
@@ -607,7 +607,7 @@ function RestoreModal({ target, snapshot, onClose, onStarted }: { target: Backup
                     {m.folders.length > 0 && (
                         <fieldset className="space-y-1">
                             <legend className="font-medium">Folders</legend>
-                            <p className="text-xs text-slate-500">Restored next to the original, as ~/restored-&lt;time&gt;/&lt;folder&gt; of the app user.</p>
+                            <p className="text-xs text-muted">Restored next to the original, as ~/restored-&lt;time&gt;/&lt;folder&gt; of the app user.</p>
                             {m.folders.map((f) => (
                                 <label key={f} className="flex items-center gap-2">
                                     <input type="checkbox" checked={chosen.has(`dir:${f}`)} onChange={() => flip(`dir:${f}`)} /> <code>{f}</code>
@@ -621,9 +621,9 @@ function RestoreModal({ target, snapshot, onClose, onStarted }: { target: Backup
                         </label>
                     )}
                     {m.panelState && owner && (
-                        <div className="space-y-2 rounded-lg border border-red-200 p-3 dark:border-red-900">
+                        <div className="space-y-2 rounded-lg border border-bad-line p-3">
                             <p className="font-medium">Restore the panel itself</p>
-                            <p className="text-xs text-slate-600 dark:text-slate-400">
+                            <p className="text-xs text-muted">
                                 Replaces the panel's accounts, settings and history with the snapshot's, now. Apps, sites and files on the server are not
                                 touched. The current state is kept, and comes back by itself if the panel doesn't start. You'll sign in again with the
                                 accounts as they were then.

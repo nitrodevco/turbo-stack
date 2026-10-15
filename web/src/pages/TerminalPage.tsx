@@ -52,7 +52,7 @@ export function TerminalPage() {
                         </SelectField>
                     </div>
                     <Button onClick={() => void connect()}>{session ? 'Reconnect' : 'Connect'}</Button>
-                    {selected === 'root' && <span className="text-sm text-amber-700 dark:text-amber-400">Root can change anything on the server. Everything you open is in the activity log.</span>}
+                    {selected === 'root' && <span className="text-sm text-warn">Root can change anything on the server. Everything you open is in the activity log.</span>}
                 </Card>
             )}
             <ErrorNote message={error} />
@@ -107,10 +107,10 @@ function TerminalView({ user }: { user: string }) {
 
     return (
         <Card className="space-y-2 p-3">
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted">
                 {user} · {status === 'connecting' ? 'connecting…' : status === 'open' ? 'connected' : 'disconnected'}
             </p>
-            <div ref={host} className="h-[32rem] overflow-hidden rounded-lg bg-slate-950 p-2" />
+            <div ref={host} className="h-[32rem] overflow-clip rounded-lg bg-slate-950 p-2" />
         </Card>
     );
 }

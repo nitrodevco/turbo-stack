@@ -1,39 +1,173 @@
 @import 'tailwindcss';
 
+/* Dark mode is a class on <html> (`theme.ts`), set from the viewer's choice; dark unless chosen otherwise. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * The panel's palette, shared with Turbo Admin: "Control Room". Slate surfaces, one teal accent,
+ * labels in IBM Plex Mono. New code uses the tokens (`bg-surface`, `text-muted`, `border-line`,
+ * `text-accent`); the `slate` and `brand` scales the older pages use are tuned onto the same
+ * palette, so both read as one.
+ */
 @theme {
-    --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-    --color-brand-50: #eef2ff;
-    --color-brand-100: #e0e7ff;
-    --color-brand-500: #6366f1;
-    --color-brand-600: #4f46e5;
-    --color-brand-700: #4338ca;
+    --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
+
+    /* Where the page sits, the chrome around it, the cards on it, a raised or hovered area, and their borders. */
+    --color-canvas: #f3f5f8;
+    --color-chrome: #ffffff;
+    --color-surface: #ffffff;
+    --color-subtle: #eef1f5;
+    --color-line: #dce2e9;
+    --color-ink: #0e141b;
+    --color-muted: #566272;
+
+    /* The accent, its hover, a quiet fill of it, and text set on it. */
+    --color-accent: #0b7c74;
+    --color-accent-hover: #09665f;
+    --color-accent-soft: #e2f4f2;
+    --color-on-accent: #ffffff;
+
+    /* States: each with a fill and a line. */
+    --color-good: #157a45;
+    --color-good-soft: #e3f5ec;
+    --color-good-line: #b9e3cc;
+    --color-warn: #8a5600;
+    --color-warn-soft: #fff4dc;
+    --color-warn-line: #f1d9a6;
+    --color-bad: #b42318;
+    --color-bad-soft: #fdeeee;
+    --color-bad-line: #f3c9c9;
+
+    /* The cool slate the older pages are written in, matched to the tokens above. */
+    --color-slate-50: #f3f5f8;
+    --color-slate-100: #eef1f5;
+    --color-slate-200: #dce2e9;
+    --color-slate-300: #c3ccd7;
+    --color-slate-400: #8d9aab;
+    --color-slate-500: #6b7787;
+    --color-slate-600: #566272;
+    --color-slate-700: #3a4553;
+    --color-slate-800: #1f2a37;
+    --color-slate-900: #11171f;
+    --color-slate-950: #0a0e13;
+
+    /* The accent as a scale, for the same pages. */
+    --color-brand-50: #e2f4f2;
+    --color-brand-100: #7fe3da;
+    --color-brand-400: #4fd1c5;
+    --color-brand-500: #14a397;
+    --color-brand-600: #0b7c74;
+    --color-brand-700: #09665f;
+    --color-brand-950: #10302e;
+
+    --animate-rise: rise 0.28s ease-out both;
+    --animate-sheet: sheet 0.22s ease-out both;
+}
+
+.dark {
+    color-scheme: dark;
+
+    --color-canvas: #0a0e13;
+    --color-chrome: #0d1218;
+    --color-surface: #11171f;
+    --color-subtle: #161e28;
+    --color-line: #1f2a37;
+    --color-ink: #e6edf3;
+    --color-muted: #8d9aab;
+
+    --color-accent: #4fd1c5;
+    --color-accent-hover: #7fe3da;
+    --color-accent-soft: #10302e;
+    --color-on-accent: #06201e;
+
+    --color-good: #5bd68a;
+    --color-good-soft: #0f2219;
+    --color-good-line: #1d4630;
+    --color-warn: #f2b55a;
+    --color-warn-soft: #2a2010;
+    --color-warn-line: #5a4320;
+    --color-bad: #ff8a8a;
+    --color-bad-soft: #1f1215;
+    --color-bad-line: #5a2a2e;
 }
 
 /* Chart roles (validated reference palette: categorical slots 1-2, light and dark steps). */
 :root {
-    --series-1: #2a78d6;
-    --series-2: #eb6834;
-    --chart-grid: #e7e5e0;
-    --chart-axis: #8a8984;
+    --series-1: #008f85;
+    --series-2: #7048e8;
+    --chart-grid: #dce2e9;
+    --chart-axis: #8d9aab;
     --chart-surface: #ffffff;
 }
 
-@media (prefers-color-scheme: dark) {
-    :root {
-        --series-1: #3987e5;
-        --series-2: #d95926;
-        --chart-grid: #2c2c2a;
-        --chart-axis: #8a8984;
-        --chart-surface: #0f172a;
+.dark {
+    --series-1: #14a397;
+    --series-2: #8b6ff0;
+    --chart-grid: #1f2a37;
+    --chart-axis: #8d9aab;
+    --chart-surface: #11171f;
+}
+
+@keyframes rise {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+}
+
+/* A phone's sheet coming up from the bottom edge. */
+@keyframes sheet {
+    from { transform: translateY(100%); }
+    to { transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, ::before, ::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
     }
 }
 
 html,
 body,
 #root {
-    height: 100%;
+    min-height: 100dvh;
 }
 
 body {
-    @apply bg-slate-50 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100;
+    @apply bg-canvas text-ink antialiased;
+    font-size: 14px;
+}
+
+/* A hand over whatever does something when clicked; Tailwind 4 leaves buttons with the arrow. */
+@layer base {
+    button:not(:disabled),
+    [role='tab'],
+    select:not(:disabled),
+    a[href] {
+        cursor: pointer;
+    }
+
+    button:disabled,
+    select:disabled,
+    input:disabled {
+        cursor: not-allowed;
+    }
+}
+
+select option {
+    background-color: var(--color-surface);
+    color: var(--color-ink);
+}
+
+/* A row that scrolls sideways without a scrollbar of its own. */
+.no-scrollbar {
+    scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+dialog::backdrop {
+    background: rgb(5 8 12 / 0.6);
 }

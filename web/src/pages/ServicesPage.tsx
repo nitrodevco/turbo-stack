@@ -68,15 +68,15 @@ export function ServicesPage() {
                             <tr key={s.name}>
                                 <td>
                                     <p className="font-medium">{s.name}</p>
-                                    <p className="text-xs text-slate-500">{s.description}</p>
+                                    <p className="text-xs text-muted">{s.description}</p>
                                 </td>
                                 <td>
                                     <StateBadge unit={s} />
-                                    {s.restarts > 0 && <span className="ml-2 text-xs text-slate-500">{s.restarts} restarts</span>}
+                                    {s.restarts > 0 && <span className="ml-2 text-xs text-muted">{s.restarts} restarts</span>}
                                 </td>
-                                <td className="text-slate-600 dark:text-slate-400">{s.unitFileState}</td>
+                                <td className="text-muted">{s.unitFileState}</td>
                                 <td className="text-right tabular-nums">{s.memoryBytes >= 0 ? formatBytes(s.memoryBytes) : '—'}</td>
-                                <td className="text-slate-600 dark:text-slate-400">{s.activeSinceUnixMs ? formatRelative(s.activeSinceUnixMs) : '—'}</td>
+                                <td className="text-muted">{s.activeSinceUnixMs ? formatRelative(s.activeSinceUnixMs) : '—'}</td>
                                 <td>
                                     <div className="flex justify-end gap-1">
                                         <Link to={`/logs?unit=${encodeURIComponent(s.name)}`} className="rounded-lg px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800">
@@ -97,7 +97,7 @@ export function ServicesPage() {
                         ))}
                         {visible.length === 0 && (
                             <tr>
-                                <td colSpan={6} className="py-8 text-center text-slate-500">
+                                <td colSpan={6} className="py-8 text-center text-muted">
                                     No services match.
                                 </td>
                             </tr>

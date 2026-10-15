@@ -38,7 +38,7 @@ export function InvitePage() {
             <Card className="space-y-5">
                 <div className="space-y-1">
                     <h1 className="text-xl font-semibold">Welcome, {invite.data.username}</h1>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                    <p className="text-sm text-muted">
                         {invite.data.invitedBy ? `${invite.data.invitedBy} invited you` : 'You were invited'} as {invite.data.role}. Choose a password, then set up your authenticator app.
                     </p>
                 </div>

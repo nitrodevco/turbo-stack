@@ -24,7 +24,7 @@ export function HotelsPage() {
                     <Link key={s.id} to={`/hotel/${s.id}`}>
                         <Card className="p-4 hover:border-brand-400">
                             <p className="font-medium">{s.name}</p>
-                            <p className="text-sm text-slate-500">{s.domain}</p>
+                            <p className="text-sm text-muted">{s.domain}</p>
                         </Card>
                     </Link>
                 ))}
@@ -151,7 +151,7 @@ function RoleCard({
                             {role.domain}
                         </a>
                     ) : (
-                        <p className="text-sm text-slate-500">Not on this server</p>
+                        <p className="text-sm text-muted">Not on this server</p>
                     )}
                 </div>
                 {health && <Badge tone={health}>{health === 'good' ? '● healthy' : health === 'warning' ? 'not deployed' : '✕ problem'}</Badge>}
@@ -166,23 +166,23 @@ function RoleCard({
                         {role.app.service && role.app.service !== 'active' && <Badge tone="danger">service {role.app.service}</Badge>}
                     </p>
                     {Object.keys(role.app.ports).length > 0 && (
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-muted">
                             {Object.entries(role.app.ports)
                                 .map(([name, port]) => `${name} :${port}`)
                                 .join(' · ')}
                         </p>
                     )}
-                    {role.app.lastRelease?.error && <p className="text-xs text-red-600 dark:text-red-400">{role.app.lastRelease.error}</p>}
+                    {role.app.lastRelease?.error && <p className="text-xs text-bad">{role.app.lastRelease.error}</p>}
                 </div>
             )}
-            {role.site?.lastError && <p className="text-xs text-red-600 dark:text-red-400">Site: {role.site.lastError}</p>}
+            {role.site?.lastError && <p className="text-xs text-bad">Site: {role.site.lastError}</p>}
             {role.wiring.length > 0 && (
                 <details className="text-xs">
-                    <summary className="cursor-pointer text-slate-500">Gets {role.wiring.length} values from the hotel</summary>
+                    <summary className="cursor-pointer text-muted">Gets {role.wiring.length} values from the hotel</summary>
                     <ul className="mt-2 space-y-1">
                         {role.wiring.map((w) => (
                             <li key={w.input}>
-                                <span className="text-slate-500">{w.label}</span> ← <code>{w.from}</code>
+                                <span className="text-muted">{w.label}</span> ← <code>{w.from}</code>
                                 {w.pinned && (
                                     <span className="ml-1">
                                         <Badge tone="warning">pinned</Badge>
@@ -255,16 +255,16 @@ function DomainEditor({ hotel, onClose, onApplied }: { hotel: StackView; onClose
                                     {change.name} <Badge tone={change.action === 'redeploy' ? 'warning' : 'info'}>{actionLabel[change.action]}</Badge>
                                 </p>
                                 {change.site === 'update' && change.domainsFrom.join() !== change.domainsTo.join() && (
-                                    <p className="text-slate-600 dark:text-slate-400">
+                                    <p className="text-muted">
                                         {change.domainsFrom.join(', ')} → {change.domainsTo.join(', ')}
                                     </p>
                                 )}
-                                {change.site === 'hand-edited' && <p className="text-amber-700 dark:text-amber-400">The site was edited by hand: it won't be changed.</p>}
+                                {change.site === 'hand-edited' && <p className="text-warn">The site was edited by hand: it won't be changed.</p>}
                                 <ul className="mt-1 space-y-0.5 text-xs">
                                     {change.environment.map((e) => (
                                         <li key={e.key}>
                                             <code>{e.key}</code>: {e.from ?? '(unset)'} → {e.to ?? '(unset)'}
-                                            {e.pinned && <span className="ml-1 text-amber-700 dark:text-amber-400">(edited by hand: kept)</span>}
+                                            {e.pinned && <span className="ml-1 text-warn">(edited by hand: kept)</span>}
                                         </li>
                                     ))}
                                 </ul>
@@ -333,7 +333,7 @@ function PartControls({ role, hotel, preset, onJob }: { role: StackRoleView; hot
         >
             {role.included ? (
                 <>
-                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                    <p className="text-xs text-muted">
                         The other parts will use these addresses instead. The app and its site are removed{role.role === 'assets' ? '; uploaded files stay' : ''}.
                     </p>
                     {preset.exports.map((e) => (

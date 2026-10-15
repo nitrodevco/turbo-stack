@@ -5,7 +5,8 @@ import 'monaco-editor/esm/vs/basic-languages/monaco.contribution';
 // The icon font (find widget, diff arrows); served as a file, which the panel's CSP allows.
 import 'monaco-editor/esm/vs/base/browser/ui/codicons/codicon/codicon.css';
 import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
-import { useEffect, useRef, useState } from 'react';
+import { useRef } from 'react';
+import { useIsDark } from '../theme';
 
 // Bundled with the panel: the default loader fetches Monaco from a CDN, which the panel's CSP (rightly) refuses.
 self.MonacoEnvironment = { getWorker: () => new EditorWorker() };
@@ -27,21 +28,6 @@ export function languageOf(path: string): string {
     return languages[name.split('.').pop() ?? ''] ?? 'plaintext';
 }
 
-function useDarkMode() {
-    const query = '(prefers-color-scheme: dark)';
-    const [dark, setDark] = useState(() => window.matchMedia(query).matches || document.documentElement.classList.contains('dark'));
-
-    useEffect(() => {
-        const media = window.matchMedia(query);
-        const update = () => setDark(media.matches || document.documentElement.classList.contains('dark'));
-        media.addEventListener('change', update);
-
-        return () => media.removeEventListener('change', update);
-    }, []);
-
-    return dark;
-}
-
 const options = { fontSize: 13, minimap: { enabled: false }, scrollBeyondLastLine: false, automaticLayout: true, tabSize: 4 } as const;
 
 /** The file manager's editor (Monaco). Ctrl/Cmd+S saves. With <c>original</c>, shows a side-by-side diff instead. */
@@ -58,7 +44,7 @@ export default function CodeEditor({
     onChange: (value: string) => void;
     onSave: () => void;
 }) {
-    const theme = useDarkMode() ? 'vs-dark' : 'vs';
+    const theme = useIsDark() ? 'vs-dark' : 'vs';
     const language = languageOf(path);
     // The editor binds Ctrl+S once; it must call the latest save (with the latest text).
     const save = useRef(onSave);

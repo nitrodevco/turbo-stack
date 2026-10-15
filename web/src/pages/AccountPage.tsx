@@ -38,7 +38,7 @@ export function AccountPage({ me }: { me: Me }) {
                         <li key={s.id} className="flex items-center justify-between gap-3 py-2">
                             <span>
                                 {s.current ? <span className="font-medium">This browser</span> : s.ipAddress ?? 'unknown address'} · active {formatRelative(s.lastSeenAt)}
-                                <span className="block max-w-xl truncate text-xs text-slate-500">{s.userAgent}</span>
+                                <span className="block max-w-xl truncate text-xs text-muted">{s.userAgent}</span>
                             </span>
                             {!s.current && (
                                 <Button size="sm" variant="ghost" onClick={() => revoke.mutate(s.id)}>
@@ -53,7 +53,7 @@ export function AccountPage({ me }: { me: Me }) {
             <Card className="space-y-4 p-5">
                 <div>
                     <h2 className="font-medium">API tokens</h2>
-                    <p className="text-sm text-slate-500">
+                    <p className="text-sm text-muted">
                         For scripts and CI: send <code>Authorization: Bearer &lt;token&gt;</code>. A token can do some of what your role can, never more.
                     </p>
                 </div>
@@ -62,7 +62,7 @@ export function AccountPage({ me }: { me: Me }) {
                         <li key={t.id} className="flex items-center justify-between gap-3 py-2">
                             <span>
                                 <span className="font-medium">{t.name}</span> <code className="text-xs">{t.prefix}…</code>
-                                <span className="block text-xs text-slate-500">
+                                <span className="block text-xs text-muted">
                                     {t.permissions.join(', ')} · {t.lastUsedAt ? `used ${formatRelative(t.lastUsedAt)}` : 'never used'}
                                     {t.expiresAt && ` · expires ${formatRelative(t.expiresAt)}`}
                                 </span>
@@ -163,7 +163,7 @@ function PasskeysCard() {
         <Card className="space-y-4 p-5">
             <div>
                 <h2 className="font-medium">Passkeys</h2>
-                <p className="text-sm text-slate-600 dark:text-slate-400">
+                <p className="text-sm text-muted">
                     Sign in with your device's fingerprint, face or PIN instead of a password and code. A passkey works on the address it was added on.
                 </p>
             </div>

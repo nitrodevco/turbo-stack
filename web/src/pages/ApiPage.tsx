@@ -54,7 +54,7 @@ export function ApiPage() {
                 <pre className="overflow-x-auto rounded bg-slate-100 p-3 font-mono text-xs dark:bg-slate-900">
                     {`curl -H "Authorization: Bearer ts_…" ${window.location.origin}/api/apps`}
                 </pre>
-                <p className="text-slate-600 dark:text-slate-400">
+                <p className="text-muted">
                     Requests that change something from a browser also need the header <code>X-TS-Request: 1</code>; with a token it isn't needed.
                 </p>
             </Card>
@@ -85,7 +85,7 @@ function OperationRow({ method, path, op, schemas }: { method: string; path: str
             <button type="button" className="flex w-full flex-wrap items-center gap-2 text-left" onClick={() => setOpen(!open)}>
                 <Badge tone={methodTones[method] ?? 'neutral'}>{method.toUpperCase()}</Badge>
                 <code className="text-sm">{path}</code>
-                {op.description && <span className="text-xs text-slate-500">{op.description.replace(/`/g, '')}</span>}
+                {op.description && <span className="text-xs text-muted">{op.description.replace(/`/g, '')}</span>}
             </button>
             {open && (
                 <div className="mt-2 space-y-2 pl-2 text-xs">
@@ -106,7 +106,7 @@ function OperationRow({ method, path, op, schemas }: { method: string; path: str
                             <pre className="overflow-x-auto rounded bg-slate-100 p-2 dark:bg-slate-900">{describe(body, schemas, 0)}</pre>
                         </div>
                     )}
-                    {!body && (op.parameters ?? []).length === 0 && <p className="text-slate-500">No parameters.</p>}
+                    {!body && (op.parameters ?? []).length === 0 && <p className="text-muted">No parameters.</p>}
                 </div>
             )}
         </div>

@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { api, errorMessage, type JournalEntry, type ServiceUnit } from '../api';
 import { Button, ErrorNote, Input, PageHeader, Select } from '../components/ui';
+import { useStickToBottom } from '../components/useStickToBottom';
 
 const priorities = [
     { value: '', label: 'All levels' },
@@ -21,7 +22,6 @@ export function LogsPage() {
     const [live, setLive] = useState(false);
     const [liveEntries, setLiveEntries] = useState<JournalEntry[]>([]);
     const [liveError, setLiveError] = useState<string | null>(null);
-    const bottomRef = useRef<HTMLDivElement>(null);
 
     const services = useQuery({ queryKey: ['services'], queryFn: () => api.get<ServiceUnit[]>('/api/services') });
     const query = new URLSearchParams({ ...(unit && { unit }), ...(priority && { priority }), ...(params.get('grep') && { grep: params.get('grep')! }) }).toString();
@@ -46,9 +46,7 @@ export function LogsPage() {
         return () => source.close();
     }, [live, query]);
 
-    useEffect(() => {
-        if (live) bottomRef.current?.scrollIntoView({ block: 'end' });
-    }, [live, liveEntries.length]);
+    const box = useStickToBottom<HTMLDivElement>([live, liveEntries.length]);
 
     function update(key: string, value: string) {
         const next = new URLSearchParams(params);
@@ -105,16 +103,15 @@ export function LogsPage() {
                 )}
             </form>
             <ErrorNote message={entries.error ? errorMessage(entries.error) : liveError} />
-            <div className="max-h-[70vh] overflow-auto rounded-xl border border-slate-200 bg-slate-950 p-4 font-mono text-xs leading-relaxed text-slate-200 dark:border-slate-800">
-                {rows.length === 0 && <p className="text-slate-500">{entries.isFetching ? 'Loading…' : live ? 'Waiting for new entries…' : 'No entries.'}</p>}
+            <div ref={box} className="max-h-[70vh] overflow-auto rounded-xl border border-slate-200 bg-slate-950 p-4 font-mono text-xs leading-relaxed text-slate-200 dark:border-slate-800">
+                {rows.length === 0 && <p className="text-muted">{entries.isFetching ? 'Loading…' : live ? 'Waiting for new entries…' : 'No entries.'}</p>}
                 {rows.map((entry) => (
                     <div key={entry.cursor || `${entry.timestampUsec}-${entry.message}`} className="flex gap-3 whitespace-pre-wrap">
-                        <span className="shrink-0 text-slate-500 tabular-nums">{new Date(entry.timestampUsec / 1000).toLocaleString()}</span>
+                        <span className="shrink-0 text-muted tabular-nums">{new Date(entry.timestampUsec / 1000).toLocaleString()}</span>
                         <span className="w-28 shrink-0 truncate text-sky-300">{entry.identifier || entry.unit}</span>
                         <span className={priorityClass(entry.priority)}>{entry.message}</span>
                     </div>
                 ))}
-                <div ref={bottomRef} />
             </div>
         </div>
     );

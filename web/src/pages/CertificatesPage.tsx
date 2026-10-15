@@ -63,9 +63,9 @@ export function CertificatesPage() {
                                         {certificate.status === 'Valid' && (daysLeft !== null && daysLeft < 14 ? <Badge tone="warning">⚠ Expires soon</Badge> : <Badge tone="good">✓ Valid</Badge>)}
                                         {certificate.status === 'Pending' && <Badge tone="info">Pending</Badge>}
                                         {certificate.status === 'Failed' && <Badge tone="danger">✕ Failed</Badge>}
-                                        {certificate.lastError && <p className="mt-1 max-w-sm text-xs text-red-700 dark:text-red-300">{certificate.lastError}</p>}
+                                        {certificate.lastError && <p className="mt-1 max-w-sm text-xs text-bad">{certificate.lastError}</p>}
                                     </td>
-                                    <td className="text-slate-600 dark:text-slate-400">{certificate.notAfter ? `${formatDateTime(certificate.notAfter).split(',')[0]} (${daysLeft} d)` : '—'}</td>
+                                    <td className="text-muted">{certificate.notAfter ? `${formatDateTime(certificate.notAfter).split(',')[0]} (${daysLeft} d)` : '—'}</td>
                                     <td>
                                         {can('sites.manage') && (
                                             <div className="flex justify-end gap-1">
@@ -85,7 +85,7 @@ export function CertificatesPage() {
                         })}
                         {certificates.data?.length === 0 && (
                             <tr>
-                                <td colSpan={5} className="py-8 text-center text-slate-500">
+                                <td colSpan={5} className="py-8 text-center text-muted">
                                     No certificates yet. They are requested automatically when you add an HTTPS site.
                                 </td>
                             </tr>
@@ -106,7 +106,7 @@ export function CertificatesPage() {
                         <label className="block space-y-1.5">
                             <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Domains</span>
                             <input
-                                className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+                                className="block w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm"
                                 value={domains}
                                 onChange={(e) => setDomains(e.target.value)}
                                 placeholder="play.myhotel.com, admin.myhotel.com"
@@ -120,7 +120,7 @@ export function CertificatesPage() {
                             Request
                         </Button>
                     </form>
-                    <p className="text-xs text-slate-500">Let's Encrypt checks each domain over HTTP: its DNS must point to this server and port 80 must be open.</p>
+                    <p className="text-xs text-muted">Let's Encrypt checks each domain over HTTP: its DNS must point to this server and port 80 must be open.</p>
                 </Card>
             )}
         </div>

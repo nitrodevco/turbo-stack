@@ -58,19 +58,19 @@ export function ActivityPage() {
                     <tbody>
                         {(audit.data?.entries ?? []).map((entry) => (
                             <tr key={entry.id}>
-                                <td className="whitespace-nowrap text-slate-500">{formatDateTime(entry.at)}</td>
+                                <td className="whitespace-nowrap text-muted">{formatDateTime(entry.at)}</td>
                                 <td>{entry.username ?? 'system'}</td>
                                 <td className="font-mono text-xs">{entry.action}</td>
                                 <td>
                                     {entry.target && <span className="font-medium">{entry.target} </span>}
-                                    <span className="text-slate-600 dark:text-slate-400">{entry.details}</span>
+                                    <span className="text-muted">{entry.details}</span>
                                 </td>
-                                <td className="font-mono text-xs text-slate-500">{entry.ipAddress}</td>
+                                <td className="font-mono text-xs text-muted">{entry.ipAddress}</td>
                             </tr>
                         ))}
                         {audit.data?.entries.length === 0 && (
                             <tr>
-                                <td colSpan={5} className="py-8 text-center text-slate-500">
+                                <td colSpan={5} className="py-8 text-center text-muted">
                                     Nothing yet.
                                 </td>
                             </tr>

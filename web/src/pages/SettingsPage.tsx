@@ -31,7 +31,7 @@ export function SettingsPage() {
             <Card className="space-y-4 p-5">
                 <div>
                     <h2 className="font-medium">Public address</h2>
-                    <p className="text-sm text-slate-500">The addresses the internet reaches this server on. Used to check DNS and, with Cloudflare, to create DNS records.</p>
+                    <p className="text-sm text-muted">The addresses the internet reaches this server on. Used to check DNS and, with Cloudflare, to create DNS records.</p>
                 </div>
                 <form
                     className="space-y-4"

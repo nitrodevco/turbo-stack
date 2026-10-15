@@ -157,7 +157,7 @@ function Wizard({ preset }: { preset: PresetView }) {
                             <div key={role.role} className="grid items-end gap-2 sm:grid-cols-[10rem_1fr]">
                                 <span className="pb-2 text-sm font-medium">{role.label}</span>
                                 {role.optional && !assetsHere && role.role === 'assets' ? (
-                                    <span className="pb-2 text-sm text-slate-500">An existing host (below)</span>
+                                    <span className="pb-2 text-sm text-muted">An existing host (below)</span>
                                 ) : (
                                     <Field label="" aria-label={role.label} value={hosts[role.role]} onChange={(e) => setHostEdits({ ...hostEdits, [role.role]: e.target.value.trim().toLowerCase() })} required />
                                 )}
@@ -219,8 +219,8 @@ function Wizard({ preset }: { preset: PresetView }) {
                                 </option>
                             ))}
                         </SelectField>
-                        {recommended?.note && <p className="text-sm text-slate-500">{recommended.note}</p>}
-                        <p className="text-sm text-slate-500">A database and user are created for the emulator; the password goes straight into its settings.</p>
+                        {recommended?.note && <p className="text-sm text-muted">{recommended.note}</p>}
+                        <p className="text-sm text-muted">A database and user are created for the emulator; the password goes straight into its settings.</p>
                     </Card>
                 )}
 
@@ -245,8 +245,8 @@ function Wizard({ preset }: { preset: PresetView }) {
                             <tbody>
                                 {preset.roles.map((role) => (
                                     <tr key={role.role} className="border-b border-slate-100 last:border-0 dark:border-slate-800">
-                                        <td className="py-1.5 pr-4 text-slate-500">{role.label}</td>
-                                        <td className="py-1.5">{hosts[role.role] || <span className="text-slate-500">{externalAssets.url} (existing)</span>}</td>
+                                        <td className="py-1.5 pr-4 text-muted">{role.label}</td>
+                                        <td className="py-1.5">{hosts[role.role] || <span className="text-muted">{externalAssets.url} (existing)</span>}</td>
                                     </tr>
                                 ))}
                             </tbody>

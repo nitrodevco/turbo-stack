@@ -50,7 +50,7 @@ function InstallCard({ engine }: { engine: DatabaseEngineView }) {
     return (
         <Card className="space-y-4 p-5">
             <p>
-                <strong>{engine.label}</strong> {engine.candidateVersion && <span className="text-slate-500">{engine.candidateVersion.split('-')[0]}</span>} is not installed.
+                <strong>{engine.label}</strong> {engine.candidateVersion && <span className="text-muted">{engine.candidateVersion.split('-')[0]}</span>} is not installed.
                 {engine.recommended && ' This is the database to use for Turbo on this server.'}
             </p>
             {engine.recommended && <Badge tone="good">✓ Recommended</Badge>}
@@ -83,7 +83,7 @@ function EngineView({ engine }: { engine: DatabaseEngineView }) {
         <div className="space-y-6">
             <div className="flex flex-wrap items-center gap-3 text-sm">
                 {engine.running ? <Badge tone="good">● Running</Badge> : <Badge tone="danger">✕ Stopped</Badge>}
-                <span className="text-slate-600 dark:text-slate-400">
+                <span className="text-muted">
                     {engine.label} {engine.version} · 127.0.0.1:{engine.port} · {engine.service}
                 </span>
             </div>
@@ -152,7 +152,7 @@ function DatabasesSection({
             {!databases ? (
                 <Spinner />
             ) : databases.length === 0 ? (
-                <p className="text-sm text-slate-500">No databases yet.</p>
+                <p className="text-sm text-muted">No databases yet.</p>
             ) : (
                 <TableWrap>
                     <thead>
@@ -168,7 +168,7 @@ function DatabasesSection({
                             <tr key={database.name}>
                                 <td>
                                     <p className="font-medium">{database.name}</p>
-                                    {database.tables >= 0 && <p className="text-xs text-slate-500">{database.tables} tables</p>}
+                                    {database.tables >= 0 && <p className="text-xs text-muted">{database.tables} tables</p>}
                                 </td>
                                 <td className="text-right tabular-nums">{formatBytes(database.sizeBytes)}</td>
                                 <td>
@@ -275,14 +275,14 @@ function UsersSection({
             {!users ? (
                 <Spinner />
             ) : users.length === 0 ? (
-                <p className="text-sm text-slate-500">No users yet.</p>
+                <p className="text-sm text-muted">No users yet.</p>
             ) : (
-                <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                <ul className="divide-y divide-line">
                     {users.map((user) => (
                         <li key={user.name} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
                             <div>
                                 <p className="font-medium">{user.name}</p>
-                                <p className="text-xs text-slate-500">
+                                <p className="text-xs text-muted">
                                     {user.grants.length === 0 ? 'No database access' : user.grants.map((g) => `${g.database}${g.level === 'readonly' ? ' (read-only)' : ''}`).join(', ')}
                                 </p>
                             </div>
@@ -359,7 +359,7 @@ function AccessModal({ engine, user, databases, onClose }: { engine: DatabaseEng
                         </Select>
                     </div>
                 ))}
-                {databases.length === 0 && <p className="text-sm text-slate-500">Create a database first.</p>}
+                {databases.length === 0 && <p className="text-sm text-muted">Create a database first.</p>}
                 <ErrorNote message={save.error ? errorMessage(save.error) : null} />
                 <div className="flex justify-end gap-2">
                     <Button variant="ghost" onClick={onClose}>
@@ -413,7 +413,7 @@ function BackupsSection({ engine, databases, onJob }: { engine: DatabaseEngineVi
             </div>
             <ErrorNote message={[backups.error, remove.error, upload.error].filter(Boolean).map(errorMessage)[0] ?? null} />
             {(backups.data ?? []).length === 0 ? (
-                <p className="text-sm text-slate-500">No backups yet.</p>
+                <p className="text-sm text-muted">No backups yet.</p>
             ) : (
                 <TableWrap>
                     <tbody>
@@ -421,10 +421,10 @@ function BackupsSection({ engine, databases, onJob }: { engine: DatabaseEngineVi
                             <tr key={backup.id}>
                                 <td>
                                     <p className="font-mono text-xs">{backup.fileName}</p>
-                                    <p className="text-xs text-slate-500">{backup.import ? 'Uploaded import' : backup.database}</p>
+                                    <p className="text-xs text-muted">{backup.import ? 'Uploaded import' : backup.database}</p>
                                 </td>
                                 <td className="text-right tabular-nums">{formatBytes(backup.sizeBytes)}</td>
-                                <td className="text-slate-500">{formatDateTime(backup.createdUnixMs)}</td>
+                                <td className="text-muted">{formatDateTime(backup.createdUnixMs)}</td>
                                 <td>
                                     <div className="flex justify-end gap-1">
                                         <a className="rounded-lg px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800" href={`/api/databases/backups/download?id=${encodeURIComponent(backup.id)}`}>
@@ -513,7 +513,7 @@ function ScheduleModal({ engine, database, onClose }: { engine: DatabaseEngineSl
                     <Field label="Keep the newest" type="number" min={1} max={365} value={value.retentionCount} onChange={(e) => setForm({ ...value, retentionCount: Number(e.target.value) })} />
                 </div>
                 {existing?.lastRunAt && (
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-muted">
                         Last run {formatDateTime(existing.lastRunAt)}: {existing.lastResult}
                     </p>
                 )}
@@ -550,7 +550,7 @@ function CredentialsModal({ engine, credentials, onClose }: { engine: DatabaseEn
                 <dl className="space-y-2 text-sm">
                     {rows.map(([label, value]) => (
                         <div key={label} className="grid grid-cols-[6rem_1fr_auto] items-center gap-2">
-                            <dt className="text-slate-500">{label}</dt>
+                            <dt className="text-muted">{label}</dt>
                             <dd className="truncate font-mono text-xs">{value}</dd>
                             <Button size="sm" variant="ghost" onClick={() => void navigator.clipboard.writeText(value)}>
                                 Copy
@@ -558,7 +558,7 @@ function CredentialsModal({ engine, credentials, onClose }: { engine: DatabaseEn
                         </div>
                     ))}
                 </dl>
-                <p className="text-xs text-slate-500">The panel keeps this password encrypted, so you can look it up again later.</p>
+                <p className="text-xs text-muted">The panel keeps this password encrypted, so you can look it up again later.</p>
                 <div className="flex justify-end">
                     <Button onClick={onClose}>Done</Button>
                 </div>
