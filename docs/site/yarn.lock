@@ -1777,9 +1777,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"turbo-manager-docs@workspace:.":
+"turbo-stack-docs@workspace:.":
   version: 0.0.0-use.local
-  resolution: "turbo-manager-docs@workspace:."
+  resolution: "turbo-stack-docs@workspace:."
   dependencies:
     vitepress: "npm:1.6.3"
   languageName: unknown

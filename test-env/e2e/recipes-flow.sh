@@ -20,7 +20,7 @@ fail() { printf '  \033[31m✘\033[0m %s\n' "$*" >&2; exit 1; }
 call() {
     local method="$1" path="$2" body="${3:-}"
     curl -sk -b "$JAR" -c "$JAR" -X "$method" "$BASE$path" \
-        -H 'X-TM-Request: 1' -H 'Content-Type: application/json' \
+        -H 'X-TS-Request: 1' -H 'Content-Type: application/json' \
         ${body:+--data "$body"} -w '\n%{http_code}'
 }
 

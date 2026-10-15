@@ -1330,9 +1330,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"turbo-manager-web@workspace:.":
+"turbo-stack-web@workspace:.":
   version: 0.0.0-use.local
-  resolution: "turbo-manager-web@workspace:."
+  resolution: "turbo-stack-web@workspace:."
   dependencies:
     "@monaco-editor/react": "npm:4.7.0"
     "@tailwindcss/vite": "npm:^4.3.2"

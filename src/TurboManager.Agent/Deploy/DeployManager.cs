@@ -14,17 +14,17 @@ namespace TurboManager.Agent.Deploy;
 /// <summary>Runs every app-related step as the app's own user. See deploy.proto for the layout.</summary>
 public sealed class DeployManager(ICommandRunner commands, IOptions<AgentOptions> options, ILogger<DeployManager> logger)
 {
-    public const string AppsGroup = "tm-apps";
+    public const string AppsGroup = "ts-apps";
 
-    public const string RuntimeRoot = "/opt/turbo-manager/runtimes";
+    public const string RuntimeRoot = "/opt/turbo-stack/runtimes";
 
     public const string SystemPath = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
 
     private string HostPath(string absolutePath) => Path.Combine(options.Value.HostRoot, absolutePath.TrimStart('/'));
 
-    private string UnitPath(string app) => HostPath($"/etc/systemd/system/tm-app-{app}.service");
+    private string UnitPath(string app) => HostPath($"/etc/systemd/system/ts-app-{app}.service");
 
-    private string ConsoleSocketPath(string app) => HostPath($"/etc/systemd/system/tm-app-{app}-console.socket");
+    private string ConsoleSocketPath(string app) => HostPath($"/etc/systemd/system/ts-app-{app}-console.socket");
 
     public static string ConsoleFifo(string app) => $"/run/{Branding.Slug}/console/{app}";
 
@@ -62,14 +62,14 @@ public sealed class DeployManager(ICommandRunner commands, IOptions<AgentOptions
     {
         var user = RequireAppUser(request.User);
         var key = DeployValidation.KeyName(request.KeyName);
-        var directory = $"{user.Home}/.ssh/tm";
+        var directory = $"{user.Home}/.ssh/ts";
         var path = $"{directory}/{key}";
         var created = false;
 
         if (!File.Exists(HostPath(path)))
         {
             await RunAsUserCheckedAsync(user, null, "bash", ["-c", "umask 077 && mkdir -p \"$1\"", "bash", directory], cancellationToken);
-            await RunAsUserCheckedAsync(user, null, "ssh-keygen", ["-q", "-t", "ed25519", "-N", "", "-C", $"turbo-manager {user.Name}/{key}", "-f", path],
+            await RunAsUserCheckedAsync(user, null, "ssh-keygen", ["-q", "-t", "ed25519", "-N", "", "-C", $"turbo-stack {user.Name}/{key}", "-f", path],
                 cancellationToken);
             created = true;
         }
@@ -227,9 +227,9 @@ public sealed class DeployManager(ICommandRunner commands, IOptions<AgentOptions
         var script = DeployValidation.Script(request.Script);
         var environment = new Dictionary<string, string>(DeployValidation.Environment(request.Environment))
         {
-            ["TM_APP_DIR"] = appDir,
-            ["TM_RELEASE_DIR"] = releaseDir,
-            ["TM_SHARED_DIR"] = $"{appDir}/shared",
+            ["TS_APP_DIR"] = appDir,
+            ["TS_RELEASE_DIR"] = releaseDir,
+            ["TS_SHARED_DIR"] = $"{appDir}/shared",
             ["CI"] = "true",
             ["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1",
             ["DOTNET_NOLOGO"] = "1",
@@ -252,7 +252,7 @@ public sealed class DeployManager(ICommandRunner commands, IOptions<AgentOptions
 
         // A private temp directory: /tmp is shared with other users, and often mounted noexec, which breaks
         // tools that run helper scripts from it (Yarn puts its package-binary wrappers there).
-        var temp = $"{user.Home}/.cache/tm-build/{app}";
+        var temp = $"{user.Home}/.cache/ts-build/{app}";
         environment["TMPDIR"] = temp;
         await RunAsUserCheckedAsync(user, null, "bash", ["-c", "umask 077 && rm -rf -- \"$1\" && mkdir -p -- \"$1\"", "bash", temp], cancellationToken);
 
@@ -344,7 +344,7 @@ public sealed class DeployManager(ICommandRunner commands, IOptions<AgentOptions
     }
 
     /// <summary>
-    /// Writes tm-app-&lt;app&gt;.service. The command goes into a root-owned launcher script (no quoting
+    /// Writes ts-app-&lt;app&gt;.service. The command goes into a root-owned launcher script (no quoting
     /// issues in the unit file); environment goes into a root-only EnvironmentFile.
     /// </summary>
     public async Task WriteServiceAsync(AppServiceRequest request, CancellationToken cancellationToken)
@@ -381,12 +381,12 @@ public sealed class DeployManager(ICommandRunner commands, IOptions<AgentOptions
         }
 
         await commands.RunCheckedAsync("systemctl", ["daemon-reload"], cancellationToken: cancellationToken);
-        await commands.RunCheckedAsync("systemctl", ["enable", $"tm-app-{app}.service"], cancellationToken: cancellationToken);
+        await commands.RunCheckedAsync("systemctl", ["enable", $"ts-app-{app}.service"], cancellationToken: cancellationToken);
 
         if (request.Console)
         {
-            var socket = $"tm-app-{app}-console.socket";
-            var service = $"tm-app-{app}.service";
+            var socket = $"ts-app-{app}-console.socket";
+            var service = $"ts-app-{app}.service";
             // systemd ≥ 258 refuses to start a socket whose service already runs (24.04's 255 allowed it): turning the console
             // on for a running app means stopping it, starting the socket, then starting the app on it.
             var restart = !(await commands.RunAsync("systemctl", ["is-active", "--quiet", socket], cancellationToken: cancellationToken)).Success
@@ -421,7 +421,7 @@ public sealed class DeployManager(ICommandRunner commands, IOptions<AgentOptions
         // Only root (the agent) writes to it.
         "SocketMode=0600\n" +
         "RemoveOnStop=yes\n" +
-        $"Service=tm-app-{app}.service\n\n" +
+        $"Service=ts-app-{app}.service\n\n" +
         "[Install]\nWantedBy=sockets.target\n";
 
     private async Task RemoveConsoleSocketAsync(string app, CancellationToken cancellationToken)
@@ -431,7 +431,7 @@ public sealed class DeployManager(ICommandRunner commands, IOptions<AgentOptions
             return;
         }
 
-        await commands.RunAsync("systemctl", ["disable", "--now", $"tm-app-{app}-console.socket"], timeout: TimeSpan.FromMinutes(1),
+        await commands.RunAsync("systemctl", ["disable", "--now", $"ts-app-{app}-console.socket"], timeout: TimeSpan.FromMinutes(1),
             cancellationToken: cancellationToken);
         File.Delete(ConsoleSocketPath(app));
     }
@@ -469,7 +469,7 @@ public sealed class DeployManager(ICommandRunner commands, IOptions<AgentOptions
             return;
         }
 
-        await commands.RunAsync("systemctl", ["disable", "--now", $"tm-app-{app}.service"], timeout: TimeSpan.FromMinutes(2), cancellationToken: cancellationToken);
+        await commands.RunAsync("systemctl", ["disable", "--now", $"ts-app-{app}.service"], timeout: TimeSpan.FromMinutes(2), cancellationToken: cancellationToken);
 
         await RemoveConsoleSocketAsync(app, cancellationToken);
 
@@ -489,7 +489,7 @@ public sealed class DeployManager(ICommandRunner commands, IOptions<AgentOptions
             .Append("[Unit]\n")
             .Append($"Description={Branding.ProductName} app {app}\n")
             .Append("After=network-online.target\nWants=network-online.target\n")
-            .Append(request.Console ? $"Requires=tm-app-{app}-console.socket\nAfter=tm-app-{app}-console.socket\n" : "")
+            .Append(request.Console ? $"Requires=ts-app-{app}-console.socket\nAfter=ts-app-{app}-console.socket\n" : "")
             .Append("\n[Service]\n")
             .Append("Type=simple\n")
             .Append($"User={user.Name}\nGroup={user.Name}\n")
@@ -498,7 +498,7 @@ public sealed class DeployManager(ICommandRunner commands, IOptions<AgentOptions
             .Append($"ExecStart=/etc/{Branding.Slug}/apps/{app}.run\n")
             // The console: stdin is the FIFO systemd holds open, so the app never sees end-of-input; output stays in the journal.
             .Append(request.Console
-                ? $"Sockets=tm-app-{app}-console.socket\nStandardInput=fd:console\nStandardOutput=journal\nStandardError=journal\n"
+                ? $"Sockets=ts-app-{app}-console.socket\nStandardInput=fd:console\nStandardOutput=journal\nStandardError=journal\n"
                 : "")
             .Append("Restart=always\nRestartSec=3\n")
             .Append($"TimeoutStopSec={(request.StopTimeoutSeconds is > 0 and <= 600 ? request.StopTimeoutSeconds : 30)}\n")
@@ -543,7 +543,7 @@ public sealed class DeployManager(ICommandRunner commands, IOptions<AgentOptions
     }
 
     /// <summary>
-    /// Installs a toolchain under /opt/turbo-manager/runtimes (readable by every app user): .NET via
+    /// Installs a toolchain under /opt/turbo-stack/runtimes (readable by every app user): .NET via
     /// Microsoft's dotnet-install script, Node from nodejs.org with its published SHA-256 checked.
     /// </summary>
     public async Task InstallRuntimeAsync(RuntimeRequest request, Func<string, ValueTask> write, CancellationToken cancellationToken)
@@ -650,7 +650,7 @@ public sealed class DeployManager(ICommandRunner commands, IOptions<AgentOptions
             {
                 DeployValidation.KeyName(access.KeyName);
 
-                if (!File.Exists(HostPath($"{user.Home}/.ssh/tm/{access.KeyName}")))
+                if (!File.Exists(HostPath($"{user.Home}/.ssh/ts/{access.KeyName}")))
                 {
                     throw Validate.FailedPrecondition($"Deploy key {access.KeyName} hasn't been created yet.");
                 }
@@ -663,14 +663,14 @@ public sealed class DeployManager(ICommandRunner commands, IOptions<AgentOptions
         }
 
         // Write the SSH config + pinned host keys for every key this user has.
-        var keys = Directory.Exists(HostPath($"{user.Home}/.ssh/tm"))
-            ? Directory.GetFiles(HostPath($"{user.Home}/.ssh/tm"), "*.pub").Select(f => Path.GetFileNameWithoutExtension(f)).ToList()
+        var keys = Directory.Exists(HostPath($"{user.Home}/.ssh/ts"))
+            ? Directory.GetFiles(HostPath($"{user.Home}/.ssh/ts"), "*.pub").Select(f => Path.GetFileNameWithoutExtension(f)).ToList()
             : [];
 
         if (keys.Count > 0)
         {
-            await WriteUserFileAsync(user, $"{user.Home}/.ssh/tm/config", GitSsh.RenderConfig(keys, user.Home, host, port), cancellationToken);
-            await WriteUserFileAsync(user, $"{user.Home}/.ssh/tm/known_hosts", GitSsh.RenderKnownHosts(host, port, request.KnownHosts), cancellationToken);
+            await WriteUserFileAsync(user, $"{user.Home}/.ssh/ts/config", GitSsh.RenderConfig(keys, user.Home, host, port), cancellationToken);
+            await WriteUserFileAsync(user, $"{user.Home}/.ssh/ts/known_hosts", GitSsh.RenderKnownHosts(host, port, request.KnownHosts), cancellationToken);
         }
 
         return (user, GitSsh.RemoteUrl(request.Repository, request.HttpsBase), GitSsh.SubmoduleRewrites(request));
@@ -678,7 +678,7 @@ public sealed class DeployManager(ICommandRunner commands, IOptions<AgentOptions
 
     private static Dictionary<string, string> GitEnvironment(PasswdEntry user) => new()
     {
-        ["GIT_SSH_COMMAND"] = $"ssh -F {user.Home}/.ssh/tm/config",
+        ["GIT_SSH_COMMAND"] = $"ssh -F {user.Home}/.ssh/ts/config",
         ["GIT_TERMINAL_PROMPT"] = "0",
     };
 
@@ -713,7 +713,7 @@ public sealed class DeployManager(ICommandRunner commands, IOptions<AgentOptions
 
     private string AppDir(PasswdEntry user, string app) => $"{user.Home}/apps/{app}";
 
-    /// <summary>An existing user in the tm-apps group with a normal uid: never root or a system account.</summary>
+    /// <summary>An existing user in the ts-apps group with a normal uid: never root or a system account.</summary>
     private PasswdEntry? FindAppUser(string name)
     {
         var user = PasswdFile.FindUser(name, HostPath("/etc/passwd"));

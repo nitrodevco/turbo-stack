@@ -21,7 +21,7 @@ fail() { printf '  \033[31m✘\033[0m %s\n' "$*" >&2; exit 1; }
 call() {
     local method="$1" path="$2" body="${3:-}"
     curl -sk -b "$JAR" -c "$JAR" -X "$method" "$BASE$path" \
-        -H 'X-TM-Request: 1' -H 'Content-Type: application/json' \
+        -H 'X-TS-Request: 1' -H 'Content-Type: application/json' \
         ${body:+--data "$body"} -w '\n%{http_code}'
 }
 
@@ -167,7 +167,7 @@ broken() {
     response="$(call POST /api/panel-update/apply "{\"version\":\"$version\"}")"
     [[ "$(status_of "$response")" == "202" ]] || fail "starting the update failed: $response"
 
-    # tm-update waits up to two minutes for the new version, then puts the old one back.
+    # ts-update waits up to two minutes for the new version, then puts the old one back.
     for _ in $(seq 1 200); do
         response="$(body_of "$(call GET /api/panel-update 2>/dev/null)" 2>/dev/null || true)"
         [[ "$(jq -r .last.state <<<"$response" 2>/dev/null)" == "rolled-back" && "$(jq -r .running <<<"$response")" == "false" ]] && break
@@ -180,7 +180,7 @@ broken() {
     pass "$version didn't start; $current was put back automatically"
 
     (call POST /api/alerts/check >/dev/null)
-    [[ "$(body_of "$(call GET /api/alerts)" | jq -r '.open[].title')" == *"update to Turbo Manager $version didn't work"* ]] \
+    [[ "$(body_of "$(call GET /api/alerts)" | jq -r '.open[].title')" == *"update to Turbo Stack $version didn't work"* ]] \
         || fail "the failed update should raise an alert"
     pass "critical alert raised"
     assert_unchanged

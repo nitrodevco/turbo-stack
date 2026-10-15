@@ -24,17 +24,17 @@ if ufw status | grep -q "198.51.100.77"; then
 fi
 pass "unconfirmed rule reverted in ufw"
 
-[[ ! -f /var/lib/turbo-manager-agent/pending-firewall-change.json ]] || fail "no pending change should remain on disk"
+[[ ! -f /var/lib/turbo-stack-agent/pending-firewall-change.json ]] || fail "no pending change should remain on disk"
 pass "no pending change left on disk"
 
 nginx -t 2>/dev/null || fail "nginx config should still be valid"
-[[ -L /etc/nginx/sites-enabled/tm-e2e-http.conf ]] || fail "site should be enabled via symlink"
-[[ ! -f /etc/nginx/sites-available/tm-e2e-evil.conf ]] || fail "refused config must not be written"
-[[ "$(stat -c '%a' /etc/turbo-manager/certs/secure.hotel.test/privkey.pem)" == "600" ]] || fail "private key must be 0600"
+[[ -L /etc/nginx/sites-enabled/ts-e2e-http.conf ]] || fail "site should be enabled via symlink"
+[[ ! -f /etc/nginx/sites-available/ts-e2e-evil.conf ]] || fail "refused config must not be written"
+[[ "$(stat -c '%a' /etc/turbo-stack/certs/secure.hotel.test/privkey.pem)" == "600" ]] || fail "private key must be 0600"
 pass "nginx valid, sites enabled, refused config absent, key private"
 
-grep -q "real_ip_header CF-Connecting-IP;" /etc/nginx/conf.d/tm-cloudflare-realip.conf || fail "Cloudflare real-IP config should be installed"
-[[ -f /etc/turbo-manager/setup-closed && ! -e /etc/nginx/sites-enabled/tm-setup.conf ]] || fail "setup address should be closed"
+grep -q "real_ip_header CF-Connecting-IP;" /etc/nginx/conf.d/ts-cloudflare-realip.conf || fail "Cloudflare real-IP config should be installed"
+[[ -f /etc/turbo-stack/setup-closed && ! -e /etc/nginx/sites-enabled/ts-setup.conf ]] || fail "setup address should be closed"
 if ufw status | grep -qE "^8443/tcp"; then
     fail "the setup port rule should be gone"
 fi
@@ -67,20 +67,20 @@ if PGPASSWORD=E2e-Postgres-Passw0rd psql -h 127.0.0.1 -U studio -d other_app -tA
 fi
 pass "PostgreSQL app user can log in to its database and not to another app's"
 
-[[ "$(stat -c '%a' /var/lib/turbo-manager-backups/databases)" == "700" ]] || fail "backup directory must be root-only"
+[[ "$(stat -c '%a' /var/lib/turbo-stack-backups/databases)" == "700" ]] || fail "backup directory must be root-only"
 pass "database backups are root-only"
 
-[[ "$(systemctl show -p User --value tm-app-api.service)" == "hotel" ]] || fail "the api service should run as the app user"
-[[ "$(ps -o user= -p "$(systemctl show -p MainPID --value tm-app-api.service)")" == "hotel" ]] || fail "the api process should run as hotel"
-id -nG hotel | grep -qw tm-apps || fail "hotel should be in tm-apps"
-if id -nG hotel | grep -qwE 'sudo|adm|turbo-manager'; then fail "the app user must not be in privileged groups"; fi
+[[ "$(systemctl show -p User --value ts-app-api.service)" == "hotel" ]] || fail "the api service should run as the app user"
+[[ "$(ps -o user= -p "$(systemctl show -p MainPID --value ts-app-api.service)")" == "hotel" ]] || fail "the api process should run as hotel"
+id -nG hotel | grep -qw ts-apps || fail "hotel should be in ts-apps"
+if id -nG hotel | grep -qwE 'sudo|adm|turbo-stack'; then fail "the app user must not be in privileged groups"; fi
 pass "app service runs as its own unprivileged user"
 
 [[ "$(stat -c '%a %U' /home/hotel)" == "750 hotel" ]] || fail "the app home should be 750 and owned by hotel"
-KEYS="$(find /home/hotel/.ssh/tm -type f ! -name '*.pub' -printf '%m %u\n' | sort -u)"
+KEYS="$(find /home/hotel/.ssh/ts -type f ! -name '*.pub' -printf '%m %u\n' | sort -u)"
 [[ "$KEYS" == "600 hotel" ]] || fail "deploy keys should be 600 and owned by hotel (got: $KEYS)"
 [[ -z "$(find /home/hotel/apps ! -user hotel -print -quit)" ]] || fail "nothing under the apps directory should belong to another user"
-[[ "$(stat -c '%U' /etc/turbo-manager/apps/api.run)" == "root" ]] || fail "the service launcher must be root-owned"
+[[ "$(stat -c '%U' /etc/turbo-stack/apps/api.run)" == "root" ]] || fail "the service launcher must be root-owned"
 pass "app files: home 750, private keys 600, launcher root-owned"
 
 # Like an SFTP upload as the app user: new files must be readable by nginx without any extra step.
@@ -96,20 +96,20 @@ pass "assets folder: uploads by the app user are served with CORS and caching"
 pass "file manager writes as the app user (never root)"
 
 runuser -u hotel -- test -w /home/hotel/sites/assets/bundled/upload.nitro || fail "the app user should be able to manage what the SFTP account uploaded"
-[[ "$(stat -c '%U %a' /srv/tm-sftp/assets-upload)" == "root 755" ]] || fail "the SFTP chroot must belong to root"
+[[ "$(stat -c '%U %a' /srv/ts-sftp/assets-upload)" == "root 755" ]] || fail "the SFTP chroot must belong to root"
 [[ "$(getent passwd assets-upload | cut -d: -f7)" == "/usr/sbin/nologin" ]] || fail "the SFTP account must have no shell"
 pass "SFTP: chroot root-owned, no shell, uploads usable by the app user"
 
-[[ "$(stat -c '%a %U' /var/backups/turbo-manager)" == "700 root" && -f /var/backups/turbo-manager/config ]] || fail "the local repository must be root-only"
-[[ "$(stat -c '%a' /etc/turbo-manager/backup-keys)" == "700" ]] || fail "backup keys must be root-only"
-[[ -z "$(ls -A /var/lib/turbo-manager-backups/staging 2>/dev/null)" && ! -e /var/lib/turbo-manager/backup/panel.db ]] || fail "backup staging must be cleaned up"
+[[ "$(stat -c '%a %U' /var/backups/turbo-stack)" == "700 root" && -f /var/backups/turbo-stack/config ]] || fail "the local repository must be root-only"
+[[ "$(stat -c '%a' /etc/turbo-stack/backup-keys)" == "700" ]] || fail "backup keys must be root-only"
+[[ -z "$(ls -A /var/lib/turbo-stack-backups/staging 2>/dev/null)" && ! -e /var/lib/turbo-stack/backup/panel.db ]] || fail "backup staging must be cleaned up"
 [[ "$(stat -c '%U' /home/hotel/restored-*)" == "hotel" ]] || fail "restored folders belong to the app user"
-[[ "$(stat -c '%a' /var/lib/turbo-manager-backups/restores/panel-before-restore-*)" == "700" ]] || fail "the panel state from before a restore is kept, root-only"
-[[ "$(stat -c '%U %a' /var/lib/turbo-manager/panel.db)" == "turbo-manager 600" ]] || fail "the restored panel database belongs to the panel"
+[[ "$(stat -c '%a' /var/lib/turbo-stack-backups/restores/panel-before-restore-*)" == "700" ]] || fail "the panel state from before a restore is kept, root-only"
+[[ "$(stat -c '%U %a' /var/lib/turbo-stack/panel.db)" == "turbo-stack 600" ]] || fail "the restored panel database belongs to the panel"
 pass "backups: local repository and keys root-only, staging cleaned up, restored folder handed to the app user; panel state from before a restore kept"
 
-[[ -z "$(find /opt/turbo-manager/runtimes ! -user root -print -quit)" ]] || fail "runtimes must be owned by root"
-[[ -z "$(find /opt/turbo-manager/runtimes ! -type l -perm /022 -print -quit)" ]] || fail "runtimes must not be group/world writable"
+[[ -z "$(find /opt/turbo-stack/runtimes ! -user root -print -quit)" ]] || fail "runtimes must be owned by root"
+[[ -z "$(find /opt/turbo-stack/runtimes ! -type l -perm /022 -print -quit)" ]] || fail "runtimes must not be group/world writable"
 pass "runtimes are root-owned and not writable by apps"
 
 echo "Server post-checks passed."

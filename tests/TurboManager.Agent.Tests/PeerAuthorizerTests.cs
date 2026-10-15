@@ -9,7 +9,7 @@ public sealed class PeerAuthorizerTests : IDisposable
 {
     private readonly FakeHostRoot _host = new FakeHostRoot().WithFile("etc/passwd",
         "root:x:0:0:root:/root:/bin/bash\n" +
-        "turbo-manager:x:998:998::/var/lib/turbo-manager:/usr/sbin/nologin\n" +
+        "turbo-stack:x:998:998::/var/lib/turbo-stack:/usr/sbin/nologin\n" +
         "hotel:x:1001:1001::/home/hotel:/bin/bash\n");
 
     [Theory]

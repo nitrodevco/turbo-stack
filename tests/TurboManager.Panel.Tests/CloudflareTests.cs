@@ -203,7 +203,7 @@ public sealed class CloudflareApiTests : IAsyncLifetime
         Assert.Equal("A", record.GetProperty("type").GetString());
         Assert.Equal("203.0.113.10", record.GetProperty("content").GetString());
         Assert.True(record.GetProperty("proxied").GetBoolean());
-        Assert.Equal("Managed by Turbo Manager", record.GetProperty("comment").GetString());
+        Assert.Equal("Managed by Turbo Stack", record.GetProperty("comment").GetString());
     }
 
     [Fact]
@@ -249,7 +249,7 @@ public sealed class CloudflareApiTests : IAsyncLifetime
         await WaitForJobAsync(site.GetProperty("certificateJobId").GetInt64());
 
         Assert.Contains("listen 443 ssl http2;", _agent.Nginx.Sites["play"]);
-        Assert.Contains("/etc/turbo-manager/certs/hotel.test/fullchain.pem", _agent.Nginx.Sites["play"]);
+        Assert.Contains("/etc/turbo-stack/certs/hotel.test/fullchain.pem", _agent.Nginx.Sites["play"]);
         var certificate = Assert.Single((await _client.GetFromJsonAsync<JsonElement>("/api/certificates")).EnumerateArray());
         Assert.Equal(["hotel.test", "*.hotel.test"], certificate.GetProperty("domains").EnumerateArray().Select(d => d.GetString()));
     }
@@ -323,6 +323,6 @@ public sealed class CloudflareApiTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, close.StatusCode);
         Assert.True(_agent.Nginx.SetupClosed);
         Assert.NotEqual(JsonValueKind.Null, closeBody.GetProperty("pending").ValueKind);
-        Assert.DoesNotContain(_agent.Firewall.Rules, r => r.Comment == "tm:setup");
+        Assert.DoesNotContain(_agent.Firewall.Rules, r => r.Comment == "ts:setup");
     }
 }

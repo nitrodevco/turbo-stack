@@ -10,7 +10,7 @@ public sealed record CertificatePaths(string Fullchain, string PrivateKey);
 /// <summary>Renders a <see cref="Site"/> into an nginx config. Pure, so it is unit tested with exact output.</summary>
 public static class SiteRenderer
 {
-    public const string AcmeWebRoot = "/var/lib/turbo-manager-acme";
+    public const string AcmeWebRoot = "/var/lib/turbo-stack-acme";
 
     /// <param name="certificate">Paths of a certificate covering the site; null renders HTTP only.</param>
     public static string Render(Site site, CertificatePaths? certificate)
@@ -67,7 +67,7 @@ public static class SiteRenderer
             builder.AppendLine($"    ssl_certificate {certificate!.Fullchain};");
             builder.AppendLine($"    ssl_certificate_key {certificate.PrivateKey};");
             builder.AppendLine("    ssl_protocols TLSv1.2 TLSv1.3;");
-            builder.AppendLine("    ssl_session_cache shared:tm_ssl:10m;");
+            builder.AppendLine("    ssl_session_cache shared:ts_ssl:10m;");
             builder.AppendLine("    ssl_session_timeout 1d;");
             AppendSiteBody(builder, site, tls: true);
             builder.AppendLine("}");
@@ -82,8 +82,8 @@ public static class SiteRenderer
 
         builder.AppendLine();
         builder.AppendLine(CultureInfo.InvariantCulture, $"    client_max_body_size {site.ClientMaxBodyMb}m;");
-        builder.AppendLine($"    access_log /var/log/nginx/tm-{site.Name}.access.log;");
-        builder.AppendLine($"    error_log /var/log/nginx/tm-{site.Name}.error.log;");
+        builder.AppendLine($"    access_log /var/log/nginx/ts-{site.Name}.access.log;");
+        builder.AppendLine($"    error_log /var/log/nginx/ts-{site.Name}.error.log;");
 
         foreach (var header in headers)
         {
@@ -169,7 +169,7 @@ public static class SiteRenderer
                 if (route.Kind == RouteKind.WebSocket)
                 {
                     builder.AppendLine("        proxy_set_header Upgrade $http_upgrade;");
-                    builder.AppendLine("        proxy_set_header Connection $tm_connection_upgrade;");
+                    builder.AppendLine("        proxy_set_header Connection $ts_connection_upgrade;");
                     builder.AppendLine("        proxy_read_timeout 1h;");
                     builder.AppendLine("        proxy_send_timeout 1h;");
                     builder.AppendLine("        proxy_buffering off;");

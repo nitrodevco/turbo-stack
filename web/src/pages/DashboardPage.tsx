@@ -39,7 +39,7 @@ export function DashboardPage() {
                 <Notice tone="warning">
                     <p className="font-medium">System agent unavailable</p>
                     <p className="mt-1">
-                        {errorMessage(info.error)} Check <code>systemctl status tm-agent</code> on the server.
+                        {errorMessage(info.error)} Check <code>systemctl status ts-agent</code> on the server.
                     </p>
                 </Notice>
             )}

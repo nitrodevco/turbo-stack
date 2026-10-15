@@ -7,7 +7,7 @@ public enum FirewallSourceKind
     IpList,
 }
 
-/// <summary>A firewall rule the panel owns. It is applied to ufw with the comment "tm:&lt;Key&gt;".</summary>
+/// <summary>A firewall rule the panel owns. It is applied to ufw with the comment "ts:&lt;Key&gt;".</summary>
 public sealed class ManagedFirewallRule
 {
     public int Id { get; set; }

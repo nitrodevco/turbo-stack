@@ -11,9 +11,9 @@ namespace TurboManager.Agent.Nginx;
 /// <summary>Writes panel-managed nginx configs and certificates with test-and-rollback.</summary>
 public sealed partial class NginxManager(ICommandRunner commands, IOptions<AgentOptions> options, ILogger<NginxManager> logger)
 {
-    public const string AcmeWebRoot = "/var/lib/turbo-manager-acme";
+    public const string AcmeWebRoot = "/var/lib/turbo-stack-acme";
 
-    public const string CertificateRoot = "/etc/turbo-manager/certs";
+    public const string CertificateRoot = "/etc/turbo-stack/certs";
 
     private static readonly string[] AllowedWebRoots = ["/var/www/", "/srv/"];
 
@@ -135,7 +135,7 @@ public sealed partial class NginxManager(ICommandRunner commands, IOptions<Agent
         }
     }
 
-    /// <summary>Closes the installer's https://&lt;ip&gt;:8443 entry point; tm-panel-recover reopens it.</summary>
+    /// <summary>Closes the installer's https://&lt;ip&gt;:8443 entry point; ts-panel-recover reopens it.</summary>
     public async Task<NginxApplyResult> CloseSetupAddressAsync(CancellationToken cancellationToken)
     {
         var result = await RemoveAsync(new NginxConfigRef { Name = "setup", Kind = NginxConfigKind.Site }, cancellationToken);
@@ -144,7 +144,7 @@ public sealed partial class NginxManager(ICommandRunner commands, IOptions<Agent
         {
             var marker = HostPath($"/etc/{Branding.Slug}/setup-closed");
             Directory.CreateDirectory(Path.GetDirectoryName(marker)!);
-            await File.WriteAllTextAsync(marker, $"Closed from the panel at {DateTimeOffset.UtcNow:u}. Reopen with: sudo tm-panel-recover\n", cancellationToken);
+            await File.WriteAllTextAsync(marker, $"Closed from the panel at {DateTimeOffset.UtcNow:u}. Reopen with: sudo ts-panel-recover\n", cancellationToken);
         }
 
         return result;
@@ -163,11 +163,11 @@ public sealed partial class NginxManager(ICommandRunner commands, IOptions<Agent
                 continue;
             }
 
-            foreach (var file in Directory.GetFiles(host, "tm-*.conf").Order(StringComparer.Ordinal))
+            foreach (var file in Directory.GetFiles(host, "ts-*.conf").Order(StringComparer.Ordinal))
             {
                 reply.Configs.Add(new NginxConfig
                 {
-                    Name = Path.GetFileNameWithoutExtension(file)["tm-".Length..],
+                    Name = Path.GetFileNameWithoutExtension(file)["ts-".Length..],
                     Kind = kind,
                     Content = File.ReadAllText(file),
                 });
@@ -306,8 +306,8 @@ public sealed partial class NginxManager(ICommandRunner commands, IOptions<Agent
 
         return kind switch
         {
-            NginxConfigKind.Site => (HostPath($"/etc/nginx/sites-available/tm-{name}.conf"), HostPath($"/etc/nginx/sites-enabled/tm-{name}.conf")),
-            NginxConfigKind.Global => (HostPath($"/etc/nginx/conf.d/tm-{name}.conf"), null),
+            NginxConfigKind.Site => (HostPath($"/etc/nginx/sites-available/ts-{name}.conf"), HostPath($"/etc/nginx/sites-enabled/ts-{name}.conf")),
+            NginxConfigKind.Global => (HostPath($"/etc/nginx/conf.d/ts-{name}.conf"), null),
             _ => throw Validate.Invalid("Unknown config kind."),
         };
     }
@@ -441,7 +441,7 @@ public sealed partial class NginxManager(ICommandRunner commands, IOptions<Agent
 
     private static async Task WriteAtomicallyAsync(string path, string content, CancellationToken cancellationToken, UnixFileMode? mode = null)
     {
-        var temp = path + ".tm-tmp";
+        var temp = path + ".ts-tmp";
         await File.WriteAllTextAsync(temp, content, cancellationToken);
         SetMode(temp, mode ?? (UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.OtherRead));
         File.Move(temp, path, overwrite: true);

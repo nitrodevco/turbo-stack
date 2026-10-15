@@ -38,7 +38,7 @@ public sealed record AppRequest(
 public static partial class DeployModels
 {
     public static readonly HashSet<string> ReservedUsers =
-        ["root", "turbo-manager", "www-data", "nobody", "postgres", "mysql", "daemon", "bin", "sys", "ubuntu", "admin"];
+        ["root", "turbo-stack", "www-data", "nobody", "postgres", "mysql", "daemon", "bin", "sys", "ubuntu", "admin"];
 
     public static readonly string[] KnownRuntimes = ["dotnet", "node"];
 

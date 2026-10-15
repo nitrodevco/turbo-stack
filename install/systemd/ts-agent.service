@@ -1,0 +1,17 @@
+[Unit]
+Description=Turbo Stack agent (privileged operations)
+After=network.target
+
+[Service]
+Type=notify
+ExecStart=/opt/turbo-stack/agent/ts-agent
+WorkingDirectory=/opt/turbo-stack/agent
+Environment=DOTNET_ENVIRONMENT=Production
+# Creates /run/turbo-stack for the agent socket.
+RuntimeDirectory=turbo-stack
+RuntimeDirectoryMode=0755
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

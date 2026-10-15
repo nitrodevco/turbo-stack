@@ -80,7 +80,7 @@ builder.Services.AddHostedService<UnattendedHotelService>();
 builder.Services.AddHttpClient("github", client =>
 {
     client.Timeout = TimeSpan.FromSeconds(15);
-    client.DefaultRequestHeaders.UserAgent.ParseAdd("turbo-manager");
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("turbo-stack");
 });
 builder.Services.AddHttpClient("health", client => client.Timeout = TimeSpan.FromSeconds(3));
 builder.Services.AddHttpClient("alerts", client => client.Timeout = TimeSpan.FromSeconds(10));
@@ -102,9 +102,9 @@ builder.Services.Configure<ForwardedHeadersOptions>(forwarded =>
 });
 
 builder.Services.AddAuthentication(AuthSchemes.Session)
-    .AddCookie(AuthSchemes.Session, cookie => ConfigureCookie(cookie, "tm_session", TimeSpan.FromHours(12), sliding: true, validate: true))
-    .AddCookie(AuthSchemes.MfaPending, cookie => ConfigureCookie(cookie, "tm_mfa", TimeSpan.FromMinutes(5), sliding: false, validate: false))
-    .AddCookie(AuthSchemes.Setup, cookie => ConfigureCookie(cookie, "tm_setup", TimeSpan.FromMinutes(30), sliding: true, validate: false))
+    .AddCookie(AuthSchemes.Session, cookie => ConfigureCookie(cookie, "ts_session", TimeSpan.FromHours(12), sliding: true, validate: true))
+    .AddCookie(AuthSchemes.MfaPending, cookie => ConfigureCookie(cookie, "ts_mfa", TimeSpan.FromMinutes(5), sliding: false, validate: false))
+    .AddCookie(AuthSchemes.Setup, cookie => ConfigureCookie(cookie, "ts_setup", TimeSpan.FromMinutes(30), sliding: true, validate: false))
     .AddScheme<AuthenticationSchemeOptions, ApiTokenAuthenticationHandler>(AuthSchemes.Token, _ => { });
 builder.Services.AddAuthorization(authorization => authorization.AddPermissionPolicies());
 

@@ -61,7 +61,7 @@ public sealed partial class BackupService(PanelDbContext db, AgentChannelFactory
         {
             return request.Kind switch
             {
-                BackupTargetKind.Local => "Which folder? For example /var/backups/turbo-manager (better: a separate disk under /mnt).",
+                BackupTargetKind.Local => "Which folder? For example /var/backups/turbo-stack (better: a separate disk under /mnt).",
                 BackupTargetKind.S3 => "Which bucket (optionally bucket/folder)?",
                 _ => "Which folder on the server?",
             };

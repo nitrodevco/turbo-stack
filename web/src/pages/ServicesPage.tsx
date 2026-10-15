@@ -38,7 +38,7 @@ export function ServicesPage() {
 
     return (
         <div className="space-y-6">
-            <PageHeader title="Services" description="systemd services on this server. Managed apps will appear here as tm-*.service." />
+            <PageHeader title="Services" description="systemd services on this server. Managed apps will appear here as ts-*.service." />
             <div className="flex flex-wrap gap-3">
                 <Input placeholder="Search services" value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs" />
                 <Select value={filter} onChange={(e) => setFilter(e.target.value as Filter)} className="w-auto">

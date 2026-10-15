@@ -2,7 +2,7 @@
 layout: home
 
 hero:
-  name: Turbo Manager
+  name: Turbo Stack
   text: A server panel for Turbo and Nitro hotels
   tagline: From a fresh Ubuntu server to a running hotel — emulator, client, imager, website and admin — wired together, on HTTPS, backed up.
   actions:

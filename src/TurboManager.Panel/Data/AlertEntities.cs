@@ -72,7 +72,7 @@ public sealed class AlertEvent
 {
     public long Id { get; set; }
 
-    /// <summary>Identifies the condition (e.g. "disk:/", "unit:tm-app-hotel-emulator.service").</summary>
+    /// <summary>Identifies the condition (e.g. "disk:/", "unit:ts-app-hotel-emulator.service").</summary>
     public required string Key { get; set; }
 
     public AlertSeverity Severity { get; set; }

@@ -3,7 +3,7 @@ namespace TurboManager.Panel.Http;
 public static class SecurityMiddleware
 {
     /// <summary>Header every state-changing API call must carry. Browsers can't add custom headers to cross-site form posts.</summary>
-    public const string CsrfHeader = "X-TM-Request";
+    public const string CsrfHeader = "X-TS-Request";
 
     public static IApplicationBuilder UseSecurityHeaders(this IApplicationBuilder app) => app.Use(async (context, next) =>
     {

@@ -29,7 +29,7 @@ public sealed class ApiToken
 
     public required string Name { get; set; }
 
-    /// <summary>The token's first characters, to recognise it in lists ("tm_ab12…").</summary>
+    /// <summary>The token's first characters, to recognise it in lists ("ts_ab12…").</summary>
     public required string Prefix { get; set; }
 
     /// <summary>SHA-256 of the whole token; the token itself is shown once and never stored.</summary>

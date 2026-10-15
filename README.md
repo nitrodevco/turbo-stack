@@ -1,18 +1,18 @@
-# Turbo Manager
+# Turbo Stack
 
 Self-hosted Ubuntu server panel for running a [Turbo](../turbo-workspace/turbo-cloud) + Nitro hotel.
-"Turbo Manager" is a working name; see [docs/PLAN.md](docs/PLAN.md) for the full plan.
+"Turbo Stack" is a working name; see [docs/PLAN.md](docs/PLAN.md) for the full plan.
 
 ## Layout
 
 | Path | What |
 |---|---|
-| `src/TurboManager.Panel` | Web UI host + API (`tm-panel`). Runs unprivileged as `turbo-manager` on `127.0.0.1:7800`. |
-| `src/TurboManager.Agent` | Root agent (`tm-agent`). gRPC on `/run/turbo-manager/agent.sock`; only root and the panel user may connect (SO_PEERCRED). |
+| `src/TurboManager.Panel` | Web UI host + API (`ts-panel`). Runs unprivileged as `turbo-stack` on `127.0.0.1:7800`. |
+| `src/TurboManager.Agent` | Root agent (`ts-agent`). gRPC on `/run/turbo-stack/agent.sock`; only root and the panel user may connect (SO_PEERCRED). |
 | `src/TurboManager.Contracts` | gRPC contract between panel and agent (`Protos/agent.proto`). |
 | `src/TurboManager.Core` | Shared constants (`Branding`, `ManagerPaths`) and helpers. |
 | `web/` | React + Vite + Tailwind UI, served from the panel's `wwwroot` in releases. |
-| `install/` | `install.sh`, systemd units and the `tm-setup-token` helper. |
+| `install/` | `install.sh`, systemd units and the `ts-setup-token` helper. |
 | `scripts/package.sh` | Builds release bundles in `dist/`, laid out like the install domain. |
 | `test-env/` | Docker test environment (systemd Ubuntu "fresh server", stand-in install domain, E2E scripts). |
 

@@ -27,11 +27,11 @@ public sealed class NginxTests : IDisposable
             server {
                 listen 443 ssl http2;
                 server_name play.example.com;
-                ssl_certificate /etc/turbo-manager/certs/example.com/fullchain.pem;
-                ssl_certificate_key /etc/turbo-manager/certs/example.com/privkey.pem;
+                ssl_certificate /etc/turbo-stack/certs/example.com/fullchain.pem;
+                ssl_certificate_key /etc/turbo-stack/certs/example.com/privkey.pem;
                 root /var/www/play;
-                access_log /var/log/nginx/tm-play.access.log;
-                location ^~ /.well-known/acme-challenge/ { root /var/lib/turbo-manager-acme; }
+                access_log /var/log/nginx/ts-play.access.log;
+                location ^~ /.well-known/acme-challenge/ { root /var/lib/turbo-stack-acme; }
                 location /api/ { proxy_pass http://127.0.0.1:8092; proxy_set_header Host "$host"; }
                 add_header Content-Security-Policy "default-src 'self'; img-src * data:" always;
             }
@@ -74,8 +74,8 @@ public sealed class NginxTests : IDisposable
         var result = await _nginx.ApplyAsync(Site("play", "server { root /var/www/play; }"), CancellationToken.None);
 
         Assert.True(result.Applied);
-        Assert.Equal("server { root /var/www/play; }", await File.ReadAllTextAsync(HostFile("/etc/nginx/sites-available/tm-play.conf")));
-        Assert.True(File.Exists(HostFile("/etc/nginx/sites-enabled/tm-play.conf")));
+        Assert.Equal("server { root /var/www/play; }", await File.ReadAllTextAsync(HostFile("/etc/nginx/sites-available/ts-play.conf")));
+        Assert.True(File.Exists(HostFile("/etc/nginx/sites-enabled/ts-play.conf")));
         Assert.Contains("systemctl reload-or-restart nginx", _commands.Calls);
     }
 
@@ -84,7 +84,7 @@ public sealed class NginxTests : IDisposable
     {
         await _nginx.ApplyAsync(Site("play", "server { root /var/www/v1; }"), CancellationToken.None);
         _commands.Handler = (file, _) => file == "nginx"
-            ? new CommandResult(1, "", "nginx: [emerg] unknown directive \"rot\" in /etc/nginx/sites-enabled/tm-play.conf:1\nnginx: configuration file /etc/nginx/nginx.conf test failed")
+            ? new CommandResult(1, "", "nginx: [emerg] unknown directive \"rot\" in /etc/nginx/sites-enabled/ts-play.conf:1\nnginx: configuration file /etc/nginx/nginx.conf test failed")
             : new CommandResult(0, "", "");
 
         var result = await _nginx.ApplyAsync(Site("play", "server { rot /var/www/v2; }"), CancellationToken.None);
@@ -92,7 +92,7 @@ public sealed class NginxTests : IDisposable
         Assert.False(result.Applied);
         Assert.Contains("unknown directive", result.Error);
         Assert.DoesNotContain("test failed", result.Error);
-        Assert.Equal("server { root /var/www/v1; }", await File.ReadAllTextAsync(HostFile("/etc/nginx/sites-available/tm-play.conf")));
+        Assert.Equal("server { root /var/www/v1; }", await File.ReadAllTextAsync(HostFile("/etc/nginx/sites-available/ts-play.conf")));
     }
 
     [Fact]
@@ -103,8 +103,8 @@ public sealed class NginxTests : IDisposable
         var result = await _nginx.ApplyAsync(Site("new", "server { listen 80; }"), CancellationToken.None);
 
         Assert.False(result.Applied);
-        Assert.False(File.Exists(HostFile("/etc/nginx/sites-available/tm-new.conf")));
-        Assert.False(File.Exists(HostFile("/etc/nginx/sites-enabled/tm-new.conf")));
+        Assert.False(File.Exists(HostFile("/etc/nginx/sites-available/ts-new.conf")));
+        Assert.False(File.Exists(HostFile("/etc/nginx/sites-enabled/ts-new.conf")));
     }
 
     [Fact]
@@ -114,7 +114,7 @@ public sealed class NginxTests : IDisposable
 
         Assert.False(result.Applied);
         Assert.Empty(_commands.Calls);
-        Assert.False(File.Exists(HostFile("/etc/nginx/sites-available/tm-bad.conf")));
+        Assert.False(File.Exists(HostFile("/etc/nginx/sites-available/ts-bad.conf")));
     }
 
     [Theory]
@@ -135,12 +135,12 @@ public sealed class NginxTests : IDisposable
             CancellationToken.None);
 
         Assert.Equal(["play.example.com", "*.example.com"], info.Domains);
-        Assert.True(File.Exists(HostFile("/etc/turbo-manager/certs/example.com/privkey.pem")));
+        Assert.True(File.Exists(HostFile("/etc/turbo-stack/certs/example.com/privkey.pem")));
         Assert.Single(_nginx.ListCertificates().Certificates);
 
         if (!OperatingSystem.IsWindows())
         {
-            Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(HostFile("/etc/turbo-manager/certs/example.com/privkey.pem")));
+            Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(HostFile("/etc/turbo-stack/certs/example.com/privkey.pem")));
         }
     }
 
@@ -161,7 +161,7 @@ public sealed class NginxTests : IDisposable
 
         await _nginx.WriteAcmeChallengeAsync(challenge, CancellationToken.None);
 
-        Assert.True(File.Exists(HostFile("/var/lib/turbo-manager-acme/.well-known/acme-challenge/abcDEF123_-xyz")));
+        Assert.True(File.Exists(HostFile("/var/lib/turbo-stack-acme/.well-known/acme-challenge/abcDEF123_-xyz")));
         await Assert.ThrowsAsync<RpcException>(() => _nginx.WriteAcmeChallengeAsync(new AcmeChallenge { Token = "../../etc/passwd", KeyAuthorization = "x" }, CancellationToken.None));
     }
 

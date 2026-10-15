@@ -14,7 +14,7 @@ using TurboManager.Panel.Data;
 
 namespace TurboManager.Panel.Sites;
 
-/// <summary>Issues and tracks TLS certificates; the agent installs them under /etc/turbo-manager/certs.</summary>
+/// <summary>Issues and tracks TLS certificates; the agent installs them under /etc/turbo-stack/certs.</summary>
 public sealed class CertificateService(
     PanelDbContext db,
     AgentChannelFactory agent,
@@ -26,7 +26,7 @@ public sealed class CertificateService(
     TimeProvider time,
     ILogger<CertificateService> logger)
 {
-    public const string CertificateRoot = "/etc/turbo-manager/certs";
+    public const string CertificateRoot = "/etc/turbo-stack/certs";
 
     /// <summary>Certificates closer to expiry than this are renewed (and not used for new sites).</summary>
     public static readonly TimeSpan RenewBefore = TimeSpan.FromDays(30);

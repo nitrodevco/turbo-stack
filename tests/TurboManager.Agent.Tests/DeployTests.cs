@@ -82,7 +82,7 @@ public sealed class GitSshTests
     [Fact]
     public void Remote_urls_use_the_key_alias_or_https()
     {
-        Assert.Equal("tm-turbo-cloud:billsonnn/turbo-cloud.git", GitSsh.RemoteUrl(Request().Repository, "https://github.com"));
+        Assert.Equal("ts-turbo-cloud:billsonnn/turbo-cloud.git", GitSsh.RemoteUrl(Request().Repository, "https://github.com"));
         Assert.Equal("https://github.com/nitrodevco/turbo-web.git", GitSsh.RemoteUrl(Request().SubmoduleAccess[1], "https://github.com"));
     }
 
@@ -91,9 +91,9 @@ public sealed class GitSshTests
     {
         var arguments = GitSsh.SubmoduleRewrites(Request());
 
-        Assert.Contains("url.tm-turbo-admin:nitrodevco/turbo-admin.git.insteadOf=https://github.com/nitrodevco/turbo-admin.git", arguments);
-        Assert.Contains("url.tm-turbo-admin:nitrodevco/turbo-admin.git.insteadOf=git@github.com:nitrodevco/turbo-admin.git", arguments);
-        Assert.Contains("url.tm-turbo-admin:nitrodevco/turbo-admin.git.insteadOf=tm-turbo-cloud:nitrodevco/turbo-admin.git", arguments);
+        Assert.Contains("url.ts-turbo-admin:nitrodevco/turbo-admin.git.insteadOf=https://github.com/nitrodevco/turbo-admin.git", arguments);
+        Assert.Contains("url.ts-turbo-admin:nitrodevco/turbo-admin.git.insteadOf=git@github.com:nitrodevco/turbo-admin.git", arguments);
+        Assert.Contains("url.ts-turbo-admin:nitrodevco/turbo-admin.git.insteadOf=ts-turbo-cloud:nitrodevco/turbo-admin.git", arguments);
         Assert.Contains("url.https://github.com/nitrodevco/turbo-web.git.insteadOf=git@github.com:nitrodevco/turbo-web.git", arguments);
         Assert.All(arguments.Where((_, i) => i % 2 == 0), a => Assert.Equal("-c", a));
     }
@@ -103,8 +103,8 @@ public sealed class GitSshTests
     {
         var config = GitSsh.RenderConfig(["turbo-cloud", "turbo-admin"], "/home/hotel", "github.com", 22);
 
-        Assert.Contains("Host tm-turbo-cloud", config);
-        Assert.Contains("IdentityFile /home/hotel/.ssh/tm/turbo-admin", config);
+        Assert.Contains("Host ts-turbo-cloud", config);
+        Assert.Contains("IdentityFile /home/hotel/.ssh/ts/turbo-admin", config);
         Assert.Contains("IdentitiesOnly yes", config);
         Assert.Contains("StrictHostKeyChecking yes", config);
         Assert.Equal("[fake-github]:2222 ssh-ed25519 AAAA\n", GitSsh.RenderKnownHosts("fake-github", 2222, ["ssh-ed25519 AAAA"]));
@@ -115,7 +115,7 @@ public sealed class DeployManagerTests : IDisposable
 {
     private readonly FakeHostRoot _host = new FakeHostRoot()
         .WithFile("etc/passwd", "root:x:0:0:root:/root:/bin/bash\nhotel:x:1001:1001::/home/hotel:/bin/bash\nbill:x:1000:1000::/home/bill:/bin/bash\n")
-        .WithFile("etc/group", "root:x:0:\ntm-apps:x:999:hotel\nsudo:x:27:bill\n");
+        .WithFile("etc/group", "root:x:0:\nts-apps:x:999:hotel\nsudo:x:27:bill\n");
 
     private readonly FakeCommandRunner _commands = new();
     private readonly DeployManager _deploy;
@@ -161,12 +161,12 @@ public sealed class DeployManagerTests : IDisposable
         var call = Assert.Single(_commands.Calls, c => c.EndsWith("bash -euo pipefail -c yarn build", StringComparison.Ordinal));
         Assert.StartsWith("runuser -u hotel -- env -i --chdir=/home/hotel/apps/web/releases/20261011120000-abcdef1/packages/nitro-react", call);
         Assert.Contains("VITE_SOCKET_URL=wss://ws.hotel.test", call);
-        Assert.Contains("PATH=/opt/turbo-manager/runtimes/node/bin:/usr/local/sbin", call);
-        Assert.Contains("TM_SHARED_DIR=/home/hotel/apps/web/shared", call);
+        Assert.Contains("PATH=/opt/turbo-stack/runtimes/node/bin:/usr/local/sbin", call);
+        Assert.Contains("TS_SHARED_DIR=/home/hotel/apps/web/shared", call);
         // Its own temp directory (not the shared, possibly noexec /tmp), made before and removed after.
-        Assert.Contains("TMPDIR=/home/hotel/.cache/tm-build/web", call);
-        Assert.Contains("mkdir -p -- \"$1\" bash /home/hotel/.cache/tm-build/web", _commands.Calls[0]);
-        Assert.EndsWith("rm -rf -- /home/hotel/.cache/tm-build/web", _commands.Calls[^1]);
+        Assert.Contains("TMPDIR=/home/hotel/.cache/ts-build/web", call);
+        Assert.Contains("mkdir -p -- \"$1\" bash /home/hotel/.cache/ts-build/web", _commands.Calls[0]);
+        Assert.EndsWith("rm -rf -- /home/hotel/.cache/ts-build/web", _commands.Calls[^1]);
     }
 
     [Fact]
@@ -186,14 +186,14 @@ public sealed class DeployManagerTests : IDisposable
     {
         Directory.CreateDirectory(Path.Combine(_host.Path, "etc/systemd/system"));
         // The app runs; its console socket doesn't yet (systemd ≥ 258 then refuses to start the socket).
-        _commands.Handler = (_, args) => new CommandResult(args is ["is-active", "--quiet", "tm-app-turbo-console.socket"] ? 3 : 0, "", "");
+        _commands.Handler = (_, args) => new CommandResult(args is ["is-active", "--quiet", "ts-app-turbo-console.socket"] ? 3 : 0, "", "");
 
         await _deploy.WriteServiceAsync(new AppServiceRequest { User = "hotel", App = "turbo", Command = "dotnet Turbo.Main.dll", Console = true },
             CancellationToken.None);
 
-        var stop = _commands.Calls.IndexOf("systemctl stop tm-app-turbo.service");
-        var socket = _commands.Calls.IndexOf("systemctl enable --now tm-app-turbo-console.socket");
-        var start = _commands.Calls.IndexOf("systemctl start tm-app-turbo.service");
+        var stop = _commands.Calls.IndexOf("systemctl stop ts-app-turbo.service");
+        var socket = _commands.Calls.IndexOf("systemctl enable --now ts-app-turbo-console.socket");
+        var start = _commands.Calls.IndexOf("systemctl start ts-app-turbo.service");
         Assert.True(stop >= 0 && stop < socket && socket < start, string.Join('\n', _commands.Calls));
     }
 
@@ -204,9 +204,9 @@ public sealed class DeployManagerTests : IDisposable
             new AppServiceRequest { Console = true });
         var socket = DeployManager.RenderConsoleSocket("turbo");
 
-        Assert.Contains("Requires=tm-app-turbo-console.socket", unit);
-        Assert.Contains("Sockets=tm-app-turbo-console.socket\nStandardInput=fd:console\nStandardOutput=journal", unit);
-        Assert.Contains("ListenFIFO=/run/turbo-manager/console/turbo", socket);
+        Assert.Contains("Requires=ts-app-turbo-console.socket", unit);
+        Assert.Contains("Sockets=ts-app-turbo-console.socket\nStandardInput=fd:console\nStandardOutput=journal", unit);
+        Assert.Contains("ListenFIFO=/run/turbo-stack/console/turbo", socket);
         Assert.Contains("SocketMode=0600", socket);
         Assert.Contains("FileDescriptorName=console", socket);
         Assert.DoesNotContain("StandardInput", DeployManager.RenderUnit(new PasswdEntry("hotel", 1001, 1001, "/home/hotel", "/bin/bash"), "web", "",
@@ -287,7 +287,7 @@ public sealed class DeployManagerTests : IDisposable
 
         Assert.Contains("User=hotel", unit);
         Assert.Contains("WorkingDirectory=/home/hotel/apps/turbo/current", unit);
-        Assert.Contains("ExecStart=/etc/turbo-manager/apps/turbo.run", unit);
+        Assert.Contains("ExecStart=/etc/turbo-stack/apps/turbo.run", unit);
         Assert.Contains("MemoryMax=2048M", unit);
         Assert.Contains("TimeoutStopSec=60", unit);
         Assert.Contains("NoNewPrivileges=yes", unit);
@@ -320,8 +320,8 @@ public sealed class DeployManagerTests : IDisposable
     {
         var environment = DeployManager.RuntimeEnvironment(["dotnet", "node"]);
 
-        Assert.StartsWith("/opt/turbo-manager/runtimes/dotnet:/opt/turbo-manager/runtimes/node/bin:", environment["PATH"]);
-        Assert.Equal("/opt/turbo-manager/runtimes/dotnet", environment["DOTNET_ROOT"]);
+        Assert.StartsWith("/opt/turbo-stack/runtimes/dotnet:/opt/turbo-stack/runtimes/node/bin:", environment["PATH"]);
+        Assert.Equal("/opt/turbo-stack/runtimes/dotnet", environment["DOTNET_ROOT"]);
         Assert.Throws<RpcException>(() => DeployManager.RuntimeEnvironment(["php"]));
     }
 
@@ -331,8 +331,8 @@ public sealed class DeployManagerTests : IDisposable
 public sealed class SftpManagerTests : IDisposable
 {
     private readonly FakeHostRoot _host = new FakeHostRoot()
-        .WithFile("etc/passwd", "root:x:0:0:root:/root:/bin/bash\nhotel:x:1001:1001::/home/hotel:/bin/bash\nupload:x:1002:1002::/srv/tm-sftp/upload:/usr/sbin/nologin\n")
-        .WithFile("etc/group", "root:x:0:\ntm-apps:x:999:hotel\ntm-sftp:x:998:upload\n")
+        .WithFile("etc/passwd", "root:x:0:0:root:/root:/bin/bash\nhotel:x:1001:1001::/home/hotel:/bin/bash\nupload:x:1002:1002::/srv/ts-sftp/upload:/usr/sbin/nologin\n")
+        .WithFile("etc/group", "root:x:0:\nts-apps:x:999:hotel\nts-sftp:x:998:upload\n")
         .WithFile("etc/shadow", "upload:$6$hash:19000:0:99999:7:::\n");
 
     private readonly FakeCommandRunner _commands = new();
@@ -354,7 +354,7 @@ public sealed class SftpManagerTests : IDisposable
         // useradd refuses a comment with a colon (exit 3); a comma would split the GECOS field.
         var comment = TurboManager.Agent.Ssh.SftpManager.Comment("hotel", "sites/a:b,c\nd");
 
-        Assert.Equal("Turbo Manager SFTP for hotel (sites/a b c d)", comment);
+        Assert.Equal("Turbo Stack SFTP for hotel (sites/a b c d)", comment);
     }
 
     [Fact]
@@ -362,12 +362,12 @@ public sealed class SftpManagerTests : IDisposable
     {
         var config = TurboManager.Agent.Ssh.SftpManager.RenderDropIn();
 
-        Assert.Contains("Match Group tm-sftp", config);
-        Assert.Contains("ChrootDirectory /srv/tm-sftp/%u", config);
+        Assert.Contains("Match Group ts-sftp", config);
+        Assert.Contains("ChrootDirectory /srv/ts-sftp/%u", config);
         Assert.Contains("ForceCommand internal-sftp -d /files", config);
         Assert.Contains("PermitTTY no", config);
         Assert.Contains("AllowTcpForwarding no", config);
-        Assert.Contains("AuthorizedKeysFile /etc/turbo-manager/sftp-keys/%u", config);
+        Assert.Contains("AuthorizedKeysFile /etc/turbo-stack/sftp-keys/%u", config);
     }
 
     [Fact]
@@ -377,7 +377,7 @@ public sealed class SftpManagerTests : IDisposable
             _sftp.SetKeysAsync(new SftpCredentials { Name = "upload", PublicKeys = { "command=\"sh\" ssh-ed25519 AAAA" } }, CancellationToken.None));
         await _sftp.SetKeysAsync(new SftpCredentials { Name = "upload", PublicKeys = { "ssh-ed25519 AAAAC3Nz me@laptop" } }, CancellationToken.None);
 
-        Assert.Equal("ssh-ed25519 AAAAC3Nz me@laptop\n", File.ReadAllText(Path.Combine(_host.Path, "etc/turbo-manager/sftp-keys/upload")));
+        Assert.Equal("ssh-ed25519 AAAAC3Nz me@laptop\n", File.ReadAllText(Path.Combine(_host.Path, "etc/turbo-stack/sftp-keys/upload")));
         Assert.Equal(1, Assert.Single(_sftp.List().Accounts).Keys);
         Assert.True(_sftp.List().Accounts[0].Password);
     }
@@ -385,7 +385,7 @@ public sealed class SftpManagerTests : IDisposable
     [Fact]
     public async Task Deleting_never_touches_a_folder_that_is_still_mounted()
     {
-        _host.WithFile("proc/self/mountinfo", "1 2 0:1 / /srv/tm-sftp/upload/files rw - ext4 /dev/sda1 rw\n");
+        _host.WithFile("proc/self/mountinfo", "1 2 0:1 / /srv/ts-sftp/upload/files rw - ext4 /dev/sda1 rw\n");
 
         await Assert.ThrowsAsync<RpcException>(() => _sftp.DeleteAsync(new SftpAccountRef { Name = "upload" }, CancellationToken.None));
         Assert.DoesNotContain(_commands.Calls, c => c.StartsWith("userdel", StringComparison.Ordinal) || c.StartsWith("rm", StringComparison.Ordinal));
@@ -394,7 +394,7 @@ public sealed class SftpManagerTests : IDisposable
     [Fact]
     public async Task Accounts_act_as_the_app_user_and_deleting_one_spares_the_apps_processes()
     {
-        _commands.Handler = (file, _) => new CommandResult(0, file == "systemd-escape" ? "srv-tm_sftp-assets-files.mount\n" : "", "");
+        _commands.Handler = (file, _) => new CommandResult(0, file == "systemd-escape" ? "srv-ts_sftp-assets-files.mount\n" : "", "");
         Directory.CreateDirectory(Path.Combine(_host.Path, "etc/systemd/system"));
 
         await _sftp.CreateAsync(new SftpAccountRequest { Name = "assets", AppUser = "hotel", Path = "sites/assets" }, CancellationToken.None);
@@ -403,7 +403,7 @@ public sealed class SftpManagerTests : IDisposable
         Assert.Contains(_commands.Calls, c => c.StartsWith("useradd --non-unique --uid 1001 --gid 1001 --no-user-group ", StringComparison.Ordinal)
             && c.EndsWith(" assets", StringComparison.Ordinal));
 
-        _host.WithFile("etc/group", "root:x:0:\ntm-apps:x:999:hotel\ntm-sftp:x:998:upload,assets\n");
+        _host.WithFile("etc/group", "root:x:0:\nts-apps:x:999:hotel\nts-sftp:x:998:upload,assets\n");
         await _sftp.DeleteAsync(new SftpAccountRef { Name = "assets" }, CancellationToken.None);
 
         Assert.DoesNotContain(_commands.Calls, c => c.StartsWith("pkill", StringComparison.Ordinal) && c.Contains(" -u ", StringComparison.Ordinal));
@@ -412,6 +412,6 @@ public sealed class SftpManagerTests : IDisposable
     }
 
     [Fact]
-    public async Task Only_tm_sftp_members_are_accounts() =>
+    public async Task Only_ts_sftp_members_are_accounts() =>
         await Assert.ThrowsAsync<RpcException>(() => _sftp.SetPasswordAsync(new SftpCredentials { Name = "hotel", Password = "a long enough one" }, CancellationToken.None));
 }

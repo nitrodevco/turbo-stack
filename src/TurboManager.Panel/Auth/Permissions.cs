@@ -47,10 +47,10 @@ public static class Permissions
     ];
 
     /// <summary>Claim type of a token's permissions (a principal without any is a full session).</summary>
-    public const string TokenPermissionClaim = "tm:perm";
+    public const string TokenPermissionClaim = "ts:perm";
 
     /// <summary>A custom role's current permissions (added to the principal on every request).</summary>
-    public const string RolePermissionClaim = "tm:role-perm";
+    public const string RolePermissionClaim = "ts:role-perm";
 
     /// <summary>Owner and admin only: a custom role can't hold these (no root shell, no editing who may do what).</summary>
     public static readonly IReadOnlySet<string> NotForCustomRoles = new HashSet<string> { TerminalRoot, UsersManage };

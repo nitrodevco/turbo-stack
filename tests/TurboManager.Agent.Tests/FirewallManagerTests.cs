@@ -10,7 +10,7 @@ namespace TurboManager.Agent.Tests;
 
 public sealed class FirewallManagerTests : IDisposable
 {
-    private const string OriginalRules = "### tuple ### limit tcp 22 0.0.0.0/0 any 0.0.0.0/0 in comment=746d3a737368\n";
+    private const string OriginalRules = "### tuple ### limit tcp 22 0.0.0.0/0 any 0.0.0.0/0 in comment=74733a737368\n";
 
     private readonly FakeHostRoot _host = new FakeHostRoot()
         .WithFile("etc/ufw/user.rules", OriginalRules)
@@ -37,7 +37,7 @@ public sealed class FirewallManagerTests : IDisposable
             // Simulate ufw rewriting its rules file when a rule is added.
             if (file == "ufw" && arguments[0] == "allow")
             {
-                File.AppendAllText(files.UserRules, "### tuple ### allow tcp 8080 0.0.0.0/0 any 0.0.0.0/0 in comment=746d3a7231\n");
+                File.AppendAllText(files.UserRules, "### tuple ### allow tcp 8080 0.0.0.0/0 any 0.0.0.0/0 in comment=74733a7231\n");
             }
 
             return new CommandResult(0, "", "");
@@ -63,26 +63,26 @@ public sealed class FirewallManagerTests : IDisposable
         Assert.False(File.Exists(Path.Combine(_host.Path, "state", "pending-firewall-change.json")));
     }
 
-    private static FirewallRuleSpec Spec(string action = "allow", string ports = "8080", string source = "any", string comment = "tm:r1") =>
+    private static FirewallRuleSpec Spec(string action = "allow", string ports = "8080", string source = "any", string comment = "ts:r1") =>
         new() { Action = action, Protocol = "tcp", Ports = ports, Source = source, Comment = comment };
 
     [Fact]
     public void Rule_specs_become_full_ufw_syntax()
     {
-        Assert.Equal(["allow", "proto", "tcp", "from", "203.0.113.0/24", "to", "any", "port", "80,443", "comment", "tm:web"],
-            UfwCommands.Add(Spec(ports: "80,443", source: "203.0.113.0/24", comment: "tm:web")));
+        Assert.Equal(["allow", "proto", "tcp", "from", "203.0.113.0/24", "to", "any", "port", "80,443", "comment", "ts:web"],
+            UfwCommands.Add(Spec(ports: "80,443", source: "203.0.113.0/24", comment: "ts:web")));
         Assert.Equal(["--force", "delete", "limit", "proto", "tcp", "from", "any", "to", "any", "port", "22"],
-            UfwCommands.Delete(Spec(action: "limit", ports: "22", comment: "tm:ssh")));
+            UfwCommands.Delete(Spec(action: "limit", ports: "22", comment: "ts:ssh")));
     }
 
     [Theory]
-    [InlineData("allow", "tcp", "0", "any", "tm:x")]
-    [InlineData("allow", "tcp", "22;reboot", "any", "tm:x")]
-    [InlineData("allow", "tcp", "22", "evil.example.com", "tm:x")]
+    [InlineData("allow", "tcp", "0", "any", "ts:x")]
+    [InlineData("allow", "tcp", "22;reboot", "any", "ts:x")]
+    [InlineData("allow", "tcp", "22", "evil.example.com", "ts:x")]
     [InlineData("allow", "tcp", "22", "any", "no-prefix")]
-    [InlineData("accept", "tcp", "22", "any", "tm:x")]
-    [InlineData("allow", "any", "1000:2000", "any", "tm:x")]
-    [InlineData("limit", "udp", "53", "any", "tm:x")]
+    [InlineData("accept", "tcp", "22", "any", "ts:x")]
+    [InlineData("allow", "any", "1000:2000", "any", "ts:x")]
+    [InlineData("limit", "udp", "53", "any", "ts:x")]
     public void Invalid_specs_are_rejected(string action, string protocol, string ports, string source, string comment)
     {
         var spec = new FirewallRuleSpec { Action = action, Protocol = protocol, Ports = ports, Source = source, Comment = comment };
@@ -98,7 +98,7 @@ public sealed class FirewallManagerTests : IDisposable
         Assert.True(state.Enabled);
         Assert.Equal("deny", state.DefaultIncoming);
         Assert.Single(state.Rules);
-        Assert.Equal("tm:ssh", state.Rules[0].Comment);
+        Assert.Equal("ts:ssh", state.Rules[0].Comment);
     }
 
     [Fact]
@@ -143,7 +143,7 @@ public sealed class FirewallManagerTests : IDisposable
         await _firewall.ApplyAsync(new FirewallChange { Add = { Spec() }, ConfirmWithinSeconds = 60 }, CancellationToken.None);
 
         var second = await Assert.ThrowsAsync<RpcException>(() =>
-            _firewall.ApplyAsync(new FirewallChange { Add = { Spec(ports: "9090", comment: "tm:r2") }, ConfirmWithinSeconds = 60 }, CancellationToken.None));
+            _firewall.ApplyAsync(new FirewallChange { Add = { Spec(ports: "9090", comment: "ts:r2") }, ConfirmWithinSeconds = 60 }, CancellationToken.None));
 
         Assert.Equal(StatusCode.FailedPrecondition, second.StatusCode);
     }
@@ -157,7 +157,7 @@ public sealed class FirewallManagerTests : IDisposable
             : inner(file, arguments);
 
         var error = await Assert.ThrowsAsync<RpcException>(() => _firewall.ApplyAsync(
-            new FirewallChange { Add = { Spec(), Spec(action: "deny", ports: "9", comment: "tm:r2") } }, CancellationToken.None));
+            new FirewallChange { Add = { Spec(), Spec(action: "deny", ports: "9", comment: "ts:r2") } }, CancellationToken.None));
 
         Assert.Equal(StatusCode.Aborted, error.StatusCode);
         Assert.Equal(OriginalRules, await File.ReadAllTextAsync(Path.Combine(_host.Path, "etc/ufw/user.rules")));

@@ -51,7 +51,7 @@ export function PanelUpdateCard() {
         <Card className="space-y-4 p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="space-y-1">
-                    <h2 className="font-medium">Turbo Manager {s.currentVersion}</h2>
+                    <h2 className="font-medium">Turbo Stack {s.currentVersion}</h2>
                     <p className="text-sm text-slate-600 dark:text-slate-400">
                         {s.checkedAt ? `Checked ${formatRelative(s.checkedAt)}` : 'Not checked yet'} · releases are verified against the signing key from install time.
                     </p>

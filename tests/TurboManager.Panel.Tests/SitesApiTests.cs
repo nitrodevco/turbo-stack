@@ -74,7 +74,7 @@ public sealed class SitesApiTests : IAsyncLifetime
         await WaitForJobAsync(jobId);
 
         Assert.Contains("listen 443 ssl http2;", _agent.Nginx.Sites["web"]);
-        Assert.Contains("ssl_certificate /etc/turbo-manager/certs/myhotel.test/fullchain.pem;", _agent.Nginx.Sites["web"]);
+        Assert.Contains("ssl_certificate /etc/turbo-stack/certs/myhotel.test/fullchain.pem;", _agent.Nginx.Sites["web"]);
         Assert.True(_agent.Nginx.Certificates.ContainsKey("myhotel.test"));
 
         var sites = await _client.GetFromJsonAsync<JsonElement>("/api/sites");

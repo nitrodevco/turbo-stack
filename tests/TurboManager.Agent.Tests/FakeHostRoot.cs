@@ -3,7 +3,7 @@ namespace TurboManager.Agent.Tests;
 /// <summary>A temporary directory laid out like a host filesystem (etc/, proc/, run/).</summary>
 public sealed class FakeHostRoot : IDisposable
 {
-    public string Path { get; } = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "tm-host-" + Guid.NewGuid().ToString("N"));
+    public string Path { get; } = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ts-host-" + Guid.NewGuid().ToString("N"));
 
     public FakeHostRoot() => Directory.CreateDirectory(Path);
 

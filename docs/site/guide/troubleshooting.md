@@ -5,7 +5,7 @@
 - **The panel's domain is broken** (DNS, Cloudflare token, certificate): on the server run
 
   ```bash
-  sudo tm-panel-recover
+  sudo ts-panel-recover
   ```
 
   It reopens `https://<server-ip>:8443` (self-signed certificate) and adds a firewall rule for it marked "recovery". Sign in, fix the address under Settings, close the setup address again and delete the "recovery" rule.
@@ -13,15 +13,15 @@
 - **The panel isn't running**: check both services and their logs.
 
   ```bash
-  systemctl status tm-panel tm-agent
-  journalctl -u tm-panel -u tm-agent -n 100
+  systemctl status ts-panel ts-agent
+  journalctl -u ts-panel -u ts-agent -n 100
   ```
 
-- **After an update**: `sudo tm-update status` tells how it went; `sudo tm-update rollback` returns to the previous version.
+- **After an update**: `sudo ts-update status` tells how it went; `sudo ts-update rollback` returns to the previous version.
 
 ## I lost the setup link
 
-Before the panel is claimed, `sudo tm-setup-token` prints a new link (the old one stops working).
+Before the panel is claimed, `sudo ts-setup-token` prints a new link (the old one stops working).
 
 ## I lost my phone (two-factor)
 
@@ -39,7 +39,7 @@ The job output on the app page shows the build log. Common causes:
 
 | | |
 |---|---|
-| Panel and agent | `journalctl -u tm-panel -u tm-agent` |
-| An app | Services page, or `journalctl -u tm-app-<name>` |
+| Panel and agent | `journalctl -u ts-panel -u ts-agent` |
+| An app | Services page, or `journalctl -u ts-app-<name>` |
 | nginx | `/var/log/nginx/` |
-| Sign-in failures | `/var/log/turbo-manager/auth.log` |
+| Sign-in failures | `/var/log/turbo-stack/auth.log` |

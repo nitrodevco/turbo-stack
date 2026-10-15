@@ -50,7 +50,7 @@ The emulator and the website are always part of a hotel (the admin panel and web
 The hotel page's **Answers file** downloads everything the wizard was told (no secrets). On a fresh server:
 
 ```bash
-curl -fsSL https://<install-domain>/install.sh | sudo bash -s -- --config hotel.yaml
+curl -fsSL https://install.nitrodev.co/install.sh | sudo bash -s -- --config hotel.yaml
 ```
 
 The hotel is set up as soon as you claim the panel. Bring the data back from [backups](./backups).

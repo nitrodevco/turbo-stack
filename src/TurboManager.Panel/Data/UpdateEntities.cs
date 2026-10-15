@@ -22,7 +22,7 @@ public sealed class PanelUpdateState
 
     public DateTimeOffset? CheckedAt { get; set; }
 
-    /// <summary>The last update's outcome from tm-update (done, rolled-back, failed), once recorded in the activity log.</summary>
+    /// <summary>The last update's outcome from ts-update (done, rolled-back, failed), once recorded in the activity log.</summary>
     public string? LastState { get; set; }
 
     public string? LastFrom { get; set; }
@@ -31,6 +31,6 @@ public sealed class PanelUpdateState
 
     public string? LastMessage { get; set; }
 
-    /// <summary>tm-update's timestamp of that outcome: recorded once.</summary>
+    /// <summary>ts-update's timestamp of that outcome: recorded once.</summary>
     public string? LastAt { get; set; }
 }

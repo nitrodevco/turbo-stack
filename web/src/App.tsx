@@ -52,7 +52,7 @@ export function App() {
     if (status.isError) {
         return (
             <CenteredPage>
-                <ErrorNote message="The panel API is not reachable. Check that tm-panel is running." />
+                <ErrorNote message="The panel API is not reachable. Check that ts-panel is running." />
             </CenteredPage>
         );
     }

@@ -162,8 +162,8 @@ public sealed class TeamApiTests : IAsyncLifetime
 
         // Logs: only their app's service, and they have to say which.
         Assert.Equal(HttpStatusCode.Forbidden, (await dev.GetAsync("/api/logs")).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await dev.GetAsync("/api/logs?unit=tm-app-other.service")).StatusCode);
-        Assert.NotEqual(HttpStatusCode.Forbidden, (await dev.GetAsync("/api/logs?unit=tm-app-allowed.service")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await dev.GetAsync("/api/logs?unit=ts-app-other.service")).StatusCode);
+        Assert.NotEqual(HttpStatusCode.Forbidden, (await dev.GetAsync("/api/logs?unit=ts-app-allowed.service")).StatusCode);
         Assert.Equal("Developer", (await dev.GetFromJsonAsync<JsonElement>("/api/auth/me")).GetProperty("role").GetString());
         Assert.True((await dev.GetFromJsonAsync<JsonElement>("/api/auth/me")).GetProperty("limited").GetBoolean());
     }
@@ -211,7 +211,7 @@ public sealed class TeamApiTests : IAsyncLifetime
         var created = await (await _owner.PostAsJsonAsync("/api/account/tokens", new { name = "ci", permissions = new[] { "apps.view", "apps.deploy" }, expiresInDays = 30 }))
             .EnsureSuccessStatusCode().Content.ReadFromJsonAsync<JsonElement>();
         var secret = created.GetProperty("token").GetString()!;
-        Assert.StartsWith("tm_", secret);
+        Assert.StartsWith("ts_", secret);
         Assert.Equal(HttpStatusCode.BadRequest,
             (await _owner.PostAsJsonAsync("/api/account/tokens", new { name = "root", permissions = new[] { "terminal.root" } })).StatusCode);
 
@@ -230,7 +230,7 @@ public sealed class TeamApiTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.Unauthorized, (await bot.GetAsync("/api/apps")).StatusCode);
 
         var wrong = _panel.CreateClient();
-        wrong.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "tm_not-a-real-token");
+        wrong.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "ts_not-a-real-token");
         Assert.Equal(HttpStatusCode.Unauthorized, (await wrong.GetAsync("/api/apps")).StatusCode);
     }
 }

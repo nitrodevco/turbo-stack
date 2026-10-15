@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Installs a verified release bundle and puts the previous version back on its own if the new one doesn't come up.
-# tm-agent checks the bundle (signed channel file, checksum) and starts this script from the bundle itself in a
-# transient unit (tm-update), so it survives the agent's own restart.
+# ts-agent checks the bundle (signed channel file, checksum) and starts this script from the bundle itself in a
+# transient unit (ts-update), so it survives the agent's own restart.
 #
-#   tm-update apply <bundle-dir>   install it, health-check, roll back on failure
-#   tm-update rollback             put back the version from before the last update (binaries and panel database)
-#   tm-update status               the last update's outcome (JSON)
-#   tm-update trust-key <file>     trust this release signing key from now on (after checking it out of band)
+#   ts-update apply <bundle-dir>   install it, health-check, roll back on failure
+#   ts-update rollback             put back the version from before the last update (binaries and panel database)
+#   ts-update status               the last update's outcome (JSON)
+#   ts-update trust-key <file>     trust this release signing key from now on (after checking it out of band)
 #
 # Key rotation: a release signed with the trusted key may carry the next key (release-key.pem in the bundle). Once
 # that release is installed and healthy, the next key is trusted and the old one no longer is.
@@ -15,17 +15,17 @@
 set -euo pipefail
 
 main() {
-    SHORT="tm"
-    SLUG="turbo-manager"
+    SHORT="ts"
+    SLUG="turbo-stack"
     INSTALL_ROOT="/opt/$SLUG"
     STATE_ROOT="/var/lib/$SLUG"
     CONFIG_ROOT="/etc/$SLUG"
     UPDATE_ROOT="/var/lib/$SLUG-updates"
     ROLLBACK="$UPDATE_ROOT/rollback"
     STATUS_FILE="$UPDATE_ROOT/status.json"
-    PANEL_PORT="$(sed -n 's/^TM_PANEL_PORT=//p' "$CONFIG_ROOT/install.env" 2>/dev/null || true)"
+    PANEL_PORT="$(sed -n 's/^TS_PANEL_PORT=//p' "$CONFIG_ROOT/install.env" 2>/dev/null || true)"
     PANEL_PORT="${PANEL_PORT:-7800}"
-    HEALTH_TIMEOUT="${TM_UPDATE_HEALTH_TIMEOUT:-120}"
+    HEALTH_TIMEOUT="${TS_UPDATE_HEALTH_TIMEOUT:-120}"
 
     [[ $EUID -eq 0 ]] || { echo "Run as root." >&2; exit 1; }
 
@@ -63,7 +63,7 @@ trust_key() {
     mv "$CONFIG_ROOT/release-key.pem.new" "$CONFIG_ROOT/release-key.pem"
 }
 
-set_version() { sed -i "s/^TM_VERSION=.*/TM_VERSION=$1/" "$CONFIG_ROOT/install.env"; }
+set_version() { sed -i "s/^TS_VERSION=.*/TS_VERSION=$1/" "$CONFIG_ROOT/install.env"; }
 
 # Up means: the agent answers on its socket and the panel reports the expected version.
 healthy() {

@@ -31,7 +31,7 @@ public sealed class UfwFiles(IOptions<AgentOptions> options)
                 continue;
             }
 
-            var temp = path + ".tm-restore";
+            var temp = path + ".ts-restore";
             File.WriteAllText(temp, content);
 
             if (!OperatingSystem.IsWindows() && File.Exists(path))

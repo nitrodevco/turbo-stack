@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Docker test environment for Turbo Manager. See docs/PLAN.md section 8.
+# Docker test environment for Turbo Stack. See docs/PLAN.md section 8.
 #
 #   test-env/dev package     Build release bundles into dist/ (linux-x64 by default; ARCH=arm64 to change)
 #   test-env/dev up          Start a fresh Ubuntu server + the stand-in install domain
@@ -64,12 +64,12 @@ Environment=Panel__GitHubHttpsBase=https://fake-github
 Environment=\"Panel__GitHubKnownHosts__0=$github_key\"
 Environment=Panel__DeployHealthTimeoutSeconds=20"
     fi
-    on_server bash -c "mkdir -p /etc/systemd/system/tm-panel.service.d && cat > /etc/systemd/system/tm-panel.service.d/test.conf <<EOF
+    on_server bash -c "mkdir -p /etc/systemd/system/ts-panel.service.d && cat > /etc/systemd/system/ts-panel.service.d/test.conf <<EOF
 [Service]
 Environment=Panel__CloudflareApiBase=http://fake-cloudflare:8080/client/v4
 $github
 EOF
-systemctl daemon-reload && systemctl restart tm-panel
+systemctl daemon-reload && systemctl restart ts-panel
 for _ in \$(seq 1 60); do curl -fsS http://127.0.0.1:7800/api/health >/dev/null 2>&1 && break; sleep 1; done"
 }
 
@@ -133,7 +133,7 @@ cmd_hotel() {
 
 # Self-update: the tester keeps one session across the phases while test releases are published in between.
 cmd_upgrade() {
-    local url tester="tm-test-upgrade-tester"
+    local url tester="ts-test-upgrade-tester"
     VERSION=0.1.0 cmd_package
     cmd_reset
     cmd_install
@@ -147,8 +147,8 @@ cmd_upgrade() {
     in_tester prepare "$url"
     "$HERE/release.sh" 0.1.1
     in_tester update 0.1.1
-    on_server bash -c '[[ "$(cat /opt/turbo-manager/VERSION)" == 0.1.1 ]] && grep -qx TM_VERSION=0.1.1 /etc/turbo-manager/install.env \
-        && [[ "$(cat /var/lib/turbo-manager-updates/rollback/VERSION)" == 0.1.0 ]] && systemctl is-active --quiet tm-app-api' \
+    on_server bash -c '[[ "$(cat /opt/turbo-stack/VERSION)" == 0.1.1 ]] && grep -qx TS_VERSION=0.1.1 /etc/turbo-stack/install.env \
+        && [[ "$(cat /var/lib/turbo-stack-updates/rollback/VERSION)" == 0.1.0 ]] && systemctl is-active --quiet ts-app-api' \
         || { echo "server: 0.1.1 installed, 0.1.0 kept for rollback, apps running — expected" >&2; return 1; }
 
     "$HERE/release.sh" 0.1.2 --tamper
@@ -156,8 +156,8 @@ cmd_upgrade() {
 
     "$HERE/release.sh" 0.1.2 --broken-panel
     in_tester broken 0.1.2
-    on_server bash -c '[[ "$(cat /opt/turbo-manager/VERSION)" == 0.1.1 ]] && grep -qx TM_VERSION=0.1.1 /etc/turbo-manager/install.env \
-        && systemctl is-active --quiet tm-panel tm-agent tm-app-api' \
+    on_server bash -c '[[ "$(cat /opt/turbo-stack/VERSION)" == 0.1.1 ]] && grep -qx TS_VERSION=0.1.1 /etc/turbo-stack/install.env \
+        && systemctl is-active --quiet ts-panel ts-agent ts-app-api' \
         || { echo "server: 0.1.1 should be back and running after the rollback" >&2; return 1; }
 
     # Key rotation: 0.1.3 (signed with the current key) hands over a new key; 0.1.4 is signed with it; a release
@@ -168,8 +168,8 @@ cmd_upgrade() {
     fingerprint="$(openssl pkey -pubin -in "$next.pub" -outform DER | sha256sum | cut -c1-16)"
     "$HERE/release.sh" 0.1.3 --next-key "$next.pub"
     in_tester update 0.1.3
-    on_server bash -c '[[ "$(openssl pkey -pubin -in /etc/turbo-manager/release-key.pem -outform DER | sha256sum | cut -c1-16)" == "$1" ]] \
-        && [[ -f /etc/turbo-manager/release-key.previous.pem ]]' _ "$fingerprint" \
+    on_server bash -c '[[ "$(openssl pkey -pubin -in /etc/turbo-stack/release-key.pem -outform DER | sha256sum | cut -c1-16)" == "$1" ]] \
+        && [[ -f /etc/turbo-stack/release-key.previous.pem ]]' _ "$fingerprint" \
         || { echo "server: 0.1.3 should have handed over the new release key" >&2; return 1; }
     "$HERE/release.sh" 0.1.4 --sign-with "$next"
     in_tester update 0.1.4
@@ -180,8 +180,8 @@ cmd_upgrade() {
 
 cmd_collect() {
     mkdir -p "$ARTIFACTS"
-    on_server journalctl --no-pager -u tm-agent -u tm-panel -u nginx > "$ARTIFACTS/journal.log" 2>&1 || true
-    on_server cat /etc/nginx/sites-enabled/tm-setup.conf > "$ARTIFACTS/nginx-tm-setup.conf" 2>&1 || true
+    on_server journalctl --no-pager -u ts-agent -u ts-panel -u nginx > "$ARTIFACTS/journal.log" 2>&1 || true
+    on_server cat /etc/nginx/sites-enabled/ts-setup.conf > "$ARTIFACTS/nginx-ts-setup.conf" 2>&1 || true
     on_server ufw status verbose > "$ARTIFACTS/ufw.txt" 2>&1 || true
     echo "Collected diagnostics in $ARTIFACTS"
 }
@@ -196,7 +196,7 @@ cmd_try() {
 
     printf '\nThe test server is ready. Setup link:\n\n    %s\n\n' "$url"
     printf 'Your browser will warn about the certificate: continue (this is your own test server).\n'
-    printf 'In Docker Desktop it is under Containers as "tm-test": view logs, open a terminal, or stop it there.\n'
+    printf 'In Docker Desktop it is under Containers as "ts-test": view logs, open a terminal, or stop it there.\n'
     printf 'Cloudflare here talks to a fake API: connect it with the token "test-token".\n\n'
 
     case "$(uname -s)" in
@@ -224,8 +224,8 @@ case "${1:-}" in
     try) cmd_try ;;
     collect) cmd_collect ;;
     shell) compose exec server bash ;;
-    logs) compose exec server journalctl -f -u tm-agent -u tm-panel ;;
-    token) on_server tm-setup-token ;;
+    logs) compose exec server journalctl -f -u ts-agent -u ts-panel ;;
+    token) on_server ts-setup-token ;;
     reset) cmd_reset ;;
     down) compose down --volumes --remove-orphans ;;
     *) sed -n '2,21p' "$0"; exit 1 ;;

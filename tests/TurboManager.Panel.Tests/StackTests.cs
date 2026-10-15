@@ -287,7 +287,7 @@ public sealed class StackApiTests : IAsyncLifetime
         Assert.Contains("server_name game.hotel.test;", _agent.Nginx.Sites["hotel-client"]);
         Assert.Contains("frame-src https://game.hotel.test;", _agent.Nginx.Sites["hotel-web"]);
         Assert.Equal("https://game.hotel.test/?sso={ticket}", (await EnvironmentAsync("hotel-emulator"))["TURBO__Turbo__Web__ClientUrl"]);
-        Assert.Equal(["tm-app-hotel-emulator.service"], _agent.Services.Controls.Select(c => c.Name));
+        Assert.Equal(["ts-app-hotel-emulator.service"], _agent.Services.Controls.Select(c => c.Name));
         Assert.DoesNotContain((await _client.GetFromJsonAsync<JsonElement[]>($"/api/stacks/{stackId}/changes"))!,
             c => c.GetProperty("action").GetString() != "none");
     }
@@ -364,7 +364,7 @@ public sealed class StackApiTests : IAsyncLifetime
         await InstallAsync(stackId);
         _agent.Logs.Entries.Add(new JournalEntry
         {
-            Unit = "tm-app-hotel-emulator.service",
+            Unit = "ts-app-hotel-emulator.service",
             Message = "Admin panel setup for the owner, bill: open https://admin.hotel.test/setup#token=abc123 on the device you will sign in with.",
         });
 
@@ -383,7 +383,7 @@ public sealed class StackApiTests : IAsyncLifetime
 public sealed class UnattendedInstallTests : IAsyncLifetime
 {
     private readonly PanelFactory _panel = new();
-    private readonly string _answers = Path.Combine(Path.GetTempPath(), $"tm-hotel-{Guid.NewGuid():N}.yaml");
+    private readonly string _answers = Path.Combine(Path.GetTempPath(), $"ts-hotel-{Guid.NewGuid():N}.yaml");
     private FakeAgent _agent = null!;
 
     public async Task InitializeAsync()

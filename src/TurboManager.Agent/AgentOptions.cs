@@ -21,10 +21,10 @@ public sealed class AgentOptions
     public string StateDirectory { get; set; } = $"{ManagerPaths.StateRoot}-agent";
 
     /// <summary>Database dumps and uploaded imports (root-only).</summary>
-    public string DatabaseBackupRoot { get; set; } = "/var/lib/turbo-manager-backups/databases";
+    public string DatabaseBackupRoot { get; set; } = "/var/lib/turbo-stack-backups/databases";
 
     /// <summary>Backup work space (root-only): staging for runs, scratch space for restores, local repositories.</summary>
-    public string BackupRoot { get; set; } = "/var/lib/turbo-manager-backups";
+    public string BackupRoot { get; set; } = "/var/lib/turbo-stack-backups";
 
     /// <summary>Downloaded update bundles, the rollback copy and status.json of the last update (root-only).</summary>
     public string UpdateRoot { get; set; } = $"{ManagerPaths.StateRoot}-updates";

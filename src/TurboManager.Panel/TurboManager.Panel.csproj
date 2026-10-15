@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
-    <AssemblyName>tm-panel</AssemblyName>
+    <AssemblyName>ts-panel</AssemblyName>
     <RootNamespace>TurboManager.Panel</RootNamespace>
   </PropertyGroup>
 

@@ -2,7 +2,7 @@
 
 ## Repositories
 
-A repository belongs to an **app user** (a Linux user in the `tm-apps` group, never root). Private repositories — and private submodules — each get their own **deploy key**: read-only, valid for one repository. Add it on GitHub under *Settings → Deploy keys*; **Test access** on the repository page confirms it works.
+A repository belongs to an **app user** (a Linux user in the `ts-apps` group, never root). Private repositories — and private submodules — each get their own **deploy key**: read-only, valid for one repository. Add it on GitHub under *Settings → Deploy keys*; **Test access** on the repository page confirms it works.
 
 ## Apps
 
@@ -10,7 +10,7 @@ An app is a repository plus how to build and run it:
 
 - **Build script** — runs as the app user with the chosen runtimes (.NET, Node) on its `PATH`.
 - **Static output** — a folder a site serves (the Nitro client, the website's front end).
-- **Service** — a command systemd keeps running (`tm-app-<name>`), with its environment kept encrypted, a memory limit and a health check.
+- **Service** — a command systemd keeps running (`ts-app-<name>`), with its environment kept encrypted, a memory limit and a health check.
 - **Shared paths** — folders that survive releases (uploads, logs, `.env` files).
 
 Each deploy builds a new release under `apps/<app>/releases/` and switches the `current` link atomically. If the service's health check doesn't pass, the previous release is put back automatically. **Roll back to this** next to any kept release on the app page puts it live again in a second.

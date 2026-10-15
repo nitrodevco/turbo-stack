@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
-    <AssemblyName>tm-agent</AssemblyName>
+    <AssemblyName>ts-agent</AssemblyName>
     <RootNamespace>TurboManager.Agent</RootNamespace>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>

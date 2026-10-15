@@ -50,7 +50,7 @@ export function RepositoryPage() {
                             </a>{' '}
                             and click <strong>Add deploy key</strong>.
                         </li>
-                        <li>Title: "Turbo Manager". Paste the key below. Leave "Allow write access" off.</li>
+                        <li>Title: "Turbo Stack". Paste the key below. Leave "Allow write access" off.</li>
                     </ol>
                     <KeyBox value={repository.publicKey ?? ''} />
                     {repository.submoduleKeys.map((key) => (

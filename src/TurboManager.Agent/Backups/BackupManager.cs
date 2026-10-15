@@ -34,7 +34,7 @@ public sealed partial class BackupManager(ICommandRunner commands, DatabaseManag
     public static readonly string[] PanelStatePaths = [PanelDatabaseCopy, $"{ManagerPaths.StateRoot}/keys", $"/etc/{Branding.Slug}"];
 
     /// <summary>Local repositories live under one of these (never inside app homes or the system's own directories).</summary>
-    public static readonly string[] LocalRoots = ["/var/backups/", "/srv/", "/mnt/", "/media/", "/backup/", "/backups/", "/var/lib/turbo-manager-backups/repositories/"];
+    public static readonly string[] LocalRoots = ["/var/backups/", "/srv/", "/mnt/", "/media/", "/backup/", "/backups/", "/var/lib/turbo-stack-backups/repositories/"];
 
     private static readonly TimeSpan ResticTimeout = TimeSpan.FromMinutes(10);
 
@@ -355,7 +355,7 @@ public sealed partial class BackupManager(ICommandRunner commands, DatabaseManag
     private static readonly string PanelRestoreScript = $"/usr/local/sbin/{Branding.ShortName}-panel-restore";
 
     /// <summary>
-    /// Replaces the live panel state with the snapshot's: unpacks it, then starts tm-panel-restore in a transient unit (it
+    /// Replaces the live panel state with the snapshot's: unpacks it, then starts ts-panel-restore in a transient unit (it
     /// stops the panel, keeps the current state aside, swaps, and puts the old state back if the panel doesn't come up).
     /// </summary>
     public async Task RestorePanelStateAsync(SnapshotRef request, Func<string, Task> write, CancellationToken cancellationToken)

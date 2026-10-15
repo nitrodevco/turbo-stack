@@ -199,7 +199,7 @@ function AddTargetModal({ onClose, onCreated }: { onClose: () => void; onCreated
     const [form, setForm] = useState({
         name: '',
         kind: 'Local' as BackupTargetKind,
-        path: '/var/backups/turbo-manager',
+        path: '/var/backups/turbo-stack',
         endpoint: '',
         port: 22,
         user: '',
@@ -228,7 +228,7 @@ function AddTargetModal({ onClose, onCreated }: { onClose: () => void; onCreated
                     value={form.kind}
                     onChange={(e) => {
                         const kind = e.target.value as BackupTargetKind;
-                        set({ kind, path: kind === 'Local' ? '/var/backups/turbo-manager' : '', endpoint: kind === 'S3' ? 'https://' : '' });
+                        set({ kind, path: kind === 'Local' ? '/var/backups/turbo-stack' : '', endpoint: kind === 'S3' ? 'https://' : '' });
                     }}
                 >
                     <option value="Local">Local folder (best: a separate disk under /mnt)</option>

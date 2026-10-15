@@ -48,7 +48,7 @@ function ConnectGuide() {
                         </a>{' '}
                         and click <strong>Create Token</strong>, then <strong>Create Custom Token</strong>.
                     </li>
-                    <li>Name it, e.g. "Turbo Manager".</li>
+                    <li>Name it, e.g. "Turbo Stack".</li>
                     <li>Add these permissions:</li>
                 </ol>
                 <div className="overflow-x-auto">

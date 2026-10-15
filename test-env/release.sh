@@ -3,7 +3,7 @@
 # rebuild): the same binaries with a new version number, signed like a real release — or deliberately broken.
 #
 #   test-env/release.sh <version> [--broken-panel] [--tamper] [--sign-with <key.pem>] [--next-key <public.pem>]
-#     --broken-panel   the panel exits at once (tm-update must put the previous version back)
+#     --broken-panel   the panel exits at once (ts-update must put the previous version back)
 #     --tamper         the channel file is changed after signing (the agent must refuse it)
 #     --sign-with      sign with this private key instead of the usual one
 #     --next-key       the key the bundle hands over (rotation); default: the signing key's own public half
@@ -41,7 +41,7 @@ if [[ ! -f "$DIST/base-bundle" ]]; then
     find "$DIST/files" -name '*-linux-x64.tar.gz' -printf '%f\n' | head -n1 > "$DIST/base-bundle"
 fi
 BASE="$DIST/files/$(cat "$DIST/base-bundle")"
-FILE="tm-$VERSION-linux-x64.tar.gz"
+FILE="ts-$VERSION-linux-x64.tar.gz"
 
 # Python's tarfile keeps every entry's mode and owner (re-packing on Windows would lose the executable bits).
 PYTHON=""
@@ -55,7 +55,7 @@ import io, sys, tarfile
 source, target, version, broken, key = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4] == "1", sys.argv[5]
 replace = {"VERSION": (version + "\n").encode(), "release-key.pem": open(key, "rb").read().replace(b"\r\n", b"\n")}
 if broken:
-    replace["panel/tm-panel"] = b"#!/bin/sh\necho 'this test release is broken on purpose' >&2\nexit 1\n"
+    replace["panel/ts-panel"] = b"#!/bin/sh\necho 'this test release is broken on purpose' >&2\nexit 1\n"
 with tarfile.open(source, "r:gz") as src, tarfile.open(target, "w:gz") as dst:
     for member in src.getmembers():
         name = member.name[2:] if member.name.startswith("./") else member.name

@@ -16,8 +16,8 @@ public sealed class AccessScope(IHttpContextAccessor http, PanelDbContext db)
 
         public bool Stack(int stackId) => All || Stacks.Contains(stackId);
 
-        /// <summary>A systemd unit belonging to an allowed app (tm-app-&lt;name&gt;.service).</summary>
-        public bool Unit(string unit) => All || AllowedApps.Any(a => unit == $"tm-app-{a.Name}.service");
+        /// <summary>A systemd unit belonging to an allowed app (ts-app-&lt;name&gt;.service).</summary>
+        public bool Unit(string unit) => All || AllowedApps.Any(a => unit == $"ts-app-{a.Name}.service");
 
         /// <summary>Jobs of allowed apps (deploys) and hotels (installs, updates).</summary>
         public bool Job(string kind) =>

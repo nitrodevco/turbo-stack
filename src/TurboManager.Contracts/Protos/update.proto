@@ -7,8 +7,8 @@ package turbomanager.agent.v1;
 import "google/protobuf/empty.proto";
 
 // Panel self-update. The agent reads the release channel from the install domain itself and verifies its signature
-// with the release key from install time (/etc/turbo-manager/release-key.pem): nothing the panel says about a release
-// is trusted. The update runs in a transient systemd unit (tm-update) so it survives the agent's own restart.
+// with the release key from install time (/etc/turbo-stack/release-key.pem): nothing the panel says about a release
+// is trusted. The update runs in a transient systemd unit (ts-update) so it survives the agent's own restart.
 service UpdateAgent {
   rpc CheckUpdate (google.protobuf.Empty) returns (UpdateInfo);
   rpc StartUpdate (UpdateRequest) returns (google.protobuf.Empty);
@@ -36,7 +36,7 @@ message UpdateStatus {
   string to_version = 3;
   string message = 4;
   string updated_at = 5;       // ISO 8601
-  bool running = 6;            // the tm-update unit is active right now
+  bool running = 6;            // the ts-update unit is active right now
 }
 
 message UpdateChannel {

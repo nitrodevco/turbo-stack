@@ -25,8 +25,8 @@ public sealed class ParserTests
             ActiveEnterTimestamp=@1760155200
             NRestarts=2
 
-            Id=tm-agent.service
-            Description=Turbo Manager agent
+            Id=ts-agent.service
+            Description=Turbo Stack agent
             LoadState=loaded
             ActiveState=inactive
             SubState=dead
@@ -133,11 +133,11 @@ public sealed class ParserTests
             *filter
             ### RULES ###
 
-            ### tuple ### limit tcp 22 0.0.0.0/0 any 0.0.0.0/0 in comment=746d3a737368
+            ### tuple ### limit tcp 22 0.0.0.0/0 any 0.0.0.0/0 in comment=74733a737368
             -A ufw-user-input -p tcp --dport 22 -j ufw-user-limit
             ### tuple ### allow tcp 80,443 0.0.0.0/0 any 203.0.113.0/24 in
             ### tuple ### allow_log any 22 0.0.0.0/0 any 0.0.0.0/0 OpenSSH - in_eth0
-            ### tuple ### deny udp 6000:6010 0.0.0.0/0 any 198.51.100.7/32 in comment=746d3a7231
+            ### tuple ### deny udp 6000:6010 0.0.0.0/0 any 198.51.100.7/32 in comment=74733a7231
 
             ### END RULES ###
             """;
@@ -145,10 +145,10 @@ public sealed class ParserTests
         var parsed = UfwParser.ParseRulesFile(rules, ipv6: false);
 
         Assert.Equal(4, parsed.Count);
-        Assert.Equal(("limit", "tcp", "22", "any", "tm:ssh"), (parsed[0].Action, parsed[0].Protocol, parsed[0].Ports, parsed[0].Source, parsed[0].Comment));
+        Assert.Equal(("limit", "tcp", "22", "any", "ts:ssh"), (parsed[0].Action, parsed[0].Protocol, parsed[0].Ports, parsed[0].Source, parsed[0].Comment));
         Assert.Equal(("80,443", "203.0.113.0/24", ""), (parsed[1].Ports, parsed[1].Source, parsed[1].Comment));
         Assert.Equal(("allow", "in"), (parsed[2].Action, parsed[2].Direction));
-        Assert.Equal(("198.51.100.7", "tm:r1"), (parsed[3].Source, parsed[3].Comment));
+        Assert.Equal(("198.51.100.7", "ts:r1"), (parsed[3].Source, parsed[3].Comment));
     }
 
     [Fact]
@@ -167,7 +167,7 @@ public sealed class ParserTests
             tcp   LISTEN 0      511          0.0.0.0:80         0.0.0.0:*    users:(("nginx",pid=812,fd=6),("nginx",pid=813,fd=6))
             tcp   LISTEN 0      4096            [::]:22            [::]:*    users:(("sshd",pid=600,fd=4))
             tcp   LISTEN 0      512                *:9001             *:*    users:(("dotnet",pid=900,fd=200))
-            tcp   LISTEN 0      512   [::ffff:127.0.0.1]:7800           *:*    users:(("tm-panel",pid=950,fd=10))
+            tcp   LISTEN 0      512   [::ffff:127.0.0.1]:7800           *:*    users:(("ts-panel",pid=950,fd=10))
             tcp   LISTEN 0      511          0.0.0.0:80         0.0.0.0:*    users:(("nginx",pid=812,fd=7))
             """;
 
@@ -183,7 +183,7 @@ public sealed class ParserTests
     [Fact]
     public void Fail2ban_status_output_is_parsed()
     {
-        const string overview = "Status\n|- Number of jail:\t2\n`- Jail list:\tsshd, turbo-manager-panel\n";
+        const string overview = "Status\n|- Number of jail:\t2\n`- Jail list:\tsshd, turbo-stack-panel\n";
         const string jail = """
             Status for the jail: sshd
             |- Filter
@@ -197,7 +197,7 @@ public sealed class ParserTests
             """;
         const string ignore = "These IP addresses/networks are ignored:\n|- 127.0.0.1/8\n`- ::1\n";
 
-        Assert.Equal(["sshd", "turbo-manager-panel"], Fail2banParser.ParseJailList(overview));
+        Assert.Equal(["sshd", "turbo-stack-panel"], Fail2banParser.ParseJailList(overview));
         Assert.Equal(3, Fail2banParser.ReadInt(jail, "Currently failed"));
         Assert.Equal(9, Fail2banParser.ReadInt(jail, "Total banned"));
         Assert.Equal(["203.0.113.9", "198.51.100.4"], Fail2banParser.ParseBannedIps(jail));

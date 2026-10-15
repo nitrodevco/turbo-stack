@@ -35,15 +35,15 @@ public sealed class FirewallLogicTests
     {
         var rules = new[] { Rule("ssh", "limit", "22"), Rule("web", ports: "80, 443") };
         var state = State(
-            ("limit", "22", "0.0.0.0/0", "tm:ssh", false),
-            ("limit", "22", "::/0", "tm:ssh", true),
-            ("allow", "9000", "0.0.0.0/0", "tm:old", false),
+            ("limit", "22", "0.0.0.0/0", "ts:ssh", false),
+            ("limit", "22", "::/0", "ts:ssh", true),
+            ("allow", "9000", "0.0.0.0/0", "ts:old", false),
             ("allow", "51820", "0.0.0.0/0", "", false));
 
         var plan = FirewallPlanner.Plan(rules, new FirewallSettings(), state);
 
-        Assert.Equal([new RuleTuple("allow", "tcp", "80,443", "any", "tm:web")], plan.Add);
-        Assert.Equal([new RuleTuple("allow", "tcp", "9000", "any", "tm:old")], plan.Delete);
+        Assert.Equal([new RuleTuple("allow", "tcp", "80,443", "any", "ts:web")], plan.Add);
+        Assert.Equal([new RuleTuple("allow", "tcp", "9000", "any", "ts:old")], plan.Delete);
         Assert.Null(plan.SetEnabled);
         Assert.Null(plan.SetDefaultIncoming);
     }
@@ -58,8 +58,8 @@ public sealed class FirewallLogicTests
         var desired = FirewallPlanner.Desired([Rule("db", ports: "3306", list: staff), disabled]);
 
         Assert.Equal(2, desired.Count);
-        Assert.Contains(new RuleTuple("allow", "tcp", "3306", "203.0.113.7", "tm:db"), desired);
-        Assert.Contains(new RuleTuple("allow", "tcp", "3306", "198.51.100.0/24", "tm:db"), desired);
+        Assert.Contains(new RuleTuple("allow", "tcp", "3306", "203.0.113.7", "ts:db"), desired);
+        Assert.Contains(new RuleTuple("allow", "tcp", "3306", "198.51.100.0/24", "ts:db"), desired);
     }
 
     [Fact]
@@ -74,7 +74,7 @@ public sealed class FirewallLogicTests
     [Fact]
     public void Adding_allow_rules_is_not_risky()
     {
-        var plan = new FirewallPlan([new RuleTuple("allow", "tcp", "8080", "any", "tm:a")], [], null, null);
+        var plan = new FirewallPlan([new RuleTuple("allow", "tcp", "8080", "any", "ts:a")], [], null, null);
 
         Assert.False(FirewallRiskAssessor.Assess(plan, IPAddress.Parse("203.0.113.7")).RequiresConfirmation);
     }
@@ -83,8 +83,8 @@ public sealed class FirewallLogicTests
     public void Removing_access_or_blocking_requires_confirmation()
     {
         var plan = new FirewallPlan(
-            [new RuleTuple("deny", "tcp", "22", "198.51.100.0/24", "tm:b")],
-            [new RuleTuple("limit", "tcp", "22", "any", "tm:ssh")],
+            [new RuleTuple("deny", "tcp", "22", "198.51.100.0/24", "ts:b")],
+            [new RuleTuple("limit", "tcp", "22", "any", "ts:ssh")],
             true, "deny");
 
         var risk = FirewallRiskAssessor.Assess(plan, IPAddress.Parse("203.0.113.7"));
@@ -101,7 +101,7 @@ public sealed class FirewallLogicTests
     [InlineData("198.51.100.1", false)]
     public void Blocking_the_requesters_own_ip_is_flagged(string source, bool blocks)
     {
-        var plan = new FirewallPlan([new RuleTuple("deny", "tcp", "443", source, "tm:x")], [], null, null);
+        var plan = new FirewallPlan([new RuleTuple("deny", "tcp", "443", source, "ts:x")], [], null, null);
 
         Assert.Equal(blocks, FirewallRiskAssessor.Assess(plan, IPAddress.Parse("::ffff:203.0.113.7")).BlocksRequester);
     }
@@ -129,7 +129,7 @@ public sealed class FirewallLogicTests
     [Fact]
     public void Exposure_audit_classifies_sockets()
     {
-        var state = State(("allow", "80", "any", "tm:http", false), ("allow", "3306", "10.0.0.0/8", "tm:db", false));
+        var state = State(("allow", "80", "any", "ts:http", false), ("allow", "3306", "10.0.0.0/8", "ts:db", false));
         var sockets = new[]
         {
             new ListeningSocket { Protocol = "tcp", Address = "0.0.0.0", Port = 80 },

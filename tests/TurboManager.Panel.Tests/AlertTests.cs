@@ -85,13 +85,13 @@ public sealed class AlertApiTests : IAsyncLifetime
     [Fact]
     public async Task Failed_and_crash_looping_services_are_critical()
     {
-        _agent.Services.Units.Add(new ServiceUnit { Name = "tm-app-hotel-emulator.service", ActiveState = "failed", SubState = "failed" });
-        _agent.Services.Units.Add(new ServiceUnit { Name = "tm-app-hotel-imager.service", ActiveState = "activating", SubState = "auto-restart", Restarts = 7 });
+        _agent.Services.Units.Add(new ServiceUnit { Name = "ts-app-hotel-emulator.service", ActiveState = "failed", SubState = "failed" });
+        _agent.Services.Units.Add(new ServiceUnit { Name = "ts-app-hotel-imager.service", ActiveState = "activating", SubState = "auto-restart", Restarts = 7 });
         _agent.Services.Units.Add(new ServiceUnit { Name = "unrelated.service", ActiveState = "failed" });
         await CheckAsync();
 
         var open = await OpenAsync();
-        Assert.Equal(["tm-app-hotel-emulator.service has failed", "tm-app-hotel-imager.service keeps crashing"],
+        Assert.Equal(["ts-app-hotel-emulator.service has failed", "ts-app-hotel-imager.service keeps crashing"],
             open.Select(a => a.GetProperty("title").GetString()).Order());
         var discord = SentTo(Discord);
         Assert.Equal(2, discord.Count);
@@ -103,7 +103,7 @@ public sealed class AlertApiTests : IAsyncLifetime
     {
         var state = new TurboManager.Panel.Alerts.AlertState();
         var start = new DateTimeOffset(2026, 10, 12, 12, 0, 0, TimeSpan.Zero);
-        ServiceUnit Unit(int restarts) => new() { Name = "tm-app-api.service", ActiveState = "active", SubState = "running", Restarts = restarts };
+        ServiceUnit Unit(int restarts) => new() { Name = "ts-app-api.service", ActiveState = "active", SubState = "running", Restarts = restarts };
 
         Assert.False(state.IsCrashLooping(Unit(1), start));
         Assert.True(state.IsCrashLooping(Unit(5), start.AddMinutes(1)), "three restarts within ten minutes, the last just now");

@@ -165,7 +165,7 @@ public sealed class AlertService(
 
             var services = await agent.Services.ListServicesAsync(new ListServicesRequest(), cancellationToken: cancellationToken);
 
-            foreach (var unit in services.Services.Where(u => u.Name.StartsWith("tm-app-", StringComparison.Ordinal) || WatchedUnits.Contains(u.Name)
+            foreach (var unit in services.Services.Where(u => u.Name.StartsWith("ts-app-", StringComparison.Ordinal) || WatchedUnits.Contains(u.Name)
                          || u.Name.StartsWith("postgresql", StringComparison.Ordinal)))
             {
                 if (unit.ActiveState == "failed")

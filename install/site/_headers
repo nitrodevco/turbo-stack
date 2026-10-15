@@ -1,0 +1,12 @@
+# Cloudflare Pages headers for install.nitrodev.co (see README.md).
+
+# Readable in a browser, and never cached long: a new release must reach the next install right away.
+/install.sh
+  Content-Type: text/plain; charset=utf-8
+  Cache-Control: no-cache
+  X-Content-Type-Options: nosniff
+
+# Servers poll these for updates; they are signed, so freshness is all that matters here.
+/channels/*
+  Cache-Control: no-cache
+  X-Content-Type-Options: nosniff

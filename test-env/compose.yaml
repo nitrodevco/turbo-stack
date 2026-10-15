@@ -1,4 +1,4 @@
-name: tm-test
+name: ts-test
 
 services:
   # Stands in for the install domain: serves dist/ (install.sh, channels/*.json, files/*.tar.gz).
@@ -39,7 +39,7 @@ services:
       context: ./server
       args:
         UBUNTU: ${UBUNTU:-24.04}
-    image: tm-test-server:${UBUNTU:-24.04}
+    image: ts-test-server:${UBUNTU:-24.04}
     hostname: hotel-test
     privileged: true
     cgroup: private

@@ -1,4 +1,4 @@
-# Turbo Manager — Plan
+# Turbo Stack — Plan
 
 A self-hosted Ubuntu server panel (in the spirit of Ploi and AMP) built first-class for the
 **Turbo** emulator (`turbo-cloud`) and the **Nitro** client stack (`nitro-next`), while still
@@ -70,8 +70,8 @@ broken installs. The manager's core differentiator is a **wiring graph** that ow
    static dist/  │  │   └──── reverse proxy → app daemons (127.0.0.1 only)
                  │  │
         ┌────────▼──▼─────────┐   unix socket (gRPC, mTLS-less,   ┌───────────────────┐
-        │  tm-panel (web+API) │──── peer-cred checked) ──────────►│ tm-agent (root)   │
-        │  user: turbo-manager│                                   │ typed operations  │
+        │  ts-panel (web+API) │──── peer-cred checked) ──────────►│ ts-agent (root)   │
+        │  user: turbo-stack│                                   │ typed operations  │
         │  SQLite state       │◄── job progress / log streams ────│ only — no "run    │
         └────────┬────────────┘                                   │ arbitrary shell"  │
                  │ SignalR/WebSocket                              └─────────┬─────────┘
@@ -81,10 +81,10 @@ broken installs. The manager's core differentiator is a **wiring graph** that ow
 ```
 
 ### 2.1 Privilege separation (non-negotiable for a public-facing panel)
-- **tm-panel** — ASP.NET Core, runs as unprivileged `turbo-manager` user, listens on
+- **ts-panel** — ASP.NET Core, runs as unprivileged `turbo-stack` user, listens on
   `127.0.0.1:7800`, fronted by nginx. Holds auth, UI, state, job orchestration.
-- **tm-agent** — small root daemon on `/run/turbo-manager/agent.sock` (0660, group
-  `turbo-manager`). Exposes a **closed set of typed operations** (`WriteNginxSite`,
+- **ts-agent** — small root daemon on `/run/turbo-stack/agent.sock` (0660, group
+  `turbo-stack`). Exposes a **closed set of typed operations** (`WriteNginxSite`,
   `CreateSystemUser`, `SystemdControl`, `CreateDatabase`, `RunBuildAsUser`...). Every input is
   validated (domain regex, path must be under managed roots, usernames from allow-pattern).
   A compromised panel cannot get an arbitrary root shell except via the explicitly
@@ -107,7 +107,7 @@ broken installs. The manager's core differentiator is a **wiring graph** that ow
 
 ### 2.3 Repo layout
 ```
-turbo-manager/
+turbo-stack/
   install/install.sh            # the one-liner bootstrap
   src/TurboManager.Panel/       # web host, API, auth, jobs
   src/TurboManager.Agent/       # root daemon
@@ -124,11 +124,11 @@ turbo-manager/
 
 ## 3. Install script
 
-`curl -fsSL https://get.<install-domain>/install.sh | sudo bash`
+`curl -fsSL https://install.nitrodev.co/install.sh | sudo bash`
 
-**Distribution** (product name TBD — "Turbo Manager" / `tm` is the working name; keep the
-name in one constants file + one env var so a rename is cheap):
-- **Install domain** (e.g. `get.<name>.com`, on Cloudflare): serves `install.sh` (and a
+**Distribution** (product name **Turbo Stack**, slug `turbo-stack`, short prefix `ts`; the
+name lives in one constants file + one env var so a rename stays cheap):
+- **Install domain** (`install.nitrodev.co`, on Cloudflare): serves `install.sh` (and a
   `install.sh.sha256` / signature), a `latest.json` per channel (`stable`, `beta`) with
   version, per-arch download URLs and checksums, and a short landing page with the one-liner.
 - **Binaries** are built by GitHub Actions and attached to **GitHub Releases**; the install
@@ -136,7 +136,7 @@ name in one constants file + one env var so a rename is cheap):
   (minisign/cosign); the public key is embedded in `install.sh` and in the panel, so
   self-updates are verified the same way.
 - Panel self-update polls `latest.json` for its channel.
-- Install script is also usable offline: `install.sh --bundle tm-x64.tar.gz`.
+- Install script is also usable offline: `install.sh --bundle ts-x64.tar.gz`.
 
 Deliberately small; heavy lifting happens in the wizard where the user can watch it.
 
@@ -144,16 +144,16 @@ Deliberately small; heavy lifting happens in the wizard where the user can watch
    no existing nginx/panel (or `--force`).
 2. `apt update && upgrade`; base packages: `curl git unzip ufw fail2ban unattended-upgrades
    acl nginx`.
-3. Create `turbo-manager` system user + dirs: `/opt/turbo-manager` (binaries),
-   `/var/lib/turbo-manager` (state), `/var/log/turbo-manager`.
+3. Create `turbo-stack` system user + dirs: `/opt/turbo-stack` (binaries),
+   `/var/lib/turbo-stack` (state), `/var/log/turbo-stack`.
 4. Swap file if RAM < 4 GB (nitro-react build needs ~2 GB).
 5. Firewall: allow 22, 80, 443, setup port (8443); default deny. Enable fail2ban (sshd + panel jail).
 6. Download panel + agent release for the arch, verify SHA-256 + signature, install systemd
-   units (`tm-agent.service`, `tm-panel.service`).
+   units (`ts-agent.service`, `ts-panel.service`).
 7. nginx: default server on **:8443 with a self-signed cert** proxying to the panel.
 8. Generate a **one-time setup token** (stored hashed) and print:
    ```
-   ✔ Turbo Manager installed.
+   ✔ Turbo Stack installed.
    Open: https://203.0.113.10:8443/setup?token=7Gk2-...   (expires in 24h)
    ```
    The token stops anyone who finds the IP first from claiming the panel.
@@ -181,7 +181,7 @@ inside the wizard, once Cloudflare is connected.
    3. tells the user to continue from the new URL (session handed over via one-time link);
    4. the IP:8443 entry point stays open until setup finishes, then is **closed** (vhost
       removed + firewall rule deleted), with a dashboard notice and the recovery command
-      `sudo tm-cli panel expose-ip` (re-opens 8443 temporarily with a fresh token) for when
+      `sudo ts-cli panel expose-ip` (re-opens 8443 temporarily with a fresh token) for when
       DNS/Cloudflare is broken.
    Optional extras: Cloudflare Access (Zero Trust) policy in front of the panel host,
    panel IP allowlist.
@@ -320,7 +320,7 @@ nginx: reverse-proxy
 ## 6. Feature areas
 
 ### 6.1 Sites & nginx
-- Panel owns `/etc/nginx/sites-enabled/tm-*.conf`; never touches unmanaged files (shows them
+- Panel owns `/etc/nginx/sites-enabled/ts-*.conf`; never touches unmanaged files (shows them
   read-only as "external").
 - **Site types**: static/SPA (`try_files $uri /index.html`, long-cache `/assets/`),
   reverse proxy, **WebSocket proxy** (Upgrade headers, 1h timeouts, buffering off — from
@@ -365,7 +365,7 @@ nginx: reverse-proxy
 - Root/admin DB creds stored encrypted (panel data-protection key), never displayed by default.
 
 ### 6.3 Daemons / services
-- All apps run as **systemd units** `tm-<app>.service` rendered from recipe templates:
+- All apps run as **systemd units** `ts-<app>.service` rendered from recipe templates:
   `User=`, `WorkingDirectory=` (current release), `EnvironmentFile=`, `Restart=always`,
   `MemoryMax`, `CPUQuota`, `TimeoutStopSec` (Turbo needs graceful SIGTERM), hardening
   (`NoNewPrivileges`, `ProtectSystem=strict`, `ReadWritePaths=` shared dirs, `PrivateTmp`).
@@ -380,7 +380,7 @@ nginx: reverse-proxy
 - **GitHub only (v1).** The git layer is an `IGitProvider` interface with one implementation,
   so other providers could be added later without touching the pipeline.
 - Repos: public HTTPS, or private via **per-repo deploy keys** (default) or a fine-grained
-  GitHub token. Keys live in the owning site user's `~/.ssh/tm/<repo>` (0600), used through
+  GitHub token. Keys live in the owning site user's `~/.ssh/ts/<repo>` (0600), used through
   a per-repo `GIT_SSH_COMMAND`, so isolated users can't read each other's keys. github.com
   host keys pinned (refreshed from GitHub's `/meta` API).
 - With a token: repo/branch pickers, auto-add deploy keys + webhooks, show the latest commits
@@ -443,7 +443,7 @@ nginx: reverse-proxy
 - **Alerts**: disk > X%, RAM pressure, service down/crash loop, cert expiring, deploy failed,
   backup failed, updates pending → Discord / email / webhook.
 - **Runtimes**: install/upgrade .NET SDKs and Node versions side-by-side under
-  `/opt/turbo-manager/runtimes`; apps pin versions.
+  `/opt/turbo-stack/runtimes`; apps pin versions.
 - **Panel self-update**: channel, changelog, one-click update with automatic rollback.
 
 ### 6.7 Authentication, roles, security
@@ -523,11 +523,11 @@ nginx: reverse-proxy
 - **Long-lived connections**: SignalR (panel) and the game WebSocket send keep-alives well
   under Cloudflare's idle timeout; nginx timeouts are set accordingly.
 - **Panel caching**: a cache rule bypasses cache for the panel host entirely.
-- **Lost Cloudflare access / broken DNS**: `sudo tm-cli panel expose-ip` reopens the
+- **Lost Cloudflare access / broken DNS**: `sudo ts-cli panel expose-ip` reopens the
   IP:8443 entry point with a new one-time token and a timed auto-close.
 
 ### 6.9 Firewall management
-- Backend: **UFW** with all panel rules tagged (`comment "tm:<id>"`), so manual rules from
+- Backend: **UFW** with all panel rules tagged (`comment "ts:<id>"`), so manual rules from
   SSH are preserved and shown as "external". Default policy deny inbound / allow outbound.
 - **Rules UI**: allow/deny/limit, port or range, TCP/UDP, source (any / IP / CIDR / named
   IP list / "Cloudflare ranges"), comment, enable/disable without deleting, ordering.
@@ -542,7 +542,7 @@ nginx: reverse-proxy
 - **Lockout protection**: changes affecting SSH or the panel are applied with a
   **60-second auto-revert** unless confirmed from a fresh request; the current admin IP is
   never removed without explicit confirmation; recovery command printed
-  (`tm-cli firewall reset-safe`) for console access.
+  (`ts-cli firewall reset-safe`) for console access.
 - **SSH hardening**: `limit` rule on 22, optional custom SSH port (moves rule + sshd config
   together, with the auto-revert safety), optional "SSH only from IP list".
 - **fail2ban**: jails for sshd, panel login, nginx auth/bot patterns, turbo-web login
@@ -679,7 +679,7 @@ later tests start from "panel installed" or "hotel installed" instead of from sc
 
 **Status (2026-10-11):** M0 implemented — solution + gRPC contract, root agent with SO_PEERCRED
 peer check, panel with setup-token claim / owner + TOTP / recovery codes / login / audit log,
-React shell (setup wizard, login, dashboard), `install.sh` + systemd units + `tm-setup-token`,
+React shell (setup wizard, login, dashboard), `install.sh` + systemd units + `ts-setup-token`,
 `scripts/package.sh`, Docker test env + E2E scripts, CI workflow. Unit/API tests pass locally;
 the Docker E2E has not been run yet (no Docker on the dev machine) — first run will be in CI or
 after installing Docker Desktop. Deviation: the UI ships as `wwwroot/` next to the single-file
@@ -708,7 +708,7 @@ an unconfirmed change reverting) but has still not been run. Deferred from M1: c
   "Cloudflare" IP list refreshed daily, "only Cloudflare may reach 80/443" firewall mode.
 - *Panel address:* system site for `panel.<domain>`, browser check from the new address,
   one-time sign-in handover, closing the setup address (nginx + firewall, confirmed from the
-  new address), `sudo tm-panel-recover` to reopen it.
+  new address), `sudo ts-panel-recover` to reopen it.
 - *Tests:* 179 unit/API tests (fake agent + fake Cloudflare in-process); the Docker E2E gains a
   fake Cloudflare service and covers the whole flow, still not run (no Docker here).
 - *E2E (2026-10-11):* first real runs found 4 Linux-only bugs (nginx 1.24 `http2` syntax,
@@ -725,11 +725,11 @@ an unconfirmed change reverting) but has still not been run. Deferred from M1: c
   process list. Ubuntu 24.04 ships MySQL 8.0 (past Oracle's EOL), so the panel recommends
   MariaDB there and MySQL where Ubuntu's MySQL is 8.4+ (26.04); the E2E installs the recommendation.
 - *M4 status (2026-10-11):* deployments implemented. Repositories belong to a Linux user (group
-  `tm-apps`, home 750, never root); private repos and private submodules each get their own
+  `ts-apps`, home 750, never root); private repos and private submodules each get their own
   deploy key (ssh alias per key, pinned GitHub host keys, submodule URLs rewritten per key).
   Apps: build script with runtimes on PATH (dotnet via dotnet-install, Node from nodejs.org with
   checksum check + corepack), releases under `apps/<app>/releases` with shared paths and an
-  atomic `current` swap, static output for sites, optional systemd service (`tm-app-<app>`,
+  atomic `current` swap, static output for sites, optional systemd service (`ts-app-<app>`,
   root-owned launcher, encrypted environment, memory limit) with a health check and automatic
   rollback, one-click rollback, pruning, Cloudflare purge after deploy. GitHub push webhooks
   (HMAC, replay protection, branch + path filters) trigger auto-deploys. The Docker E2E adds a
@@ -791,20 +791,20 @@ an unconfirmed change reverting) but has still not been run. Deferred from M1: c
     hotels, app services, logs, sites and jobs are filtered; server-wide pages follow the role),
     sessions as rows (listed, revoked; role changes sign people out), "sudo mode" (the second
     factor again, 10 minutes) for team changes, API tokens and the root terminal.
-  - *API tokens:* `Authorization: Bearer tm_…`, SHA-256 stored, a subset of the user's
+  - *API tokens:* `Authorization: Bearer ts_…`, SHA-256 stored, a subset of the user's
     permissions, optional expiry, last-used; never for team management or root.
   - *Alerts:* every minute — disk, memory, failed or crash-looping services, certificates
     (expiring/failed), security updates, failed jobs (deploys, installs, backups, certificates);
     announced when they start and when they clear, to Discord, webhooks or email (SMTP).
   - *Emulator console:* a service can read commands from a FIFO systemd keeps open as its stdin
-    (tm-app-<app>-console.socket); the panel types into it (audited) and shows the journal.
+    (ts-app-<app>-console.socket); the panel types into it (audited) and shows the journal.
     The Turbo recipe turns it on.
   - *Terminal:* xterm.js over a WebSocket to the agent's pseudo-terminal (openpty + setsid -c),
     as an app user (runuser -l) or root (owner, sudo mode); same-origin check; audited.
   - *Files:* app users' homes, every operation as that user (runuser), ".." refused; edit, upload,
     download, rename, delete; audited.
   - *Isolation:* a hotel can give each part its own Linux user (<hotel>-<role>).
-  - *SFTP accounts:* group tm-sftp, sshd Match block (chroot /srv/tm-sftp/<user>, internal-sftp,
+  - *SFTP accounts:* group ts-sftp, sshd Match block (chroot /srv/ts-sftp/<user>, internal-sftp,
     no TTY/forwarding), the folder bind-mounted by a systemd mount unit. The account shares the app
     user's uid/gid (useradd --non-unique), so uploads belong to the app whatever modes the client
     sets (ACL masks broke this; sftp-server has no forced-mode option on 24.04/26.04). Deleting
@@ -819,10 +819,10 @@ an unconfirmed change reverting) but has still not been run. Deferred from M1: c
      (`channels/<channel>.json`) are signed with an ECDSA P-256 key (`.sig`, verified with
      `openssl` in install.sh and with .NET's ECDsa in the agent — no extra tooling; replaces
      the minisign idea). The public key is embedded in install.sh and kept in
-     `/etc/turbo-manager/release-key.pem`. The panel checks its channel every 6 h; the
+     `/etc/turbo-stack/release-key.pem`. The panel checks its channel every 6 h; the
      update itself is done by the agent: it fetches and verifies the channel file and bundle
-     on its own (it never trusts the panel's copy), then starts the new bundle's `tm-update`
-     as a transient systemd unit. `tm-update` keeps the previous binaries and a copy of the
+     on its own (it never trusts the panel's copy), then starts the new bundle's `ts-update`
+     as a transient systemd unit. `ts-update` keeps the previous binaries and a copy of the
      panel database, swaps, health-checks, and rolls back automatically if the new version
      doesn't come up. Upgrade E2E: install N, build state (apps, site, database, sessions),
      update to N+1 and assert nothing changed; a tampered channel file is refused; a broken
@@ -842,22 +842,22 @@ an unconfirmed change reverting) but has still not been run. Deferred from M1: c
     (`--download-base`), several channels at once (a stable release also goes to beta) and
     optionally the docs (`--docs`). `.github/workflows/release.yml` builds, signs and publishes
     on a `v*` tag. install.sh refuses an unsigned or wrongly signed channel and keeps the key in
-    `/etc/turbo-manager/release-key.pem`.
+    `/etc/turbo-stack/release-key.pem`.
   - *Self-update:* the agent checks and verifies (UpdateManager), unpacks the bundle in-process
-    and starts the new bundle's `tm-update` with `systemd-run` (unit `tm-update`). tm-update keeps
+    and starts the new bundle's `ts-update` with `systemd-run` (unit `ts-update`). ts-update keeps
     the previous binaries, units, scripts and a copy of the panel database
-    (`/var/lib/turbo-manager-updates/rollback`), waits up to two minutes for the agent socket and
+    (`/var/lib/turbo-stack-updates/rollback`), waits up to two minutes for the agent socket and
     the panel's `/api/health` to report the new version, and otherwise restores everything.
-    `tm-update status|rollback` by hand. The panel checks every six hours, records each
+    `ts-update status|rollback` by hand. The panel checks every six hours, records each
     outcome once in the activity log, and raises alerts (update available; update rolled back).
-    `/api/health` reports the installed release (`/opt/turbo-manager/VERSION`).
+    `/api/health` reports the installed release (`/opt/turbo-stack/VERSION`).
   - *Agent errors:* a failed system command or a program that can't start now reaches the panel
     as a readable error (program, exit code, its last lines; never its arguments) instead of an
     opaque 502. The command runner can pass environment variables (secrets never in argv).
   - *Backups:* restic from Ubuntu's archive (installed on first use), targets local / S3 / SFTP
     (own ed25519 key per target, host key fingerprint confirmed then pinned), repository
     password generated and shown once (revealable with sudo), plans with databases, app folders
-    and panel state (VACUUM INTO + keys + /etc/turbo-manager), daily schedule, retention via
+    and panel state (VACUUM INTO + keys + /etc/turbo-stack), daily schedule, retention via
     `forget --group-by tags --prune`, a manifest in each snapshot, restores that never overwrite
     (dumps join the database's backups list; folders go to `~/restored-<time>/`, root-only while
     copying, then chowned without following links; panel state is unpacked for a manual restore).
@@ -897,13 +897,13 @@ an unconfirmed change reverting) but has still not been run. Deferred from M1: c
   - *Backup staleness alert:* a plan without a successful run (LastSuccessAt, else CreatedAt) for
     `BackupDays` (default 2, Alerts page) raises a warning until it succeeds again.
   - *Release key rotation:* a release signed with the trusted key may carry the next key
-    (`release-key.pem` in the bundle, `RELEASE_NEXT_PUBLIC_KEY_FILE` when packaging); tm-update
+    (`release-key.pem` in the bundle, `RELEASE_NEXT_PUBLIC_KEY_FILE` when packaging); ts-update
     trusts it only after that release is installed and healthy (old key kept as
     release-key.previous.pem), install.sh does the same for a verified download, and
-    `tm-update trust-key` switches a server by hand. The upgrade E2E rotates: 0.1.3 hands over a
+    `ts-update trust-key` switches a server by hand. The upgrade E2E rotates: 0.1.3 hands over a
     new key, 0.1.4 is signed with it, 0.1.5 signed with the old key is refused.
   - *One-click panel restore:* owner + sudo; the agent unpacks the snapshot's panel state and starts
-    tm-panel-restore in a transient unit, which keeps the current state, swaps in the restored
+    ts-panel-restore in a transient unit, which keeps the current state, swaps in the restored
     database, keys and SFTP key files, and puts the old state back if the panel doesn't come up.
     The outcome is left in panel-restore.json and recorded in the (restored) activity log at
     start-up. The setup-flow E2E restores the panel from its S3 snapshot and keeps going.
@@ -940,8 +940,5 @@ Resolved: single server ✔ · no nitro-studio ✔ · MySQL default, MariaDB/Pos
 supported ✔ · full firewall management ✔ · client on its own subdomain (`play.`), no
 path-based layout ✔ · setup via `https://<ip>:8443`, panel then moved behind Cloudflare
 (`panel.`) and the IP entry point closed ✔ · install domain + GitHub Releases ✔ ·
-GitHub only ✔.
+GitHub only ✔ · product name Turbo Stack, install domain `install.nitrodev.co` ✔.
 
-Still open:
-1. **Product name** (and with it the install domain). Working name "Turbo Manager" / `tm`
-   until decided; the rename is designed to be a one-file change.

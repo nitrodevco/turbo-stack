@@ -118,7 +118,7 @@ function TokenStep({ initialToken, onDone }: { initialToken: string; onDone: () 
                 <Field label="Setup token" value={token} onChange={(e) => setToken(e.target.value)} autoComplete="off" spellCheck={false} required />
                 <ErrorNote message={error} />
                 <p className="text-xs text-slate-500">
-                    Lost it? Run <code className="rounded bg-slate-100 px-1 py-0.5 dark:bg-slate-800">sudo tm-setup-token</code> on the server to get a new link.
+                    Lost it? Run <code className="rounded bg-slate-100 px-1 py-0.5 dark:bg-slate-800">sudo ts-setup-token</code> on the server to get a new link.
                 </p>
                 <Button type="submit" disabled={busy || !token.trim()} className="w-full">
                     {busy ? 'Checking…' : 'Continue'}
@@ -234,8 +234,8 @@ export function RecoveryStep({ codes }: { codes: string[] }) {
     const text = codes.join('\n');
 
     function download() {
-        const url = URL.createObjectURL(new Blob([`Turbo Manager recovery codes (${location.host})\n\n${text}\n`], { type: 'text/plain' }));
-        const link = Object.assign(document.createElement('a'), { href: url, download: 'turbo-manager-recovery-codes.txt' });
+        const url = URL.createObjectURL(new Blob([`Turbo Stack recovery codes (${location.host})\n\n${text}\n`], { type: 'text/plain' }));
+        const link = Object.assign(document.createElement('a'), { href: url, download: 'turbo-stack-recovery-codes.txt' });
         link.click();
         URL.revokeObjectURL(url);
     }

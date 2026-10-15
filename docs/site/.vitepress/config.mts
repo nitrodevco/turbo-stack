@@ -2,7 +2,7 @@ import { defineConfig } from 'vitepress';
 
 // Served from the install domain under /docs (scripts/package.sh --docs copies the build into dist/docs).
 export default defineConfig({
-    title: 'Turbo Manager',
+    title: 'Turbo Stack',
     description: 'A self-hosted server panel for Turbo and Nitro hotels.',
     base: '/docs/',
     cleanUrls: true,

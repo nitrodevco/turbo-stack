@@ -64,7 +64,7 @@ public static partial class Validate
     public static string OneOf(string value, string field, params string[] allowed) =>
         allowed.Contains(value) ? value : throw Invalid($"Invalid {field}: {value}. Expected one of {string.Join(", ", allowed)}.");
 
-    /// <summary>Firewall rule comments are ours ("tm:&lt;key&gt;"), so keep them to a tight alphabet.</summary>
+    /// <summary>Firewall rule comments are ours ("ts:&lt;key&gt;"), so keep them to a tight alphabet.</summary>
     public static string RuleComment(string comment) =>
         RuleCommentPattern().IsMatch(comment) ? comment : throw Invalid($"Invalid rule comment: {comment}");
 
@@ -81,7 +81,7 @@ public static partial class Validate
     [GeneratedRegex("^[a-z_][a-z0-9_-]{0,31}$")]
     private static partial Regex UserNamePattern();
 
-    [GeneratedRegex("^tm:[a-z0-9._-]{1,64}$")]
+    [GeneratedRegex("^ts:[a-z0-9._-]{1,64}$")]
     private static partial Regex RuleCommentPattern();
 
     [GeneratedRegex("^[a-zA-Z0-9._-]{1,64}$")]

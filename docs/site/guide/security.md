@@ -3,7 +3,7 @@
 ## How it's built
 
 - The **panel** runs as an unprivileged user in a systemd sandbox. Everything that needs root goes through the **agent**, which only listens on a local socket, only accepts the panel's user, and only performs typed, checked operations — no shell commands from the panel.
-- Each app runs as its **own Linux user** (never root), in the `tm-apps` group; homes are private (750).
+- Each app runs as its **own Linux user** (never root), in the `ts-apps` group; homes are private (750).
 - Secrets the panel keeps — database passwords, environment variables, tokens, backup passwords — are encrypted at rest.
 - Releases of the panel are signed; see [Updates](./updates).
 

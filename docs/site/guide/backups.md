@@ -40,6 +40,6 @@ Pick a snapshot, then what to bring back. Nothing is overwritten:
 
 - a **database** dump joins that database's backups list on the Databases page — restore it from there when you're ready;
 - a **folder** comes back next to the original, as `~/restored-<time>/<folder>` of the app user, so you can compare and copy what you need;
-- the **panel's state** is unpacked under `/var/lib/turbo-manager-backups/restores/` — or, as the owner, [put back in one step](./restore-panel).
+- the **panel's state** is unpacked under `/var/lib/turbo-stack-backups/restores/` — or, as the owner, [put back in one step](./restore-panel).
 
 Restoring needs your second factor again.

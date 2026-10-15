@@ -290,7 +290,7 @@ function RuntimesTab() {
 
     return (
         <div className="space-y-4">
-            <p className="text-sm text-slate-600 dark:text-slate-400">Toolchains apps build and run with. They're installed once under /opt/turbo-manager/runtimes and shared by every app.</p>
+            <p className="text-sm text-slate-600 dark:text-slate-400">Toolchains apps build and run with. They're installed once under /opt/turbo-stack/runtimes and shared by every app.</p>
             <ErrorNote message={runtimes.error ? errorMessage(runtimes.error) : install.error ? errorMessage(install.error) : null} />
             <div className="grid gap-4 md:grid-cols-2">
                 {(runtimes.data ?? []).map((runtime) => (

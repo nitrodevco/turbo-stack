@@ -17,7 +17,7 @@ fail() { printf '  \033[31m✘\033[0m %s\n' "$*" >&2; exit 1; }
 call() {
     local method="$1" path="$2" body="${3:-}"
     curl -sk -b "$JAR" -c "$JAR" -X "$method" "$BASE$path" \
-        -H 'X-TM-Request: 1' -H 'Content-Type: application/json' \
+        -H 'X-TS-Request: 1' -H 'Content-Type: application/json' \
         ${body:+--data "$body"} -w '\n%{http_code}'
 }
 
@@ -123,7 +123,7 @@ UPGRADE="$(curl -sk --http1.1 --max-time 5 -i --resolve "ws.hotel.test:443:$SERV
 pass "domain change applied: client on game.hotel.test with a new certificate, website and emulator updated"
 
 # Optional parts: the admin panel goes (the emulator is pointed elsewhere), then comes back.
-response="$(curl -sk -b "$JAR" -c "$JAR" -X DELETE "$BASE/api/stacks/$STACK/roles/admin" -H 'X-TM-Request: 1' -H 'Content-Type: application/json'     --data '{"replacements":{"admin.url":"https://staff.example.com"}}' -w '
+response="$(curl -sk -b "$JAR" -c "$JAR" -X DELETE "$BASE/api/stacks/$STACK/roles/admin" -H 'X-TS-Request: 1' -H 'Content-Type: application/json'     --data '{"replacements":{"admin.url":"https://staff.example.com"}}' -w '
 %{http_code}')"
 [[ "$(status_of "$response")" == "202" ]] || fail "removing the admin panel failed: $response"
 JOB="$(body_of "$response" | jq -r .jobId)"

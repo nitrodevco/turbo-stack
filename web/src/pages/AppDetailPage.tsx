@@ -240,7 +240,7 @@ function SettingsCard({ app, onSaved }: { app: AppSettings; onSaved: () => void 
                         onChange={(e) => set('buildScript', e.target.value)}
                         placeholder={'corepack yarn install --immutable\ncorepack yarn build'}
                     />
-                    <span className="block text-xs text-slate-500">Runs with bash as {app.systemUser} in the new release. $TM_SHARED_DIR points at the shared folder.</span>
+                    <span className="block text-xs text-slate-500">Runs with bash as {app.systemUser} in the new release. $TS_SHARED_DIR points at the shared folder.</span>
                 </label>
                 <div className="grid gap-4 md:grid-cols-2">
                     <label className="block space-y-1.5">

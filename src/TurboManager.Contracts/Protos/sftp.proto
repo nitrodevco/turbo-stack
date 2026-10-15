@@ -7,7 +7,7 @@ package turbomanager.agent.v1;
 import "google/protobuf/empty.proto";
 
 // SFTP-only accounts: no shell, locked (chroot) into one folder of an app user's home, e.g. the game assets host's
-// upload folder. The folder is bind-mounted into /srv/tm-sftp/<account>/files; ACLs keep it readable and writable for
+// upload folder. The folder is bind-mounted into /srv/ts-sftp/<account>/files; ACLs keep it readable and writable for
 // the app user (and nginx) whatever the account uploads.
 service SftpAgent {
   rpc ListSftpAccounts (google.protobuf.Empty) returns (SftpAccounts);

@@ -1,5 +1,5 @@
 @echo off
-rem Double-click to build Turbo Manager, start a fresh Ubuntu test server in Docker Desktop,
+rem Double-click to build Turbo Stack, start a fresh Ubuntu test server in Docker Desktop,
 rem install the panel on it and open the setup page in your browser.
 rem Needs: Docker Desktop (running), Git for Windows, .NET 10 SDK and Node 24.
 setlocal

@@ -25,7 +25,7 @@ public static class SystemEndpoints
         app.MapGet("/api/health", () => Results.Ok(new
         {
             status = "ok",
-            // The release this process belongs to (tm-update waits for the new one to answer here).
+            // The release this process belongs to (ts-update waits for the new one to answer here).
             version = InstalledVersion,
         }));
 

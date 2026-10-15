@@ -17,7 +17,7 @@ public sealed record DnsAction(DnsActionKind Kind, string Type, string Name, str
 /// <summary>Decides how to make Cloudflare's records for one name point at this server.</summary>
 public static class CloudflareDnsPlanner
 {
-    public const string Comment = "Managed by Turbo Manager";
+    public const string Comment = "Managed by Turbo Stack";
 
     /// <param name="desired">Desired A/AAAA content by type, e.g. {"A": "203.0.113.10"}.</param>
     /// <param name="replaceConflicts">Overwrite records pointing elsewhere (and CNAMEs) instead of reporting them.</param>

@@ -6,12 +6,12 @@ namespace TurboManager.Core;
 /// </summary>
 public static class Branding
 {
-    public const string ProductName = "Turbo Manager";
+    public const string ProductName = "Turbo Stack";
 
     /// <summary>Short identifier used for system users, paths, units and CLI names.</summary>
-    public const string Slug = "turbo-manager";
+    public const string Slug = "turbo-stack";
 
-    public const string ShortName = "tm";
+    public const string ShortName = "ts";
 
     public const string SystemUser = Slug;
 

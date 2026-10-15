@@ -54,7 +54,7 @@ public sealed class PanelUpdateTests : IAsyncLifetime
         Assert.Equal("0.2.0", state.GetProperty("latestVersion").GetString());
         Assert.Equal("Faster deploys.", state.GetProperty("notes").GetString());
         Assert.True(state.GetProperty("available").GetBoolean());
-        Assert.Contains("Turbo Manager 0.2.0 is available", await OpenAlertsAsync());
+        Assert.Contains("Turbo Stack 0.2.0 is available", await OpenAlertsAsync());
     }
 
     [Fact]
@@ -105,7 +105,7 @@ public sealed class PanelUpdateTests : IAsyncLifetime
         Assert.Equal("rolled-back", state.GetProperty("last").GetProperty("state").GetString());
         var audit = await _client.GetFromJsonAsync<JsonElement>("/api/audit?action=panel.update.rolled-back");
         Assert.Single(audit.GetProperty("entries").EnumerateArray());
-        Assert.Contains("The update to Turbo Manager 0.2.0 didn't work", await OpenAlertsAsync());
+        Assert.Contains("The update to Turbo Stack 0.2.0 didn't work", await OpenAlertsAsync());
     }
 
     [Fact]

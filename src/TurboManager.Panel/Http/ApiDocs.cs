@@ -20,7 +20,7 @@ public static class ApiDocs
                 document.Info.Title = $"{Branding.ProductName} API";
                 document.Info.Version = ReleaseVersion.Installed();
                 document.Info.Description =
-                    "Authenticate with an API token from your Account page: `Authorization: Bearer tm_…`. A token can only do what it "
+                    "Authenticate with an API token from your Account page: `Authorization: Bearer ts_…`. A token can only do what it "
                     + "was given (and what its owner's role allows). Endpoints marked *second factor* are for signed-in sessions only.";
 
                 return Task.CompletedTask;

@@ -10,7 +10,7 @@ Create a database with its own user in one step; the generated password is shown
 
 ## Backups on the server
 
-- **Back up** writes a compressed dump under `/var/lib/turbo-manager-backups` (root-only).
+- **Back up** writes a compressed dump under `/var/lib/turbo-stack-backups` (root-only).
 - A **schedule** takes a daily dump and keeps the newest *n*.
 - **Upload .sql / .sql.gz** to import a dump.
 - **Restore…** replaces the database's contents with a dump — take a backup first if you might want the current data back.

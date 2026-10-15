@@ -56,7 +56,7 @@ public sealed class ServerManagementApiTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.True(body.GetProperty("changed").GetBoolean());
         Assert.Equal(JsonValueKind.Null, body.GetProperty("pending").ValueKind);
-        Assert.Contains(_agent.Firewall.Rules, r => r.Ports == "30000" && r.Comment.StartsWith("tm:r"));
+        Assert.Contains(_agent.Firewall.Rules, r => r.Ports == "30000" && r.Comment.StartsWith("ts:r"));
     }
 
     [Fact]
@@ -94,7 +94,7 @@ public sealed class ServerManagementApiTests : IAsyncLifetime
 
         // The admin never confirms: the agent reverts and puts the rule back.
         _agent.Firewall.Transactions[pendingId] = "reverted";
-        _agent.Firewall.Rules.Add(new FirewallRuleSpec { Action = "allow", Protocol = "tcp", Ports = "80", Source = "any", Comment = "tm:http" });
+        _agent.Firewall.Rules.Add(new FirewallRuleSpec { Action = "allow", Protocol = "tcp", Ports = "80", Source = "any", Comment = "ts:http" });
         // The fake agent stamps revert times from the real clock; move well past the window.
         _panel.Time.Advance(TimeSpan.FromMinutes(2));
 

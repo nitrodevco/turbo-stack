@@ -19,7 +19,7 @@ public sealed class TerminalApiTests : IAsyncLifetime
     {
         _agent = await FakeAgent.StartAsync(_panel.AgentSocket);
         _client = _panel.CreateDefaultClient(new Uri("http://localhost"), new CookieContainerHandler(_cookies));
-        _client.DefaultRequestHeaders.Add("X-TM-Request", "1");
+        _client.DefaultRequestHeaders.Add("X-TS-Request", "1");
         (_secret, _) = await _panel.CompleteSetupAsync(_client);
         (await _client.PostAsJsonAsync("/api/repositories", new { name = "web", systemUser = "hotel", repository = "billsonnn/web", branch = "main" }))
             .EnsureSuccessStatusCode();

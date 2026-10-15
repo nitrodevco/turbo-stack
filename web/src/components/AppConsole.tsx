@@ -21,7 +21,7 @@ export function AppConsole({ appId, appName, canType }: { appId: number; appName
 
     useEffect(() => {
         setLines([]);
-        const source = new EventSource(`/api/logs/stream?unit=tm-app-${appName}.service&limit=200`);
+        const source = new EventSource(`/api/logs/stream?unit=ts-app-${appName}.service&limit=200`);
         source.addEventListener('entry', (event) => {
             const entry = JSON.parse((event as MessageEvent).data) as JournalEntry;
             setLines((current) => [...current.slice(-999), entry]);

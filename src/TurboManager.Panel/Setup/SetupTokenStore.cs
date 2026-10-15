@@ -6,7 +6,7 @@ namespace TurboManager.Panel.Setup;
 
 /// <summary>
 /// The one-time setup token proves the visitor has console access to the server.
-/// install.sh (and tm-setup-token) write only its SHA-256 hash; the plain token is printed once in the terminal.
+/// install.sh (and ts-setup-token) write only its SHA-256 hash; the plain token is printed once in the terminal.
 /// </summary>
 public sealed class SetupTokenStore(IOptions<PanelOptions> options, TimeProvider time)
 {

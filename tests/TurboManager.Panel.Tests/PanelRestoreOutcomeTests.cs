@@ -16,9 +16,9 @@ public sealed class PanelRestoreOutcomeTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task The_outcome_tm_panel_restore_left_is_recorded_once_at_start_up()
+    public async Task The_outcome_ts_panel_restore_left_is_recorded_once_at_start_up()
     {
-        // As tm-panel-restore leaves it before starting the panel with the restored database.
+        // As ts-panel-restore leaves it before starting the panel with the restored database.
         var outcome = Path.Combine(_panel.DataDirectory, "panel-restore.json");
         await File.WriteAllTextAsync(outcome, "{\"state\":\"restored\",\"message\":\"The panel's state was restored from a backup snapshot.\",\"at\":\"2026-10-13T10:00:00Z\"}");
 

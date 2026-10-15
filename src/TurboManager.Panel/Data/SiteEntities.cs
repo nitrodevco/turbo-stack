@@ -37,7 +37,7 @@ public sealed class Site
 {
     public int Id { get; set; }
 
-    /// <summary>Slug used for the nginx file (tm-&lt;name&gt;.conf) and logs.</summary>
+    /// <summary>Slug used for the nginx file (ts-&lt;name&gt;.conf) and logs.</summary>
     public required string Name { get; set; }
 
     /// <summary>First entry is the primary domain.</summary>
@@ -157,7 +157,7 @@ public sealed class ManagedCertificate
 {
     public int Id { get; set; }
 
-    /// <summary>Directory name under /etc/turbo-manager/certs.</summary>
+    /// <summary>Directory name under /etc/turbo-stack/certs.</summary>
     public required string Name { get; set; }
 
     public List<string> Domains { get; set; } = [];

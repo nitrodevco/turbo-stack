@@ -29,8 +29,8 @@ service NginxAgent {
 
 enum NginxConfigKind {
   NGINX_CONFIG_KIND_UNSPECIFIED = 0;
-  NGINX_CONFIG_KIND_SITE = 1;     // sites-available/tm-<name>.conf (+ enabled symlink)
-  NGINX_CONFIG_KIND_GLOBAL = 2;   // conf.d/tm-<name>.conf (http-level: maps, real-ip, ...)
+  NGINX_CONFIG_KIND_SITE = 1;     // sites-available/ts-<name>.conf (+ enabled symlink)
+  NGINX_CONFIG_KIND_GLOBAL = 2;   // conf.d/ts-<name>.conf (http-level: maps, real-ip, ...)
 }
 
 message NginxStatus {
@@ -42,7 +42,7 @@ message NginxStatus {
 }
 
 message NginxConfig {
-  string name = 1;               // [a-z0-9-], becomes tm-<name>.conf
+  string name = 1;               // [a-z0-9-], becomes ts-<name>.conf
   NginxConfigKind kind = 2;
   string content = 3;
 }

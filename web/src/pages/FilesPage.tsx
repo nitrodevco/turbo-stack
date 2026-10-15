@@ -118,7 +118,7 @@ function Browser({ user, path, onOpen }: { user: string; path: string; onOpen: (
                                 for (const file of chosen) {
                                     const response = await fetch(`/api/files/upload?user=${encodeURIComponent(user)}&path=${encodeURIComponent(join(path, file.name))}`, {
                                         method: 'POST',
-                                        headers: { 'X-TM-Request': '1', 'Content-Type': 'application/octet-stream' },
+                                        headers: { 'X-TS-Request': '1', 'Content-Type': 'application/octet-stream' },
                                         body: file,
                                     });
                                     if (!response.ok) throw new Error(`Uploading ${file.name} failed (${response.status}).`);

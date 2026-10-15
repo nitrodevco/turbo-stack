@@ -11,25 +11,25 @@
 ## The one-liner
 
 ```bash
-curl -fsSL https://<install-domain>/install.sh | sudo bash
+curl -fsSL https://install.nitrodev.co/install.sh | sudo bash
 ```
 
 The installer:
 
 1. checks the system, updates it and installs the base packages (nginx, ufw, fail2ban, …);
-2. creates the `turbo-manager` system user and its folders;
+2. creates the `turbo-stack` system user and its folders;
 3. downloads the panel and agent, **checks the release signature** and the download's checksum;
 4. opens the firewall for SSH, HTTP, HTTPS and the setup port (8443), nothing else;
 5. starts the panel and prints a one-time setup link:
 
 ```
-✔ Turbo Manager 0.1.0 installed.
+✔ Turbo Stack 0.1.0 installed.
 Open: https://203.0.113.10:8443/setup?token=7Gk2…   (expires in 24h)
 ```
 
 Open it in your browser. The certificate warning is expected: the setup address uses a self-signed certificate until the panel moves to its own domain. The token means nobody who finds your server's IP first can claim the panel.
 
-Lost the link? Run `sudo tm-setup-token` for a new one.
+Lost the link? Run `sudo ts-setup-token` for a new one.
 
 ## Options
 
@@ -46,10 +46,10 @@ Lost the link? Run `sudo tm-setup-token` for a new one.
 
 | | |
 |---|---|
-| `/opt/turbo-manager` | the panel and agent (root-owned) |
-| `/var/lib/turbo-manager` | the panel's database and keys |
-| `/etc/turbo-manager` | install settings, release key, certificates |
+| `/opt/turbo-stack` | the panel and agent (root-owned) |
+| `/var/lib/turbo-stack` | the panel's database and keys |
+| `/etc/turbo-stack` | install settings, release key, certificates |
 | `/home/<app user>` | each app user's repositories, releases, sites and uploads |
-| `/var/lib/turbo-manager-backups` | database dumps, backup staging (root-only) |
+| `/var/lib/turbo-stack-backups` | database dumps, backup staging (root-only) |
 
-Two services run: `tm-agent` (root, no network port — it only listens on a local socket) and `tm-panel` (unprivileged, behind nginx).
+Two services run: `ts-agent` (root, no network port — it only listens on a local socket) and `ts-panel` (unprivileged, behind nginx).

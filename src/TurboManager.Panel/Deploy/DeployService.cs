@@ -336,8 +336,8 @@ public sealed class DeployService(
     /// <summary>Restarts an app's service and waits for its health check (same as after a deploy).</summary>
     public async Task<bool> RestartAndCheckAsync(App app, JobContext context)
     {
-        context.Log($"Restarting tm-app-{app.Name}…");
-        await agent.Services.ControlServiceAsync(new ControlServiceRequest { Name = $"tm-app-{app.Name}.service", Action = ServiceAction.Restart },
+        context.Log($"Restarting ts-app-{app.Name}…");
+        await agent.Services.ControlServiceAsync(new ControlServiceRequest { Name = $"ts-app-{app.Name}.service", Action = ServiceAction.Restart },
             cancellationToken: context.CancellationToken);
 
         if (app.ServicePort is not { } port)

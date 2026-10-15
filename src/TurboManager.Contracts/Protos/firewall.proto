@@ -35,7 +35,7 @@ message FirewallRule {
   string ports = 3;      // "22", "6000:6010", "80,443" or "any"
   string source = 4;     // "any" or address/CIDR
   bool ipv6 = 5;
-  string comment = 6;    // "tm:<key>" for panel-managed rules
+  string comment = 6;    // "ts:<key>" for panel-managed rules
   string direction = 7;  // in | out
 }
 

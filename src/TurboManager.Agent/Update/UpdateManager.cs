@@ -52,7 +52,7 @@ public sealed partial class UpdateManager(ICommandRunner commands, IHttpClientFa
 
     public async Task<UpdateInfo> CheckAsync(CancellationToken cancellationToken)
     {
-        var info = new UpdateInfo { CurrentVersion = CurrentVersion, Channel = ReadInstallEnv().GetValueOrDefault("TM_CHANNEL", "stable") };
+        var info = new UpdateInfo { CurrentVersion = CurrentVersion, Channel = ReadInstallEnv().GetValueOrDefault("TS_CHANNEL", "stable") };
 
         try
         {
@@ -120,7 +120,7 @@ public sealed partial class UpdateManager(ICommandRunner commands, IHttpClientFa
 
             var bundleVersion = File.ReadAllText(Path.Combine(local, "bundle", "VERSION")).Trim();
 
-            if (bundleVersion != release.Version || !File.Exists(Path.Combine(local, "bundle", "bin", "tm-update")))
+            if (bundleVersion != release.Version || !File.Exists(Path.Combine(local, "bundle", "bin", "ts-update")))
             {
                 throw new RpcException(new Status(StatusCode.FailedPrecondition, $"The {release.Version} bundle is not a {Branding.ProductName} release."));
             }
@@ -128,7 +128,7 @@ public sealed partial class UpdateManager(ICommandRunner commands, IHttpClientFa
             // A transient unit outside the agent's own cgroup: it stops and restarts the agent and the panel.
             await commands.RunCheckedAsync("systemd-run", ["--unit", Unit, "--collect", "--no-block", "--quiet",
                 "--description", $"{Branding.ProductName} update to {release.Version}", "--property", "TimeoutStopSec=15min",
-                "/bin/bash", $"{directory}/bundle/bin/tm-update", "apply", $"{directory}/bundle"], cancellationToken: cancellationToken);
+                "/bin/bash", $"{directory}/bundle/bin/ts-update", "apply", $"{directory}/bundle"], cancellationToken: cancellationToken);
             logger.LogInformation("Update from {From} to {To} started", current, release.Version);
         }
         finally
@@ -174,16 +174,16 @@ public sealed partial class UpdateManager(ICommandRunner commands, IHttpClientFa
         }
 
         var content = File.Exists(InstallEnvPath) ? await File.ReadAllTextAsync(InstallEnvPath, cancellationToken) : "";
-        await File.WriteAllTextAsync(InstallEnvPath, SetEnvValue(content, "TM_CHANNEL", channel), cancellationToken);
+        await File.WriteAllTextAsync(InstallEnvPath, SetEnvValue(content, "TS_CHANNEL", channel), cancellationToken);
     }
 
     /// <summary>Reads and verifies the channel file named in install.env.</summary>
     private async Task<ReleaseChannel> FetchChannelAsync(CancellationToken cancellationToken)
     {
         var env = ReadInstallEnv();
-        var channel = env.GetValueOrDefault("TM_CHANNEL", "stable");
+        var channel = env.GetValueOrDefault("TS_CHANNEL", "stable");
 
-        if (!Channels.Contains(channel) || env.GetValueOrDefault("TM_BASE_URL", "") is not { Length: > 0 } baseUrl)
+        if (!Channels.Contains(channel) || env.GetValueOrDefault("TS_BASE_URL", "") is not { Length: > 0 } baseUrl)
         {
             throw new RpcException(new Status(StatusCode.FailedPrecondition, "install.env has no release address or channel."));
         }
@@ -239,7 +239,7 @@ public sealed partial class UpdateManager(ICommandRunner commands, IHttpClientFa
             return absolute.ToString();
         }
 
-        return $"{ReadInstallEnv()["TM_BASE_URL"].TrimEnd('/')}/{url.TrimStart('/')}";
+        return $"{ReadInstallEnv()["TS_BASE_URL"].TrimEnd('/')}/{url.TrimStart('/')}";
     }
 
     private async Task DownloadAsync(string url, string path, string sha256, CancellationToken cancellationToken)

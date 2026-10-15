@@ -55,7 +55,7 @@ public static class ReleaseVersion
         return 0;
     }
 
-    /// <summary>The installed release (/opt/turbo-manager/VERSION), or this assembly's version outside an install.</summary>
+    /// <summary>The installed release (/opt/turbo-stack/VERSION), or this assembly's version outside an install.</summary>
     public static string Installed(string versionFile = $"{ManagerPaths.InstallRoot}/VERSION")
     {
         try

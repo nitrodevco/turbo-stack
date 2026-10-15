@@ -4,7 +4,7 @@ using TurboManager.Panel.Data;
 
 namespace TurboManager.Panel.Backups;
 
-/// <summary>tm-panel-restore leaves the outcome of a panel state restore next to the database: recorded once, at start-up.</summary>
+/// <summary>ts-panel-restore leaves the outcome of a panel state restore next to the database: recorded once, at start-up.</summary>
 public static class PanelRestoreOutcome
 {
     public const string FileName = "panel-restore.json";

@@ -6,7 +6,7 @@ namespace TurboManager.Agent.Firewall;
 /// <summary>Parses fail2ban-client's tree-style output.</summary>
 public static class Fail2banParser
 {
-    /// <summary>"`- Jail list:	sshd, turbo-manager-panel" from `fail2ban-client status`.</summary>
+    /// <summary>"`- Jail list:	sshd, turbo-stack-panel" from `fail2ban-client status`.</summary>
     public static List<string> ParseJailList(string output)
     {
         var value = ReadField(output, "Jail list");

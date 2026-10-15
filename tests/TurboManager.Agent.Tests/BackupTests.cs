@@ -16,7 +16,7 @@ public sealed class BackupTests : IDisposable
 
     private readonly FakeHostRoot _host = new FakeHostRoot()
         .WithFile("etc/passwd", "root:x:0:0:root:/root:/bin/bash\nhotel:x:1001:1001::/home/hotel:/bin/bash\n")
-        .WithFile("etc/group", "root:x:0:\ntm-apps:x:999:hotel\n")
+        .WithFile("etc/group", "root:x:0:\nts-apps:x:999:hotel\n")
         .WithFile("home/hotel/sites/assets/figure.nitro", "nitro");
 
     private readonly FakeCommandRunner _commands = new();
@@ -24,7 +24,7 @@ public sealed class BackupTests : IDisposable
 
     public BackupTests()
     {
-        var options = Options.Create(new AgentOptions { HostRoot = _host.Path, BackupRoot = "/var/lib/tm-backups" });
+        var options = Options.Create(new AgentOptions { HostRoot = _host.Path, BackupRoot = "/var/lib/ts-backups" });
         var deploy = new DeployManager(_commands, options, NullLogger<DeployManager>.Instance);
         _backups = new BackupManager(_commands, new DatabaseManager(_commands, options, TimeProvider.System, NullLogger<DatabaseManager>.Instance),
             new FilesManager(deploy, _commands), options, TimeProvider.System, NullLogger<BackupManager>.Instance);
@@ -32,14 +32,14 @@ public sealed class BackupTests : IDisposable
 
     public void Dispose() => _host.Dispose();
 
-    private static BackupTarget Local(string path = "/var/backups/turbo-manager") => new() { Id = "t1", Kind = "local", Path = path, Password = Password };
+    private static BackupTarget Local(string path = "/var/backups/turbo-stack") => new() { Id = "t1", Kind = "local", Path = path, Password = Password };
 
     [Theory]
-    [InlineData("/var/backups/turbo-manager", true)]
+    [InlineData("/var/backups/turbo-stack", true)]
     [InlineData("/mnt/backup-disk/hotel", true)]
     [InlineData("/var/backups", false)]
     [InlineData("/home/hotel/backups", false)]
-    [InlineData("/etc/turbo-manager", false)]
+    [InlineData("/etc/turbo-stack", false)]
     [InlineData("/var/backups/../../etc", false)]
     [InlineData("relative/path", false)]
     public void Local_repositories_only_go_in_backup_locations(string path, bool allowed)
@@ -78,13 +78,13 @@ public sealed class BackupTests : IDisposable
         Assert.Throws<RpcException>(() => _backups.Repository(target));
 
         target.HostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl";
-        _host.WithFile("etc/turbo-manager/backup-keys/t3", "PRIVATE");
+        _host.WithFile("etc/turbo-stack/backup-keys/t3", "PRIVATE");
         var repository = _backups.Repository(target);
 
         Assert.Equal("sftp:hotel@backup.example.com:restic", repository.Location);
         Assert.Equal("-o", repository.Options[0]);
-        Assert.Contains("-i /etc/turbo-manager/backup-keys/t3 -p 2222 -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes", repository.Options[1]);
-        Assert.Equal($"[backup.example.com]:2222 {target.HostKey}\n", File.ReadAllText(Path.Combine(_host.Path, "etc/turbo-manager/backup-keys/t3.known_hosts")));
+        Assert.Contains("-i /etc/turbo-stack/backup-keys/t3 -p 2222 -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes", repository.Options[1]);
+        Assert.Equal($"[backup.example.com]:2222 {target.HostKey}\n", File.ReadAllText(Path.Combine(_host.Path, "etc/turbo-stack/backup-keys/t3.known_hosts")));
     }
 
     [Fact]
@@ -113,19 +113,19 @@ public sealed class BackupTests : IDisposable
         Assert.Equal("0123456789abcdef", snapshot);
         Assert.Contains("apt-get install -y -q --no-install-recommends restic", _commands.Calls);
         var backup = Assert.Single(_commands.Calls, c => c.StartsWith("restic", StringComparison.Ordinal) && c.Contains(" backup ", StringComparison.Ordinal));
-        Assert.EndsWith("backup --json --tag tm --tag plan:p1 /var/lib/tm-backups/staging/p1 /home/hotel/sites/assets", backup);
+        Assert.EndsWith("backup --json --tag ts --tag plan:p1 /var/lib/ts-backups/staging/p1 /home/hotel/sites/assets", backup);
         Assert.Contains(_commands.Calls, c => c.EndsWith("forget --tag plan:p1 --group-by tags --keep-daily 7 --keep-weekly 4 --prune", StringComparison.Ordinal));
         Assert.Contains(lines, l => l.StartsWith("Snapshot 01234567 saved: 3 new", StringComparison.Ordinal));
         Assert.DoesNotContain(_commands.Calls, c => c.Contains(Password, StringComparison.Ordinal));
         Assert.All(_commands.Environments.Where(e => e.Call.StartsWith("restic --repo", StringComparison.Ordinal)),
             e => Assert.Equal(Password, e.Environment["RESTIC_PASSWORD"]));
-        Assert.False(Directory.Exists(Path.Combine(_host.Path, "var/lib/tm-backups/staging/p1")), "staging is cleaned up");
+        Assert.False(Directory.Exists(Path.Combine(_host.Path, "var/lib/ts-backups/staging/p1")), "staging is cleaned up");
     }
 
     [Fact]
     public async Task Restored_folders_land_next_to_the_original_and_dumps_join_the_backups_list()
     {
-        const string staging = "/var/lib/tm-backups/staging/p1";
+        const string staging = "/var/lib/ts-backups/staging/p1";
         _commands.Handler = (file, args) =>
         {
             if (file != "restic")
@@ -135,7 +135,7 @@ public sealed class BackupTests : IDisposable
 
             if (args.Contains("snapshots"))
             {
-                return new CommandResult(0, "[{\"id\":\"0123456789abcdef\",\"short_id\":\"01234567\",\"time\":\"2026-10-12T03:00:00Z\",\"tags\":[\"tm\",\"plan:p1\"]}]", "");
+                return new CommandResult(0, "[{\"id\":\"0123456789abcdef\",\"short_id\":\"01234567\",\"time\":\"2026-10-12T03:00:00Z\",\"tags\":[\"ts\",\"plan:p1\"]}]", "");
             }
 
             if (args.Contains("dump"))
@@ -164,15 +164,15 @@ public sealed class BackupTests : IDisposable
 
         var restore = Assert.Single(_commands.Calls, c => c.Contains(" restore ", StringComparison.Ordinal));
         Assert.Contains($"--include {staging}/databases/mariadb/turbo --include /home/hotel/sites/assets", restore);
-        Assert.Single(Directory.GetFiles(Path.Combine(_host.Path, "var/lib/turbo-manager-backups/databases/mariadb/turbo"), "turbo-*.sql.gz"));
+        Assert.Single(Directory.GetFiles(Path.Combine(_host.Path, "var/lib/turbo-stack-backups/databases/mariadb/turbo"), "turbo-*.sql.gz"));
         Assert.Contains(_commands.Calls, c => c.StartsWith("cp -a -- ", StringComparison.Ordinal) && c.Contains("home/hotel/restored-", StringComparison.Ordinal));
         Assert.Contains(_commands.Calls, c => c.StartsWith("chown -R --no-dereference 1001:1001 ", StringComparison.Ordinal));
         Assert.Equal("nitro", File.ReadAllText(Path.Combine(_host.Path, "home/hotel/sites/assets/figure.nitro")));
-        Assert.Empty(Directory.GetDirectories(Path.Combine(_host.Path, "var/lib/tm-backups/restores")));
+        Assert.Empty(Directory.GetDirectories(Path.Combine(_host.Path, "var/lib/ts-backups/restores")));
     }
 
     [Fact]
-    public async Task Restoring_the_panel_hands_the_unpacked_state_to_tm_panel_restore()
+    public async Task Restoring_the_panel_hands_the_unpacked_state_to_ts_panel_restore()
     {
         _commands.Handler = (file, args) =>
         {
@@ -194,8 +194,8 @@ public sealed class BackupTests : IDisposable
             if (file == "restic" && args.Contains("restore"))
             {
                 var target = args[args.ToList().IndexOf("--target") + 1];
-                _host.WithFile($"{target.TrimStart('/')}/var/lib/turbo-manager/backup/panel.db", "db")
-                    .WithFile($"{target.TrimStart('/')}/var/lib/turbo-manager/keys/key-1.xml", "key");
+                _host.WithFile($"{target.TrimStart('/')}/var/lib/turbo-stack/backup/panel.db", "db")
+                    .WithFile($"{target.TrimStart('/')}/var/lib/turbo-stack/keys/key-1.xml", "key");
             }
 
             return new CommandResult(0, "", "");
@@ -205,11 +205,11 @@ public sealed class BackupTests : IDisposable
         await Assert.ThrowsAsync<RpcException>(() => _backups.RestorePanelStateAsync(request, _ => Task.CompletedTask, CancellationToken.None));
         Assert.DoesNotContain(_commands.Calls, c => c.Contains(" restore ", StringComparison.Ordinal));
 
-        _host.WithFile("usr/local/sbin/tm-panel-restore", "#!/bin/bash");
+        _host.WithFile("usr/local/sbin/ts-panel-restore", "#!/bin/bash");
         await _backups.RestorePanelStateAsync(request, _ => Task.CompletedTask, CancellationToken.None);
 
         var run = Assert.Single(_commands.Calls, c => c.StartsWith("systemd-run", StringComparison.Ordinal));
-        Assert.Matches(@"--unit tm-panel-restore .* /bin/bash /usr/local/sbin/tm-panel-restore /var/lib/tm-backups/restores/panel-state-\d{8}-\d{6}$", run);
+        Assert.Matches(@"--unit ts-panel-restore .* /bin/bash /usr/local/sbin/ts-panel-restore /var/lib/ts-backups/restores/panel-state-\d{8}-\d{6}$", run);
     }
 
     [Fact]
@@ -236,7 +236,7 @@ public sealed class BackupTests : IDisposable
     public void Snapshots_carry_their_plan()
     {
         var snapshot = Assert.Single(BackupManager.ParseSnapshots(
-            "[{\"id\":\"0123456789abcdef0123\",\"time\":\"2026-10-12T03:00:00Z\",\"hostname\":\"hotel\",\"tags\":[\"tm\",\"plan:p7\"]}]"));
+            "[{\"id\":\"0123456789abcdef0123\",\"time\":\"2026-10-12T03:00:00Z\",\"hostname\":\"hotel\",\"tags\":[\"ts\",\"plan:p7\"]}]"));
 
         Assert.Equal("p7", snapshot.PlanId);
         Assert.Equal("01234567", snapshot.ShortId);

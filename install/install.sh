@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Turbo Manager installer.
+# Turbo Stack installer.
 #
-#   curl -fsSL https://<install-domain>/install.sh | sudo bash
+#   curl -fsSL https://install.nitrodev.co/install.sh | sudo bash
 #
 # Options:
 #   --channel <stable|beta>   Release channel (default: stable)
-#   --base-url <url>          Install domain to download from (default: $TM_BASE_URL or the official domain)
+#   --base-url <url>          Install domain to download from (default: $TS_BASE_URL or the official domain)
 #   --bundle <file.tar.gz>    Install from a local bundle instead of downloading
 #   --public-host <host|ip>   Address printed in the setup link (default: auto-detected)
 #   --no-upgrade              Skip `apt-get upgrade` (faster; used by tests)
@@ -16,9 +16,9 @@
 set -euo pipefail
 
 # Keep in sync with src/TurboManager.Core/Branding.cs and ManagerPaths.cs.
-PRODUCT_NAME="Turbo Manager"
-SLUG="turbo-manager"
-SHORT="tm"
+PRODUCT_NAME="Turbo Stack"
+SLUG="turbo-stack"
+SHORT="ts"
 SYSTEM_USER="$SLUG"
 INSTALL_ROOT="/opt/$SLUG"
 STATE_ROOT="/var/lib/$SLUG"
@@ -26,10 +26,10 @@ LOG_ROOT="/var/log/$SLUG"
 CONFIG_ROOT="/etc/$SLUG"
 PANEL_PORT=7800
 SETUP_PORT=8443
-DEFAULT_BASE_URL="https://get.turbo-manager.invalid" # TODO: replace once the install domain is chosen.
+DEFAULT_BASE_URL="https://install.nitrodev.co"
 
 CHANNEL="stable"
-BASE_URL="${TM_BASE_URL:-$DEFAULT_BASE_URL}"
+BASE_URL="${TS_BASE_URL:-$DEFAULT_BASE_URL}"
 BUNDLE=""
 PUBLIC_HOST=""
 UPGRADE=1
@@ -94,7 +94,7 @@ DISK_GB=$(( $(df -Pk / | awk 'NR==2 {print $4}') / 1024 / 1024 ))
 (( MEM_MB >= 1900 )) || warn "Only ${MEM_MB} MB RAM. 2 GB+ is recommended (4 GB+ for building the Nitro client)."
 (( DISK_GB >= 20 )) || warn "Only ${DISK_GB} GB free disk. 20 GB+ is recommended."
 
-if [[ -f "$INSTALL_ROOT/panel/tm-panel" ]]; then
+if [[ -f "$INSTALL_ROOT/panel/ts-panel" ]]; then
     log "$PRODUCT_NAME is already installed; upgrading in place (settings and data are kept)."
 fi
 
@@ -183,7 +183,7 @@ for component in panel agent; do
     mv "$INSTALL_ROOT/$component.new" "$INSTALL_ROOT/$component"
 done
 chown -R root:root "$INSTALL_ROOT"
-chmod 0755 "$INSTALL_ROOT/panel/tm-panel" "$INSTALL_ROOT/agent/tm-agent"
+chmod 0755 "$INSTALL_ROOT/panel/ts-panel" "$INSTALL_ROOT/agent/ts-agent"
 echo "$VERSION" > "$INSTALL_ROOT/VERSION"
 
 install -m 0755 "$WORK_DIR/bundle/bin/"* /usr/local/sbin/
@@ -210,15 +210,15 @@ if [[ -z "$PUBLIC_HOST" ]]; then
 fi
 
 cat > "$CONFIG_ROOT/install.env" <<EOF
-# Written by install.sh — read by tm-setup-token and future self-updates.
-TM_VERSION=$VERSION
-TM_CHANNEL=$CHANNEL
-TM_BASE_URL=$BASE_URL
-TM_PUBLIC_HOST=$PUBLIC_HOST
-TM_SETUP_PORT=$SETUP_PORT
-TM_PANEL_PORT=$PANEL_PORT
-TM_ROOT_TERMINAL=$ROOT_TERMINAL
-TM_IN_CONTAINER=$IN_CONTAINER
+# Written by install.sh — read by ts-setup-token and future self-updates.
+TS_VERSION=$VERSION
+TS_CHANNEL=$CHANNEL
+TS_BASE_URL=$BASE_URL
+TS_PUBLIC_HOST=$PUBLIC_HOST
+TS_SETUP_PORT=$SETUP_PORT
+TS_PANEL_PORT=$PANEL_PORT
+TS_ROOT_TERMINAL=$ROOT_TERMINAL
+TS_IN_CONTAINER=$IN_CONTAINER
 EOF
 chmod 0644 "$CONFIG_ROOT/install.env"
 
@@ -242,16 +242,16 @@ fi
 # http-level helpers every panel-generated site relies on.
 cat > "/etc/nginx/conf.d/$SHORT-maps.conf" <<EOF
 # Managed by $PRODUCT_NAME.
-map \$http_upgrade \$tm_connection_upgrade {
+map \$http_upgrade \$ts_connection_upgrade {
     default upgrade;
     ''      close;
 }
 EOF
 
-# Webroot for ACME (Let's Encrypt) HTTP-01 challenges, written by tm-agent.
-install -d -m 0755 /var/lib/turbo-manager-acme
+# Webroot for ACME (Let's Encrypt) HTTP-01 challenges, written by ts-agent.
+install -d -m 0755 /var/lib/turbo-stack-acme
 
-# The setup site is kept as a template so tm-panel-recover can reopen it later.
+# The setup site is kept as a template so ts-panel-recover can reopen it later.
 cat > "$CONFIG_ROOT/setup-site.conf" <<EOF
 # Managed by $PRODUCT_NAME — temporary setup entry point.
 server {
@@ -272,7 +272,7 @@ server {
         proxy_set_header X-Forwarded-For \$remote_addr;
         proxy_set_header X-Forwarded-Proto https;
         proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection \$tm_connection_upgrade;
+        proxy_set_header Connection \$ts_connection_upgrade;
         proxy_read_timeout 1h;
     }
 }
@@ -296,10 +296,10 @@ if [[ ! -f "$CONFIG_ROOT/firewall-initialized" ]]; then
     log "Configuring the firewall"
     if ufw default deny incoming >/dev/null \
         && ufw default allow outgoing >/dev/null \
-        && ufw limit 22/tcp comment "tm:ssh" >/dev/null \
-        && ufw allow 80/tcp comment "tm:http" >/dev/null \
-        && ufw allow 443/tcp comment "tm:https" >/dev/null \
-        && ufw allow "$SETUP_PORT/tcp" comment "tm:setup" >/dev/null \
+        && ufw limit 22/tcp comment "ts:ssh" >/dev/null \
+        && ufw allow 80/tcp comment "ts:http" >/dev/null \
+        && ufw allow 443/tcp comment "ts:https" >/dev/null \
+        && ufw allow "$SETUP_PORT/tcp" comment "ts:setup" >/dev/null \
         && ufw --force enable >/dev/null; then
         touch "$CONFIG_ROOT/firewall-initialized"
         log "Firewall enabled (22 rate-limited, 80, 443, $SETUP_PORT open)"
@@ -308,11 +308,11 @@ if [[ ! -f "$CONFIG_ROOT/firewall-initialized" ]]; then
     fi
 fi
 
-# Failed panel sign-ins are written here by tm-panel; the panel jail bans their source.
+# Failed panel sign-ins are written here by ts-panel; the panel jail bans their source.
 install -m 0640 -o "$SYSTEM_USER" -g adm /dev/null "$LOG_ROOT/auth.log" 2>/dev/null || touch "$LOG_ROOT/auth.log"
 
 cat > /etc/fail2ban/filter.d/$SLUG-panel.conf <<'EOF'
-# Managed by Turbo Manager: failed sign-ins to the panel.
+# Managed by Turbo Stack: failed sign-ins to the panel.
 [Definition]
 failregex = ^\S+ AUTH_FAILURE ip=<HOST>
 ignoreregex =
@@ -382,15 +382,15 @@ if [[ "$(curl -fsS "http://127.0.0.1:$PANEL_PORT/api/setup/status" | jq -r '.cla
     exit 0
 fi
 
-SETUP_URL="$(/usr/local/sbin/tm-setup-token --url-only)"
+SETUP_URL="$(/usr/local/sbin/ts-setup-token --url-only)"
 
 printf '\n\033[1;32m✔ %s %s installed.\033[0m\n\n' "$PRODUCT_NAME" "$VERSION"
 printf '  Open this link to finish setup (valid for 24 hours):\n\n'
 printf '    \033[1m%s\033[0m\n\n' "$SETUP_URL"
 printf '  Your browser will warn about the certificate: that is expected for this one-time\n'
 printf '  setup address. The panel moves to your own domain during setup.\n\n'
-printf '  Lost the link? Run: sudo tm-setup-token\n\n'
+printf '  Lost the link? Run: sudo ts-setup-token\n\n'
 if [[ -n "$HOTEL_CONFIG" ]]; then
     printf '  The hotel from %s is being set up now; follow it on the Hotel page once you have\n' "$HOTEL_CONFIG"
-    printf '  claimed the panel (or: journalctl -u tm-panel -f).\n\n'
+    printf '  claimed the panel (or: journalctl -u ts-panel -f).\n\n'
 fi

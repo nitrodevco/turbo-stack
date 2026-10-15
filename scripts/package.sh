@@ -3,7 +3,7 @@
 #
 #   dist/install.sh                              (with the release public key embedded)
 #   dist/channels/<channel>.json (+ .sig)        version, notes, per-arch download and checksum; signed
-#   dist/files/tm-<version>-linux-<arch>.tar.gz
+#   dist/files/ts-<version>-linux-<arch>.tar.gz
 #
 # Usage: scripts/package.sh [--arch x64|arm64]... [--channel stable|beta]... [--notes <file>] [--download-base <url>]
 #   --channel        each channel file to write (default: stable); a stable release also goes to beta
@@ -69,7 +69,7 @@ for arch in "${ARCHES[@]}"; do
     # The key later updates are checked with: kept by --bundle installs, and handed over by this release (rotation).
     bundle_key > "$stage/release-key.pem"
 
-    file="tm-$VERSION-linux-$arch.tar.gz"
+    file="ts-$VERSION-linux-$arch.tar.gz"
     tar -czf "$OUT/files/$file" -C "$stage" .
     sha="$(sha256sum "$OUT/files/$file" | awk '{print $1}')"
 

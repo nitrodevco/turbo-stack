@@ -389,7 +389,7 @@ function BackupsSection({ engine, databases, onJob }: { engine: DatabaseEngineVi
         mutationFn: async (file: File) => {
             const response = await fetch(`/api/databases/backups/upload?name=${encodeURIComponent(file.name)}`, {
                 method: 'POST',
-                headers: { 'X-TM-Request': '1', 'Content-Type': 'application/octet-stream' },
+                headers: { 'X-TS-Request': '1', 'Content-Type': 'application/octet-stream' },
                 body: file,
             });
 

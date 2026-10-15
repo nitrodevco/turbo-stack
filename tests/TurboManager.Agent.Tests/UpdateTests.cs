@@ -26,12 +26,12 @@ public sealed class UpdateTests : IDisposable
 
     public UpdateTests()
     {
-        _host.WithFile("etc/turbo-manager/install.env", $"# Written by install.sh\nTM_VERSION=0.1.0\nTM_CHANNEL=stable\nTM_BASE_URL={BaseUrl}\n")
-            .WithFile("etc/turbo-manager/release-key.pem", _key.ExportSubjectPublicKeyInfoPem())
-            .WithFile("opt/turbo-manager/VERSION", "0.1.0\n");
+        _host.WithFile("etc/turbo-stack/install.env", $"# Written by install.sh\nTS_VERSION=0.1.0\nTS_CHANNEL=stable\nTS_BASE_URL={BaseUrl}\n")
+            .WithFile("etc/turbo-stack/release-key.pem", _key.ExportSubjectPublicKeyInfoPem())
+            .WithFile("opt/turbo-stack/VERSION", "0.1.0\n");
         // Nothing is updating right now.
         _commands.Handler = (file, args) => new CommandResult(file == "systemctl" && args.Contains("is-active") ? 3 : 0, "", "");
-        _updates = new UpdateManager(_commands, _http, Options.Create(new AgentOptions { HostRoot = _host.Path, UpdateRoot = "/var/lib/tm-updates" }),
+        _updates = new UpdateManager(_commands, _http, Options.Create(new AgentOptions { HostRoot = _host.Path, UpdateRoot = "/var/lib/ts-updates" }),
             NullLogger<UpdateManager>.Instance);
     }
 
@@ -67,10 +67,10 @@ public sealed class UpdateTests : IDisposable
     [Fact]
     public void Setting_a_value_keeps_the_rest_of_install_env()
     {
-        var content = "# comment\nTM_VERSION=0.1.0\nTM_CHANNEL=stable\n";
+        var content = "# comment\nTS_VERSION=0.1.0\nTS_CHANNEL=stable\n";
 
-        Assert.Equal("# comment\nTM_VERSION=0.1.0\nTM_CHANNEL=beta\n", UpdateManager.SetEnvValue(content, "TM_CHANNEL", "beta"));
-        Assert.Equal("# comment\nTM_VERSION=0.1.0\nTM_CHANNEL=stable\nTM_NEW=1\n", UpdateManager.SetEnvValue(content, "TM_NEW", "1"));
+        Assert.Equal("# comment\nTS_VERSION=0.1.0\nTS_CHANNEL=beta\n", UpdateManager.SetEnvValue(content, "TS_CHANNEL", "beta"));
+        Assert.Equal("# comment\nTS_VERSION=0.1.0\nTS_CHANNEL=stable\nTS_NEW=1\n", UpdateManager.SetEnvValue(content, "TS_NEW", "1"));
     }
 
     [Fact]
@@ -107,7 +107,7 @@ public sealed class UpdateTests : IDisposable
     public async Task A_bundle_that_does_not_match_the_signed_checksum_is_refused()
     {
         Publish("0.1.1", Bundle("0.1.1"));
-        _http.Files[$"{BaseUrl}/files/tm-0.1.1-linux-x64.tar.gz"] = Bundle("0.1.1", extra: "backdoor");
+        _http.Files[$"{BaseUrl}/files/ts-0.1.1-linux-x64.tar.gz"] = Bundle("0.1.1", extra: "backdoor");
 
         var error = await Assert.ThrowsAsync<RpcException>(() => _updates.StartAsync(new UpdateRequest { Version = "0.1.1" }, CancellationToken.None));
 
@@ -123,22 +123,22 @@ public sealed class UpdateTests : IDisposable
         Assert.Contains("now offers 0.1.1", (await Assert.ThrowsAsync<RpcException>(() =>
             _updates.StartAsync(new UpdateRequest { Version = "0.1.5" }, CancellationToken.None))).Status.Detail);
 
-        _host.WithFile("opt/turbo-manager/VERSION", "0.1.1\n");
+        _host.WithFile("opt/turbo-stack/VERSION", "0.1.1\n");
         Assert.Contains("is not newer", (await Assert.ThrowsAsync<RpcException>(() =>
             _updates.StartAsync(new UpdateRequest { Version = "0.1.1" }, CancellationToken.None))).Status.Detail);
     }
 
     [Fact]
-    public async Task A_verified_bundle_is_unpacked_and_handed_to_its_own_tm_update_in_a_transient_unit()
+    public async Task A_verified_bundle_is_unpacked_and_handed_to_its_own_ts_update_in_a_transient_unit()
     {
         Publish("0.1.1", Bundle("0.1.1"));
 
         await _updates.StartAsync(new UpdateRequest { Version = "0.1.1" }, CancellationToken.None);
 
-        var bundle = Path.Combine(_host.Path, "var/lib/tm-updates/0.1.1/bundle");
+        var bundle = Path.Combine(_host.Path, "var/lib/ts-updates/0.1.1/bundle");
         Assert.Equal("0.1.1", File.ReadAllText(Path.Combine(bundle, "VERSION")).Trim());
-        Assert.Contains("systemd-run --unit tm-update --collect --no-block --quiet --description Turbo Manager update to 0.1.1 "
-            + "--property TimeoutStopSec=15min /bin/bash /var/lib/tm-updates/0.1.1/bundle/bin/tm-update apply /var/lib/tm-updates/0.1.1/bundle",
+        Assert.Contains("systemd-run --unit ts-update --collect --no-block --quiet --description Turbo Stack update to 0.1.1 "
+            + "--property TimeoutStopSec=15min /bin/bash /var/lib/ts-updates/0.1.1/bundle/bin/ts-update apply /var/lib/ts-updates/0.1.1/bundle",
             _commands.Calls);
     }
 
@@ -154,9 +154,9 @@ public sealed class UpdateTests : IDisposable
     }
 
     [Fact]
-    public async Task The_last_outcome_is_read_from_tm_updates_status_file()
+    public async Task The_last_outcome_is_read_from_ts_updates_status_file()
     {
-        _host.WithFile("var/lib/tm-updates/status.json",
+        _host.WithFile("var/lib/ts-updates/status.json",
             "{\"state\":\"rolled-back\",\"from\":\"0.1.0\",\"to\":\"0.1.1\",\"message\":\"0.1.1 didn't start\",\"at\":\"2026-10-12T15:00:00Z\"}");
 
         var status = await _updates.StatusAsync(CancellationToken.None);
@@ -172,7 +172,7 @@ public sealed class UpdateTests : IDisposable
         await Assert.ThrowsAsync<RpcException>(() => _updates.SetChannelAsync("nightly", CancellationToken.None));
         await _updates.SetChannelAsync("beta", CancellationToken.None);
 
-        Assert.Contains("TM_CHANNEL=beta\n", File.ReadAllText(Path.Combine(_host.Path, "etc/turbo-manager/install.env")));
+        Assert.Contains("TS_CHANNEL=beta\n", File.ReadAllText(Path.Combine(_host.Path, "etc/turbo-stack/install.env")));
     }
 
     [Fact]
@@ -186,8 +186,8 @@ public sealed class UpdateTests : IDisposable
 
     private void Publish(string version, byte[] bundle, string notes = "")
     {
-        var file = $"files/tm-{version}-linux-x64.tar.gz";
-        var arm = $"files/tm-{version}-linux-arm64.tar.gz";
+        var file = $"files/ts-{version}-linux-x64.tar.gz";
+        var arm = $"files/ts-{version}-linux-arm64.tar.gz";
         var sha = Convert.ToHexStringLower(SHA256.HashData(bundle));
         var json = Encoding.UTF8.GetBytes(
             $"{{\"version\":\"{version}\",\"channel\":\"stable\",\"published\":\"2026-10-12T12:00:00Z\",\"notes\":\"{notes}\","
@@ -215,9 +215,9 @@ public sealed class UpdateTests : IDisposable
             }
 
             Add("VERSION", version + "\n");
-            Add("bin/tm-update", "#!/usr/bin/env bash\n" + extra);
-            Add("panel/tm-panel", "panel");
-            Add("agent/tm-agent", "agent");
+            Add("bin/ts-update", "#!/usr/bin/env bash\n" + extra);
+            Add("panel/ts-panel", "panel");
+            Add("agent/ts-agent", "agent");
         }
 
         return output.ToArray();

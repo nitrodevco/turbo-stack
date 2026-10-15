@@ -5,12 +5,12 @@ namespace TurboManager.Agent.Deploy;
 
 /// <summary>
 /// SSH and git settings for an app user's repositories. Each deploy key gets a host alias
-/// ("tm-&lt;key&gt;") in a private ssh config, and git URL rewrites send every submodule to the alias of
+/// ("ts-&lt;key&gt;") in a private ssh config, and git URL rewrites send every submodule to the alias of
 /// its own key (GitHub deploy keys only grant access to one repository each).
 /// </summary>
 public static class GitSsh
 {
-    public static string Alias(string keyName) => $"tm-{keyName}";
+    public static string Alias(string keyName) => $"ts-{keyName}";
 
     public static string RemoteUrl(RepositoryAccess repository, string httpsBase) =>
         string.IsNullOrEmpty(repository.KeyName)
@@ -19,7 +19,7 @@ public static class GitSsh
 
     public static string RenderConfig(IEnumerable<string> keyNames, string home, string host, int port)
     {
-        var builder = new StringBuilder("# Managed by Turbo Manager: deploy keys for this user's repositories.\n");
+        var builder = new StringBuilder("# Managed by Turbo Stack: deploy keys for this user's repositories.\n");
 
         foreach (var key in keyNames.Distinct())
         {
@@ -27,9 +27,9 @@ public static class GitSsh
                 .Append($"    HostName {host}\n")
                 .Append($"    Port {port}\n")
                 .Append("    User git\n")
-                .Append($"    IdentityFile {home}/.ssh/tm/{key}\n")
+                .Append($"    IdentityFile {home}/.ssh/ts/{key}\n")
                 .Append("    IdentitiesOnly yes\n")
-                .Append($"    UserKnownHostsFile {home}/.ssh/tm/known_hosts\n")
+                .Append($"    UserKnownHostsFile {home}/.ssh/ts/known_hosts\n")
                 .Append("    StrictHostKeyChecking yes\n")
                 .Append("    BatchMode yes\n");
         }

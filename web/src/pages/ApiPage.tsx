@@ -52,10 +52,10 @@ export function ApiPage() {
                     request:
                 </p>
                 <pre className="overflow-x-auto rounded bg-slate-100 p-3 font-mono text-xs dark:bg-slate-900">
-                    {`curl -H "Authorization: Bearer tm_…" ${window.location.origin}/api/apps`}
+                    {`curl -H "Authorization: Bearer ts_…" ${window.location.origin}/api/apps`}
                 </pre>
                 <p className="text-slate-600 dark:text-slate-400">
-                    Requests that change something from a browser also need the header <code>X-TM-Request: 1</code>; with a token it isn't needed.
+                    Requests that change something from a browser also need the header <code>X-TS-Request: 1</code>; with a token it isn't needed.
                 </p>
             </Card>
             <Input placeholder="Filter: deploy, /api/sites, backups.manage…" value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Filter" />

@@ -151,7 +151,7 @@ public sealed class DeployApiTests : IAsyncLifetime
         Assert.Equal("turbo-turbo-admin", sync.SubmoduleAccess[0].KeyName);
         Assert.Equal("Habbo", _agent.Deploy.Builds[0].Environment["TURBO__Turbo__HotelName"]);
         Assert.Equal("dotnet Turbo.Main.dll", _agent.Deploy.Services["emulator"].Command);
-        Assert.Contains(_agent.Services.Controls, c => c.Name == "tm-app-emulator.service");
+        Assert.Contains(_agent.Services.Controls, c => c.Name == "ts-app-emulator.service");
 
         var detail = await JsonAsync(await _client.GetAsync($"/api/apps/{appId}"));
         Assert.Equal("active", detail.GetProperty("releases")[0].GetProperty("status").GetString());

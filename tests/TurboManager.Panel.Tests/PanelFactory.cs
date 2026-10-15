@@ -13,7 +13,7 @@ namespace TurboManager.Panel.Tests;
 /// <summary>A panel instance with its own temporary data directory and a controllable clock.</summary>
 public sealed class PanelFactory : WebApplicationFactory<PanelEntryPoint>
 {
-    private readonly string _dataDirectory = Path.Combine(Path.GetTempPath(), "tm-panel-" + Guid.NewGuid().ToString("N"));
+    private readonly string _dataDirectory = Path.Combine(Path.GetTempPath(), "ts-panel-" + Guid.NewGuid().ToString("N"));
 
     // Starts at the real clock because setup-token expiry compares against the token file's mtime.
     public FakeTimeProvider Time { get; } = new(DateTimeOffset.UtcNow);

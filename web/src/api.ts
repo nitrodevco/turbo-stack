@@ -16,7 +16,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
         credentials: 'same-origin',
         headers: {
             // Required by the panel on every state-changing call (CSRF defence).
-            'X-TM-Request': '1',
+            'X-TS-Request': '1',
             ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
         },
         body: body !== undefined ? JSON.stringify(body) : undefined,

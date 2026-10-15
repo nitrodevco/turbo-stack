@@ -215,7 +215,7 @@ public static class DeployEndpoints
                     found.ServiceCommand, found.ServicePort, found.HealthPath, found.MemoryMaxMb, found.StopTimeoutSeconds, found.KeepReleases,
                     found.AutoDeploy, found.DeployPaths, found.PurgeCloudflare, found.CurrentRelease, found.ServiceDirectory, found.Console, found.RecipeId,
                     found.RecipeInputs, found.Ports,
-                    staticPath = StaticPath(found), unit = found.ServiceCommand is null ? null : $"tm-app-{found.Name}.service",
+                    staticPath = StaticPath(found), unit = found.ServiceCommand is null ? null : $"ts-app-{found.Name}.service",
                 },
                 releases,
             });
@@ -386,7 +386,7 @@ public static class DeployEndpoints
             }
 
             await deployments.WriteServiceAsync(found, cancellationToken);
-            await agent.Services.ControlServiceAsync(new ControlServiceRequest { Name = $"tm-app-{found.Name}.service", Action = ServiceAction.Restart },
+            await agent.Services.ControlServiceAsync(new ControlServiceRequest { Name = $"ts-app-{found.Name}.service", Action = ServiceAction.Restart },
                 cancellationToken: cancellationToken);
             audit.Record("app.restarted", await CurrentUser.GetAsync(http, db), target: found.Name);
             await db.SaveChangesAsync(cancellationToken);
@@ -394,7 +394,7 @@ public static class DeployEndpoints
             return Results.NoContent();
         });
 
-        // One line into the service's console; the output appears in its log (GET /api/logs/stream?unit=tm-app-<name>.service).
+        // One line into the service's console; the output appears in its log (GET /api/logs/stream?unit=ts-app-<name>.service).
         var console = app.MapGroup("/api").WithAgentErrors().RequirePermission(Permissions.AppsConsole).RequireScope();
 
         console.MapPost("/apps/{id:int}/console", async (int id, ConsoleRequest request, HttpContext http, PanelDbContext db, AgentChannelFactory agent,

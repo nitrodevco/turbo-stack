@@ -187,7 +187,7 @@ public static class StackEndpoints
         try
         {
             var services = await agent.Services.ListServicesAsync(new Contracts.Agent.ListServicesRequest(), cancellationToken: cancellationToken);
-            units = services.Services.Where(u => u.Name.StartsWith("tm-app-", StringComparison.Ordinal)).ToDictionary(u => u.Name, u => u.ActiveState);
+            units = services.Services.Where(u => u.Name.StartsWith("ts-app-", StringComparison.Ordinal)).ToDictionary(u => u.Name, u => u.ActiveState);
         }
         catch (Grpc.Core.RpcException)
         {
@@ -235,7 +235,7 @@ public static class StackEndpoints
                         app.CurrentRelease,
                         app.Ports,
                         lastRelease = release is null ? null : new { release.Name, status = release.Status.ToString().ToLowerInvariant(), release.Error },
-                        service = app.ServiceCommand is null ? null : units.GetValueOrDefault($"tm-app-{app.Name}.service", "unknown"),
+                        service = app.ServiceCommand is null ? null : units.GetValueOrDefault($"ts-app-{app.Name}.service", "unknown"),
                     },
                     site = site is null ? null : new { site.Id, site.Name, applied = site.LastAppliedRevision is not null && site.LastError is null, site.LastError },
                     // Where each wired input of this role comes from, and its value.

@@ -18,12 +18,12 @@ public sealed record FirewallPlan(IReadOnlyList<RuleTuple> Add, IReadOnlyList<Ru
 }
 
 /// <summary>
-/// Compares the panel's desired rules with ufw's actual rules. Only rules tagged "tm:*" are
+/// Compares the panel's desired rules with ufw's actual rules. Only rules tagged "ts:*" are
 /// considered ours; anything else in ufw is external and never touched.
 /// </summary>
 public static class FirewallPlanner
 {
-    public const string CommentPrefix = "tm:";
+    public const string CommentPrefix = "ts:";
 
     public static string CommentFor(ManagedFirewallRule rule) => CommentPrefix + rule.Key;
 

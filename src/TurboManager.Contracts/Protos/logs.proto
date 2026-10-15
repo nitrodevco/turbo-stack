@@ -12,7 +12,7 @@ service LogsAgent {
 }
 
 message JournalQuery {
-  string unit = 1;               // optional systemd unit, e.g. "tm-panel.service"
+  string unit = 1;               // optional systemd unit, e.g. "ts-panel.service"
   optional int32 max_priority = 2; // 0 (emerg) .. 7 (debug); unset = all
   int64 since_unix_ms = 3;       // 0 = unbounded
   int64 until_unix_ms = 4;       // 0 = unbounded

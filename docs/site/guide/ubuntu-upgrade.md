@@ -1,6 +1,6 @@
 # Upgrading Ubuntu (24.04 → 26.04)
 
-Turbo Manager supports both releases, but moving a running server from one to the other with `do-release-upgrade` changes many packages at once (nginx, the database servers, OpenSSH, systemd). It can't be tested automatically the way the panel's own updates are, so do it deliberately.
+Turbo Stack supports both releases, but moving a running server from one to the other with `do-release-upgrade` changes many packages at once (nginx, the database servers, OpenSSH, systemd). It can't be tested automatically the way the panel's own updates are, so do it deliberately.
 
 ::: tip Often simpler
 Install a fresh 26.04 server, set the hotel up there from its [answers file](./hotels#rebuilding-a-hotel-from-its-answers-file), restore the databases and folders from your [backups](./backups), and switch DNS. The old server stays as it was until you're happy.
@@ -25,10 +25,10 @@ When asked about changed configuration files, **keep the installed version** for
 
 ## After
 
-- [ ] `systemctl status tm-agent tm-panel` — both running.
+- [ ] `systemctl status ts-agent ts-panel` — both running.
 - [ ] Sign in; the dashboard shows Ubuntu 26.04.
 - [ ] **Databases**: the engine is running. MySQL 8.0 → 8.4 and MariaDB upgrades convert data on first start; check the service log if it didn't come up.
-- [ ] **Services**: every `tm-app-*` is active; if the emulator isn't, redeploy it (runtimes are the panel's own and survive the upgrade).
+- [ ] **Services**: every `ts-app-*` is active; if the emulator isn't, redeploy it (runtimes are the panel's own and survive the upgrade).
 - [ ] **Firewall** and **SSH access** pages show what you expect.
 - [ ] Open the hotel, play, check the imager and the website.
 - [ ] Run a backup plan.

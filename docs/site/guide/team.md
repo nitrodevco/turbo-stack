@@ -29,7 +29,7 @@ Edits to a role apply on its members' next click — nobody has to sign in again
 For scripts and CI, create an **API token** on the Account page: choose its permissions (never more than your own) and an expiry. The token is shown once. Use it as a bearer token:
 
 ```bash
-curl -H "Authorization: Bearer tm_…" https://panel.example.com/api/apps
+curl -H "Authorization: Bearer ts_…" https://panel.example.com/api/apps
 ```
 
 A token can only do what it was given, and stops working when it expires, is deleted, or its owner loses the permission.

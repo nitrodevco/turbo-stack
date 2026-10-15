@@ -191,7 +191,7 @@ public sealed class DatabaseManagerTests : IDisposable
 
         Assert.StartsWith("mysql/turbo/turbo-", backup.Id);
         Assert.EndsWith(".sql.gz", backup.Id);
-        var path = Path.Combine(_host.Path, "var/lib/turbo-manager-backups/databases", backup.Id);
+        var path = Path.Combine(_host.Path, "var/lib/turbo-stack-backups/databases", backup.Id);
         await using (var gzip = new GZipStream(File.OpenRead(path), CompressionMode.Decompress))
         using (var reader = new StreamReader(gzip))
         {

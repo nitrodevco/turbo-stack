@@ -22,10 +22,10 @@ public sealed class FakeFirewallState
 
     public List<FirewallRuleSpec> Rules { get; } =
     [
-        new() { Action = "limit", Protocol = "tcp", Ports = "22", Source = "any", Comment = "tm:ssh" },
-        new() { Action = "allow", Protocol = "tcp", Ports = "80", Source = "any", Comment = "tm:http" },
-        new() { Action = "allow", Protocol = "tcp", Ports = "443", Source = "any", Comment = "tm:https" },
-        new() { Action = "allow", Protocol = "tcp", Ports = "8443", Source = "any", Comment = "tm:setup" },
+        new() { Action = "limit", Protocol = "tcp", Ports = "22", Source = "any", Comment = "ts:ssh" },
+        new() { Action = "allow", Protocol = "tcp", Ports = "80", Source = "any", Comment = "ts:http" },
+        new() { Action = "allow", Protocol = "tcp", Ports = "443", Source = "any", Comment = "ts:https" },
+        new() { Action = "allow", Protocol = "tcp", Ports = "8443", Source = "any", Comment = "ts:setup" },
         new() { Action = "allow", Protocol = "udp", Ports = "51820", Source = "any", Comment = "" },
     ];
 
@@ -113,7 +113,7 @@ public sealed class FakeFirewallAgent(FakeFirewallState state) : FirewallAgent.F
     {
         var reply = new ListeningSockets();
         reply.Sockets.Add(new ListeningSocket { Protocol = "tcp", Address = "0.0.0.0", Port = 22, Process = "sshd" });
-        reply.Sockets.Add(new ListeningSocket { Protocol = "tcp", Address = "127.0.0.1", Port = 7800, Process = "tm-panel" });
+        reply.Sockets.Add(new ListeningSocket { Protocol = "tcp", Address = "127.0.0.1", Port = 7800, Process = "ts-panel" });
         reply.Sockets.Add(new ListeningSocket { Protocol = "tcp", Address = "0.0.0.0", Port = 3306, Process = "mysqld" });
         reply.Sockets.AddRange(state.ListeningPorts.Select(p => new ListeningSocket { Protocol = "tcp", Address = "127.0.0.1", Port = p, Process = "other" }));
 
@@ -417,7 +417,7 @@ public sealed class FakeDeployAgent : DeployAgent.DeployAgentBase
 
     public override Task<DeployKey> EnsureDeployKey(DeployKeyRequest request, ServerCallContext context)
     {
-        Keys.TryAdd(request.KeyName, $"ssh-ed25519 AAAAFAKE{request.KeyName} turbo-manager {request.User}/{request.KeyName}");
+        Keys.TryAdd(request.KeyName, $"ssh-ed25519 AAAAFAKE{request.KeyName} turbo-stack {request.User}/{request.KeyName}");
 
         return Task.FromResult(new DeployKey { KeyName = request.KeyName, PublicKey = Keys[request.KeyName], Fingerprint = $"SHA256:{request.KeyName}" });
     }
@@ -745,7 +745,7 @@ public sealed class FakeBackupAgent : BackupAgent.BackupAgentBase
     }
 
     public override Task<TargetKey> CreateTargetKey(TargetKeyRequest request, ServerCallContext context) =>
-        Task.FromResult(new TargetKey { PublicKey = $"ssh-ed25519 AAAAC3Nz turbo-manager-backup-{request.TargetId}" });
+        Task.FromResult(new TargetKey { PublicKey = $"ssh-ed25519 AAAAC3Nz turbo-stack-backup-{request.TargetId}" });
 
     public override Task<HostKeyReply> ScanHostKey(HostKeyRequest request, ServerCallContext context) =>
         Task.FromResult(new HostKeyReply { HostKey = "ssh-ed25519 AAAAhost", Fingerprint = "SHA256:abc" });

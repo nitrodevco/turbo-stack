@@ -30,7 +30,7 @@ public sealed class ApiDocsTests : IAsyncLifetime
         var document = JsonDocument.Parse(await _client.GetStringAsync("/api/openapi.json")).RootElement;
         var paths = document.GetProperty("paths");
 
-        Assert.Equal("Turbo Manager API", document.GetProperty("info").GetProperty("title").GetString());
+        Assert.Equal("Turbo Stack API", document.GetProperty("info").GetProperty("title").GetString());
         Assert.Contains("`apps.view`", paths.GetProperty("/api/apps").GetProperty("get").GetProperty("description").GetString());
         Assert.Contains("second factor", paths.GetProperty("/api/panel-update/apply").GetProperty("post").GetProperty("description").GetString());
         Assert.True(paths.EnumerateObject().Count() > 100, "every endpoint is listed");

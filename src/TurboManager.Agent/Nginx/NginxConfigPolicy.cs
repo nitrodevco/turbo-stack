@@ -16,18 +16,18 @@ public static class NginxConfigPolicy
     {
         ["root"] = WebRoots,
         ["alias"] = WebRoots,
-        ["include"] = ["/etc/nginx/", "/etc/turbo-manager/nginx/"],
-        ["ssl_certificate"] = ["/etc/turbo-manager/certs/", "/etc/turbo-manager/tls/", "/etc/ssl/"],
-        ["ssl_certificate_key"] = ["/etc/turbo-manager/certs/", "/etc/turbo-manager/tls/", "/etc/ssl/private/ssl-cert-snakeoil.key"],
-        ["ssl_trusted_certificate"] = ["/etc/turbo-manager/certs/", "/etc/ssl/"],
-        ["ssl_client_certificate"] = ["/etc/turbo-manager/certs/", "/etc/ssl/"],
-        ["ssl_dhparam"] = ["/etc/turbo-manager/", "/etc/ssl/"],
+        ["include"] = ["/etc/nginx/", "/etc/turbo-stack/nginx/"],
+        ["ssl_certificate"] = ["/etc/turbo-stack/certs/", "/etc/turbo-stack/tls/", "/etc/ssl/"],
+        ["ssl_certificate_key"] = ["/etc/turbo-stack/certs/", "/etc/turbo-stack/tls/", "/etc/ssl/private/ssl-cert-snakeoil.key"],
+        ["ssl_trusted_certificate"] = ["/etc/turbo-stack/certs/", "/etc/ssl/"],
+        ["ssl_client_certificate"] = ["/etc/turbo-stack/certs/", "/etc/ssl/"],
+        ["ssl_dhparam"] = ["/etc/turbo-stack/", "/etc/ssl/"],
         ["access_log"] = ["/var/log/nginx/", "off"],
         ["error_log"] = ["/var/log/nginx/"],
-        ["auth_basic_user_file"] = ["/etc/turbo-manager/nginx/"],
+        ["auth_basic_user_file"] = ["/etc/turbo-stack/nginx/"],
     };
 
-    private static string[] WebRoots => ["/var/www/", "/srv/", "/home/", "/opt/turbo-manager/", "/var/lib/turbo-manager-acme", "/usr/share/nginx/html"];
+    private static string[] WebRoots => ["/var/www/", "/srv/", "/home/", "/opt/turbo-stack/", "/var/lib/turbo-stack-acme", "/usr/share/nginx/html"];
 
     /// <summary>Directives that load code, run scripts or write files elsewhere.</summary>
     private static readonly string[] ForbiddenPrefixes =
@@ -82,7 +82,7 @@ public static class NginxConfigPolicy
             }
 
             // "/." also excludes hidden directories such as ~/.ssh under an allowed /home/ root.
-            if (path.Contains("..", StringComparison.Ordinal) || path.Contains("/.", StringComparison.Ordinal) && !path.StartsWith("/var/lib/turbo-manager-acme", StringComparison.Ordinal)
+            if (path.Contains("..", StringComparison.Ordinal) || path.Contains("/.", StringComparison.Ordinal) && !path.StartsWith("/var/lib/turbo-stack-acme", StringComparison.Ordinal)
                 || !allowed.Any(a => path == a || path.StartsWith(a, StringComparison.Ordinal)))
             {
                 errors.Add($"Line {line}: \"{directive} {path}\" is outside the allowed locations ({string.Join(", ", allowed)}).");

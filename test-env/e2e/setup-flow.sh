@@ -18,7 +18,7 @@ fail() { printf '  \033[31m✘\033[0m %s\n' "$*" >&2; exit 1; }
 call() {
     local method="$1" path="$2" body="${3:-}"
     curl -sk -b "$JAR" -c "$JAR" -X "$method" "$BASE$path" \
-        -H 'X-TM-Request: 1' -H 'Content-Type: application/json' \
+        -H 'X-TS-Request: 1' -H 'Content-Type: application/json' \
         ${body:+--data "$body"} -w '\n%{http_code}'
 }
 
@@ -89,10 +89,10 @@ response="$(call GET /api/metrics/current)"
 pass "live metrics from the agent"
 
 response="$(call GET /api/services)"
-[[ "$(body_of "$response" | jq -r '.[] | select(.name == "tm-panel.service") | .activeState')" == "active" ]] || fail "tm-panel.service should be listed as active"
-pass "services listed (tm-panel.service active)"
+[[ "$(body_of "$response" | jq -r '.[] | select(.name == "ts-panel.service") | .activeState')" == "active" ]] || fail "ts-panel.service should be listed as active"
+pass "services listed (ts-panel.service active)"
 
-response="$(call GET '/api/logs?unit=tm-panel.service&limit=5')"
+response="$(call GET '/api/logs?unit=ts-panel.service&limit=5')"
 [[ "$(status_of "$response")" == "200" ]] || fail "journal query failed: $response"
 pass "journal query works"
 
@@ -101,7 +101,7 @@ response="$(call GET /api/ssh/settings)"
 pass "sshd settings read via sshd -T"
 
 response="$(call GET /api/firewall/fail2ban)"
-[[ "$(body_of "$response" | jq '[.jails[].name] | contains(["sshd", "turbo-manager-panel"])')" == "true" ]] || fail "fail2ban jails missing: $response"
+[[ "$(body_of "$response" | jq '[.jails[].name] | contains(["sshd", "turbo-stack-panel"])')" == "true" ]] || fail "fail2ban jails missing: $response"
 pass "fail2ban jails active (sshd, panel)"
 
 response="$(call GET /api/firewall)"
@@ -191,7 +191,7 @@ pass "$SQL (recommended) and PostgreSQL installed; $OTHER blocked next to it"
 response="$(call POST "/api/databases/$SQL/databases" '{"name":"turbo","user":"turbo"}')"
 [[ "$(body_of "$response" | jq -r '.credentials.password | length')" == "32" ]] || fail "database with user should return credentials: $response"
 call PUT "/api/databases/$SQL/users/turbo/password" '{"password":"E2e-Mysql-Passw0rd"}' >/dev/null
-response="$(curl -sk -b "$JAR" -c "$JAR" -H 'X-TM-Request: 1' -H 'Content-Type: application/octet-stream' \
+response="$(curl -sk -b "$JAR" -c "$JAR" -H 'X-TS-Request: 1' -H 'Content-Type: application/octet-stream' \
     --data-binary $'CREATE TABLE players (id int);\nINSERT INTO players VALUES (1),(2);\n' "$BASE/api/databases/backups/upload?name=seed.sql")"
 IMPORT="$(jq -r .id <<<"$response")"
 [[ "$IMPORT" == imports/*seed.sql ]] || fail "upload failed: $response"
@@ -376,7 +376,7 @@ call PUT "/api/apps/$PINGER" "$(body_of "$(call GET "/api/apps/$PINGER")" | jq '
 sleep 2
 [[ "$(status_of "$(call POST "/api/apps/$PINGER/console" '{"line":"hello from the panel"}')")" == "204" ]] || fail "sending a console command failed"
 for _ in $(seq 1 10); do
-    LOGS="$(body_of "$(call GET '/api/logs?unit=tm-app-pinger.service&limit=50')" | jq -r '.[].message')"
+    LOGS="$(body_of "$(call GET '/api/logs?unit=ts-app-pinger.service&limit=50')" | jq -r '.[].message')"
     [[ "$LOGS" == *"console got: hello from the panel"* ]] && break
     sleep 1
 done
@@ -408,11 +408,11 @@ echo "Team and API tokens"
 wait_next_totp_window
 [[ "$(status_of "$(call POST /api/account/sudo "{\"code\":\"$(oathtool --totp -b "$SECRET")\"}")")" == "200" ]] || fail "re-authenticating failed"
 API_TOKEN="$(body_of "$(call POST /api/account/tokens '{"name":"ci","permissions":["apps.view"],"expiresInDays":1}')" | jq -r .token)"
-[[ "$API_TOKEN" == tm_* ]] || fail "token should be created after re-authenticating"
+[[ "$API_TOKEN" == ts_* ]] || fail "token should be created after re-authenticating"
 bearer() { curl -sk -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $1" "$BASE$2"; }
 [[ "$(bearer "$API_TOKEN" /api/apps)" == "200" ]] || fail "the token should list apps through nginx"
 [[ "$(bearer "$API_TOKEN" /api/firewall)" == "403" ]] || fail "the token must not do more than it was given"
-[[ "$(bearer tm_forged /api/apps)" == "401" ]] || fail "unknown tokens must be rejected"
+[[ "$(bearer ts_forged /api/apps)" == "401" ]] || fail "unknown tokens must be rejected"
 pass "API token: needs re-authentication, works through nginx, limited to its permissions"
 
 response="$(call POST /api/team '{"username":"deploybot","role":"Developer"}')"
@@ -447,11 +447,11 @@ echo "Alerts passed."
 echo
 echo "Terminal"
 
-SESSION_COOKIE="$(awk '$6 == "tm_session" { print $7 }' "$JAR")"
+SESSION_COOKIE="$(awk '$6 == "ts_session" { print $7 }' "$JAR")"
 # Types a few commands into a terminal over the WebSocket and prints everything the shell answered.
 terminal() {
     { sleep 1; printf '%s\n' "$2"; sleep 2; printf 'exit\n'; sleep 2; } \
-        | timeout 20 websocat -k -b "-H=Cookie: tm_session=$SESSION_COOKIE" "-H=Origin: $BASE" "wss://server:8443/api/terminal?user=$1&cols=100&rows=30" 2>&1 || true
+        | timeout 20 websocat -k -b "-H=Cookie: ts_session=$SESSION_COOKIE" "-H=Origin: $BASE" "wss://server:8443/api/terminal?user=$1&cols=100&rows=30" 2>&1 || true
 }
 
 OUT="$(terminal hotel 'echo "who=$(id -un) home=$HOME tty=$(tty)"')"
@@ -460,7 +460,7 @@ OUT="$(terminal hotel 'echo "who=$(id -un) home=$HOME tty=$(tty)"')"
 pass "terminal as the app user: a login shell in a real pseudo-terminal"
 
 [[ "$(terminal root 'id -u')" != *$'\n0'* ]] || fail "root must need re-authentication"
-[[ "$(curl -sk --http1.1 -o /dev/null -w '%{http_code}' -H "Cookie: tm_session=$SESSION_COOKIE" -H 'Origin: https://evil.example.com' \
+[[ "$(curl -sk --http1.1 -o /dev/null -w '%{http_code}' -H "Cookie: ts_session=$SESSION_COOKIE" -H 'Origin: https://evil.example.com' \
     -H 'Connection: Upgrade' -H 'Upgrade: websocket' -H 'Sec-WebSocket-Version: 13' -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' \
     "$BASE/api/terminal?user=hotel")" == "403" ]] || fail "other sites must not open terminals"
 wait_next_totp_window
@@ -479,7 +479,7 @@ echo "Files"
 [[ "$(body_of "$(call GET '/api/files/content?user=hotel&path=notes/readme.txt')" | jq -r .content)" == "hello from the file manager" ]] \
     || fail "reading the file back failed"
 head -c 300000 /dev/urandom > /tmp/blob.bin
-[[ "$(curl -sk -b "$JAR" -o /dev/null -w '%{http_code}' -H 'X-TM-Request: 1' -H 'Content-Type: application/octet-stream' \
+[[ "$(curl -sk -b "$JAR" -o /dev/null -w '%{http_code}' -H 'X-TS-Request: 1' -H 'Content-Type: application/octet-stream' \
     --data-binary @/tmp/blob.bin "$BASE/api/files/upload?user=hotel&path=notes/blob.bin")" == "204" ]] || fail "uploading failed"
 [[ "$(curl -sk -b "$JAR" "$BASE/api/files/download?user=hotel&path=notes/blob.bin" | sha256sum)" == "$(sha256sum < /tmp/blob.bin)" ]] \
     || fail "the download should be byte-for-byte the upload"
@@ -511,16 +511,16 @@ echo "SFTP passed."
 echo
 echo "Backups (restic: local disk, S3, SFTP)"
 
-response="$(call POST /api/backups/targets '{"name":"Local disk","kind":"Local","path":"/var/backups/turbo-manager"}')"
+response="$(call POST /api/backups/targets '{"name":"Local disk","kind":"Local","path":"/var/backups/turbo-stack"}')"
 [[ "$(status_of "$response")" == "200" && "$(body_of "$response" | jq -r .target.ready)" == "true" ]] || fail "the local target should be created: $response"
 [[ "$(body_of "$response" | jq -r '.password | length')" -ge 32 ]] || fail "a repository password should be generated and shown once"
 LOCAL_TARGET="$(body_of "$response" | jq -r .target.id)"
 
-response="$(call POST /api/backups/targets '{"name":"S3","kind":"S3","endpoint":"http://s3:8333","path":"hotel-backups/server-1","accessKeyId":"tm-backup","secretAccessKey":"tm-backup-secret-key-for-tests"}')"
+response="$(call POST /api/backups/targets '{"name":"S3","kind":"S3","endpoint":"http://s3:8333","path":"hotel-backups/server-1","accessKeyId":"ts-backup","secretAccessKey":"ts-backup-secret-key-for-tests"}')"
 [[ "$(body_of "$response" | jq -r .target.ready)" == "true" ]] || fail "the S3 target should be created: $response"
 S3_TARGET="$(body_of "$response" | jq -r .target.id)"
-[[ "$(body_of "$(call GET /api/backups)" | jq -r '.targets[] | select(.kind == "S3") | .accessKeyId')" == "tm-backup" ]] || fail "the S3 target should be listed"
-[[ "$(body_of "$(call GET /api/backups)")" != *"tm-backup-secret-key-for-tests"* ]] || fail "the S3 secret must never be shown again"
+[[ "$(body_of "$(call GET /api/backups)" | jq -r '.targets[] | select(.kind == "S3") | .accessKeyId')" == "ts-backup" ]] || fail "the S3 target should be listed"
+[[ "$(body_of "$(call GET /api/backups)")" != *"ts-backup-secret-key-for-tests"* ]] || fail "the S3 secret must never be shown again"
 
 response="$(call POST /api/backups/targets '{"name":"Storage box","kind":"Sftp","endpoint":"backup-sftp","port":22,"user":"backup","path":"restic"}')"
 SFTP_TARGET="$(body_of "$response" | jq -r .target.id)"
@@ -615,7 +615,7 @@ response="$(call PUT /api/panel-address '{"domain":"panel.hotel.test"}')"
 JOB="$(body_of "$response" | jq -r .certificateJobId)"
 [[ "$JOB" == "null" ]] || wait_for_job "$JOB"
 CODE="$(body_of "$(call GET /api/panel-address)" | jq -r .verifyUrl | sed 's/.*code=//')"
-PANEL=(--resolve panel.hotel.test:443:"$SERVER_IP" -k -H 'X-TM-Request: 1' -H 'Content-Type: application/json')
+PANEL=(--resolve panel.hotel.test:443:"$SERVER_IP" -k -H 'X-TS-Request: 1' -H 'Content-Type: application/json')
 [[ "$(curl -s -o /dev/null -w '%{http_code}' "${PANEL[@]}" -X POST https://panel.hotel.test/api/panel-address/verify --data "{\"code\":\"$CODE\"}")" == "204" ]] \
     || fail "address check through nginx on the new domain failed"
 pass "panel reachable on panel.hotel.test and verified"

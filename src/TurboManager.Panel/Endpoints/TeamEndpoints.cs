@@ -157,7 +157,7 @@ public static partial class TeamEndpoints
 
             if (user.Role == PanelRole.Owner || user.Id == actor.Id)
             {
-                return Invalid("The owner recovers with recovery codes (or tm-panel-recover on the server).");
+                return Invalid("The owner recovers with recovery codes (or ts-panel-recover on the server).");
             }
 
             user.TotpEnabled = false;

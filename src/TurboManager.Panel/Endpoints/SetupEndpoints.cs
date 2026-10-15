@@ -43,7 +43,7 @@ public static class SetupEndpoints
                 return Results.Problem("Invalid or expired setup token.", statusCode: StatusCodes.Status401Unauthorized);
             }
 
-            var identity = new ClaimsIdentity([new Claim("tm:setup", "1")], AuthSchemes.Setup);
+            var identity = new ClaimsIdentity([new Claim("ts:setup", "1")], AuthSchemes.Setup);
             await http.SignInAsync(AuthSchemes.Setup, new ClaimsPrincipal(identity));
 
             return Results.NoContent();

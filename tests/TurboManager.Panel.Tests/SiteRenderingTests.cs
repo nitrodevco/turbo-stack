@@ -18,7 +18,7 @@ public sealed class SiteRenderingTests
         ],
     };
 
-    private static readonly CertificatePaths Certificate = new("/etc/turbo-manager/certs/myhotel.com/fullchain.pem", "/etc/turbo-manager/certs/myhotel.com/privkey.pem");
+    private static readonly CertificatePaths Certificate = new("/etc/turbo-stack/certs/myhotel.com/fullchain.pem", "/etc/turbo-stack/certs/myhotel.com/privkey.pem");
 
     [Fact]
     public void Https_site_redirects_port_80_and_serves_routes_on_443()
@@ -26,10 +26,10 @@ public sealed class SiteRenderingTests
         var config = SiteRenderer.Render(WebSite(), Certificate);
 
         Assert.Contains("server_name myhotel.com www.myhotel.com;", config);
-        Assert.Contains("location ^~ /.well-known/acme-challenge/ {\n        root /var/lib/turbo-manager-acme;", config.Replace("\r", ""));
+        Assert.Contains("location ^~ /.well-known/acme-challenge/ {\n        root /var/lib/turbo-stack-acme;", config.Replace("\r", ""));
         Assert.Contains("return 301 https://$host$request_uri;", config);
         Assert.Contains("listen 443 ssl http2;", config);
-        Assert.Contains("ssl_certificate /etc/turbo-manager/certs/myhotel.com/fullchain.pem;", config);
+        Assert.Contains("ssl_certificate /etc/turbo-stack/certs/myhotel.com/fullchain.pem;", config);
         Assert.Contains("try_files $uri $uri/ /index.html;", config);
         Assert.Contains("location ^~ /api/ {", config);
         Assert.Contains("proxy_pass http://127.0.0.1:8092;", config);
@@ -62,7 +62,7 @@ public sealed class SiteRenderingTests
         var config = SiteRenderer.Render(site, null);
 
         Assert.Contains("proxy_set_header Upgrade $http_upgrade;", config);
-        Assert.Contains("proxy_set_header Connection $tm_connection_upgrade;", config);
+        Assert.Contains("proxy_set_header Connection $ts_connection_upgrade;", config);
         Assert.Contains("proxy_read_timeout 1h;", config);
         Assert.Contains("proxy_buffering off;", config);
     }

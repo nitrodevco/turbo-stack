@@ -855,7 +855,7 @@ public sealed partial class StackService(
         {
             var entries = await agent.Logs.QueryJournalAsync(new JournalQuery
             {
-                Unit = $"tm-app-{emulator.Name}.service",
+                Unit = $"ts-app-{emulator.Name}.service",
                 Grep = "Admin panel setup for the owner",
                 Limit = 5,
             }, cancellationToken: cancellationToken);

@@ -23,4 +23,4 @@ Not using Cloudflare? Sites can use Let's Encrypt instead; everything else works
 
 Until now you've used `https://<ip>:8443`. Under **Settings → Panel address** enter `panel.<your-domain>`: the panel creates the site and certificate, checks from your browser that the new address works and signs you in there. Then **close the setup address** with the button on the same card — from then on port 8443 is shut (nginx and firewall).
 
-If the new address ever breaks (a DNS mistake, an expired token), `sudo tm-panel-recover` on the server reopens `https://<ip>:8443` — see [Troubleshooting](./troubleshooting).
+If the new address ever breaks (a DNS mistake, an expired token), `sudo ts-panel-recover` on the server reopens `https://<ip>:8443` — see [Troubleshooting](./troubleshooting).

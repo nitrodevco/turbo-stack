@@ -135,7 +135,7 @@ public sealed class CloudflareService(
         checks.Add(await CheckAsync("dns.edit", "DNS: Edit", "Creating records for your sites", true, async () =>
         {
             var probe = await cloudflare.CreateDnsRecordAsync(token, zone.Id,
-                new CloudflareDnsRecord(null, "TXT", $"_turbo-manager-check.{zone.Name}", "turbo-manager permission check", false, 60), cancellationToken);
+                new CloudflareDnsRecord(null, "TXT", $"_turbo-stack-check.{zone.Name}", "turbo-stack permission check", false, 60), cancellationToken);
             await cloudflare.DeleteDnsRecordAsync(token, zone.Id, probe.Id!, cancellationToken);
         }));
 
@@ -146,7 +146,7 @@ public sealed class CloudflareService(
         }));
 
         checks.Add(await CheckAsync("cache.purge", "Cache Purge: Purge", "Clearing cached files after deploys", false, () =>
-            cloudflare.PurgeCacheAsync(token, zone.Id, null, [$"https://{zone.Name}/__turbo-manager-permission-check"], cancellationToken)));
+            cloudflare.PurgeCacheAsync(token, zone.Id, null, [$"https://{zone.Name}/__turbo-stack-permission-check"], cancellationToken)));
 
         checks.Add(await CheckAsync("ssl.edit", "SSL and Certificates: Edit", "Issuing Origin certificates for this server", false, () =>
             cloudflare.ListOriginCertificatesAsync(token, zone.Id, cancellationToken)));

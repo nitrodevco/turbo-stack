@@ -9,7 +9,7 @@ using TurboManager.Panel.Data;
 namespace TurboManager.Panel.Updates;
 
 /// <summary>
-/// The panel's own updates. The agent does the checking and verifying (signature, checksum) and starts tm-update; this
+/// The panel's own updates. The agent does the checking and verifying (signature, checksum) and starts ts-update; this
 /// keeps what it found for the UI and alerts, and records each update's outcome in the activity log once.
 /// </summary>
 public sealed class PanelUpdateService(PanelDbContext db, AgentChannelFactory agent, AuditLog audit, TimeProvider time)

@@ -8,7 +8,7 @@ public static partial class SiteValidator
     /// <summary>Config names the panel or installer use for their own files.</summary>
     public static readonly HashSet<string> ReservedNames = ["setup", "maps", "cloudflare-realip", "default", "panel"];
 
-    private static readonly string[] WebRoots = ["/var/www/", "/srv/", "/home/", "/opt/turbo-manager/"];
+    private static readonly string[] WebRoots = ["/var/www/", "/srv/", "/home/", "/opt/turbo-stack/"];
 
     public static string? Validate(Site site, IEnumerable<string> domainsUsedElsewhere, bool allowReservedName = false)
     {

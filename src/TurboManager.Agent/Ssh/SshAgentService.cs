@@ -284,7 +284,7 @@ public sealed class SshAgentService(ICommandRunner commands, IOptions<AgentOptio
             SetModeAndOwner(directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute, user);
         }
 
-        var temp = path + ".tm-tmp";
+        var temp = path + ".ts-tmp";
         File.WriteAllText(temp, string.Join('\n', lines) + "\n");
         SetModeAndOwner(temp, UnixFileMode.UserRead | UnixFileMode.UserWrite, user);
         File.Move(temp, path, overwrite: true);

@@ -75,7 +75,7 @@ public sealed class SshTests
     [Fact]
     public void Drop_in_round_trips_only_the_values_that_were_set()
     {
-        var content = SshdConfig.RenderDropIn(false, null, "Turbo Manager");
+        var content = SshdConfig.RenderDropIn(false, null, "Turbo Stack");
 
         Assert.Contains("PasswordAuthentication no", content);
         Assert.Contains("KbdInteractiveAuthentication no", content);

@@ -71,7 +71,7 @@ export function PanelAddressCard() {
                     </Step>
                     <Step done={data.setupClosed} label="Setup address (https://server-ip:8443) closed">
                         {data.onPanelDomain && !data.setupClosed && can('firewall.manage') && (
-                            <Button size="sm" variant="secondary" className="mt-1" disabled={close.isPending} onClick={() => confirm('Close https://<server-ip>:8443? If the domain ever breaks, run "sudo tm-panel-recover" on the server.') && close.mutate()}>
+                            <Button size="sm" variant="secondary" className="mt-1" disabled={close.isPending} onClick={() => confirm('Close https://<server-ip>:8443? If the domain ever breaks, run "sudo ts-panel-recover" on the server.') && close.mutate()}>
                                 Close the setup address
                             </Button>
                         )}

@@ -477,7 +477,7 @@ function Fail2banTab() {
                 <Card key={jail.name} className="space-y-4 p-5">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                            <p className="font-medium">{jail.name === 'sshd' ? 'SSH' : jail.name === 'turbo-manager-panel' ? 'Panel sign-in' : jail.name}</p>
+                            <p className="font-medium">{jail.name === 'sshd' ? 'SSH' : jail.name === 'turbo-stack-panel' ? 'Panel sign-in' : jail.name}</p>
                             <p className="text-sm text-slate-500">
                                 Ban for {formatSeconds(jail.banTimeSeconds)} after {jail.maxRetry} failures within {formatSeconds(jail.findTimeSeconds)} · {jail.totalBanned} banned so far
                             </p>

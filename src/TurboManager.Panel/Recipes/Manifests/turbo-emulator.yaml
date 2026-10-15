@@ -151,7 +151,7 @@ site:
 notes:
   - "Players connect to wss://{{ site.domain }} — use that as the client's socket address."
   - "Turbo listens on 127.0.0.1 only; the admin API is on port {{ port.admin }}, the public site API on {{ port.web }} and gamedata on {{ port.gamedata }}."
-  - "After the first start, the owner's admin setup link is in the service log (Services → tm-app-{{ app.name }})."
+  - "After the first start, the owner's admin setup link is in the service log (Services → ts-app-{{ app.name }})."
 
 exports:
   socketUrl: "{{ site.url | ws }}"

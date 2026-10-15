@@ -8,7 +8,7 @@ import "google/protobuf/empty.proto";
 import "packages.proto";
 
 // Building and running apps. Everything an app does runs as its own unprivileged Linux user (member
-// of the tm-apps group); the agent refuses root and accounts it didn't create. Paths are always
+// of the ts-apps group); the agent refuses root and accounts it didn't create. Paths are always
 // derived from the user and app name, never taken from the request.
 //
 // Layout: /home/<user>/repos/<repo>                      git checkout (fetched with the repo's deploy key)
@@ -54,7 +54,7 @@ message AppUserInfo {
 
 message DeployKeyRequest {
   string user = 1;
-  string key_name = 2;  // [a-z0-9-]{1,48}, file ~/.ssh/tm/<key_name>
+  string key_name = 2;  // [a-z0-9-]{1,48}, file ~/.ssh/ts/<key_name>
 }
 
 message DeployKey {
@@ -156,7 +156,7 @@ message AppServiceRequest {
   repeated string runtimes = 6;
   int32 memory_max_mb = 7;          // 0 = unlimited
   int32 stop_timeout_seconds = 8;
-  // stdin from a FIFO that systemd keeps open (tm-app-<app>-console.socket), so the panel can type into it
+  // stdin from a FIFO that systemd keeps open (ts-app-<app>-console.socket), so the panel can type into it
   bool console = 9;
 }
 

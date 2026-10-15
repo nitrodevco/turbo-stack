@@ -50,7 +50,7 @@ public sealed class PanelOptions
     public int DeployHealthTimeoutSeconds { get; set; } = 120;
 
     /// <summary>Hotel answers for a headless install (written by install.sh --config); used once, when no hotel exists.</summary>
-    public string UnattendedConfig { get; set; } = "/etc/turbo-manager/hotel.yaml";
+    public string UnattendedConfig { get; set; } = "/etc/turbo-stack/hotel.yaml";
 
     /// <summary>Cookies are marked Secure. Disable only for plain-http local development.</summary>
     public bool SecureCookies { get; set; } = true;

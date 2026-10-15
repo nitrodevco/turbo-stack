@@ -1,5 +1,5 @@
 {
-  "name": "turbo-manager-web",
+  "name": "turbo-stack-web",
   "private": true,
   "type": "module",
   "packageManager": "yarn@4.15.0",

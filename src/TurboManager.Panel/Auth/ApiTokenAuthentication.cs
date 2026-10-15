@@ -9,7 +9,7 @@ using TurboManager.Panel.Data;
 
 namespace TurboManager.Panel.Auth;
 
-/// <summary>"Authorization: Bearer tm_…" for scripts and CI. The token's permissions narrow its user's role.</summary>
+/// <summary>"Authorization: Bearer ts_…" for scripts and CI. The token's permissions narrow its user's role.</summary>
 public sealed class ApiTokenAuthenticationHandler(
     IOptionsMonitor<AuthenticationSchemeOptions> options,
     ILoggerFactory logger,
@@ -17,7 +17,7 @@ public sealed class ApiTokenAuthenticationHandler(
     PanelDbContext db,
     TimeProvider time) : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
-    public const string Prefix = "tm_";
+    public const string Prefix = "ts_";
 
     public static string NewToken() => Prefix + Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
 

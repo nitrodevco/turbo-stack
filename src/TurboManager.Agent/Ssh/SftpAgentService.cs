@@ -12,15 +12,15 @@ using TurboManager.Core.Unix;
 namespace TurboManager.Agent.Ssh;
 
 /// <summary>
-/// SFTP-only accounts. sshd locks members of tm-sftp into /srv/tm-sftp/&lt;account&gt; (root-owned, as chroot requires)
+/// SFTP-only accounts. sshd locks members of ts-sftp into /srv/ts-sftp/&lt;account&gt; (root-owned, as chroot requires)
 /// with internal-sftp and no shell, forwarding or TTY; the account's folder is bind-mounted at …/files by a systemd
 /// mount unit. Default ACLs keep everything uploaded usable by the app user (and readable by nginx).
 /// </summary>
 public sealed partial class SftpManager(ICommandRunner commands, FilesManager files, IOptions<AgentOptions> options, ILogger<SftpManager> logger)
 {
-    public const string Group = "tm-sftp";
+    public const string Group = "ts-sftp";
 
-    public const string ChrootRoot = "/srv/tm-sftp";
+    public const string ChrootRoot = "/srv/ts-sftp";
 
     public static readonly string KeysDirectory = $"/etc/{Branding.Slug}/sftp-keys";
 

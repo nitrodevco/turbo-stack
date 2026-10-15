@@ -100,7 +100,7 @@ function SiteEditor({ siteId, detail }: { siteId: number | null; detail: SiteDet
         <div className="space-y-6">
             <PageHeader
                 title={siteId ? (detail!.model.domains[0] ?? model.name) : 'Add site'}
-                description={siteId ? `Config file tm-${model.name}.conf` : 'Serve one or more domains from this server.'}
+                description={siteId ? `Config file ts-${model.name}.conf` : 'Serve one or more domains from this server.'}
                 actions={
                     <Link to="/sites" className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800">
                         ← All sites
@@ -363,7 +363,7 @@ function Preview({ model, enabled }: { model: SiteModel; enabled: boolean }) {
         queryFn: async () => {
             const response = await fetch('/api/sites/preview', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-TM-Request': '1' },
+                headers: { 'Content-Type': 'application/json', 'X-TS-Request': '1' },
                 body: JSON.stringify({ ...debounced, name: debounced.name || 'new-site' }),
             });
 
@@ -393,7 +393,7 @@ function CustomConfigButton({ model, onEject }: { model: SiteModel; onEject: (co
 
                 const response = await fetch('/api/sites/preview', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-TM-Request': '1' },
+                    headers: { 'Content-Type': 'application/json', 'X-TS-Request': '1' },
                     body: JSON.stringify({ ...model, name: model.name || 'new-site' }),
                 });
                 onEject(await response.text());

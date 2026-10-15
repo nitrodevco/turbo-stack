@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
 # Puts a panel state from a backup snapshot in place of the live one: the panel's database and keys, plus the SSH keys
-# of SFTP backup targets and SFTP accounts. tm-agent unpacks the snapshot and starts this in a transient unit
-# (tm-panel-restore), because the panel itself is stopped on the way.
+# of SFTP backup targets and SFTP accounts. ts-agent unpacks the snapshot and starts this in a transient unit
+# (ts-panel-restore), because the panel itself is stopped on the way.
 #
-#   tm-panel-restore <unpacked-state-dir>
+#   ts-panel-restore <unpacked-state-dir>
 #
 # The state from before is kept next to it (panel-before-restore-<time>) and comes back by itself if the panel doesn't
-# start with the restored one. The outcome lands in /var/lib/turbo-manager/panel-restore.json, which the panel records
+# start with the restored one. The outcome lands in /var/lib/turbo-stack/panel-restore.json, which the panel records
 # in its activity log at start-up.
 set -euo pipefail
 
 main() {
-    SHORT="tm"
-    SLUG="turbo-manager"
+    SHORT="ts"
+    SLUG="turbo-stack"
     STATE_ROOT="/var/lib/$SLUG"
     CONFIG_ROOT="/etc/$SLUG"
-    PANEL_PORT="$(sed -n 's/^TM_PANEL_PORT=//p' "$CONFIG_ROOT/install.env" 2>/dev/null || true)"
+    PANEL_PORT="$(sed -n 's/^TS_PANEL_PORT=//p' "$CONFIG_ROOT/install.env" 2>/dev/null || true)"
     PANEL_PORT="${PANEL_PORT:-7800}"
-    HEALTH_TIMEOUT="${TM_RESTORE_HEALTH_TIMEOUT:-120}"
+    HEALTH_TIMEOUT="${TS_RESTORE_HEALTH_TIMEOUT:-120}"
     OUTCOME="$STATE_ROOT/panel-restore.json"
 
     [[ $EUID -eq 0 ]] || { echo "Run as root." >&2; exit 1; }
