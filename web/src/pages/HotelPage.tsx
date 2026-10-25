@@ -133,11 +133,12 @@ function RoleCard({
     onJob: (jobId: number) => void;
 }) {
     const can = usePermissions();
+    // A part with neither an app nor a site yet hasn't been installed: not healthy.
     const health = !role.included
         ? null
         : role.app?.service === 'failed' || role.app?.lastRelease?.status === 'failed' || role.site?.lastError
           ? 'danger'
-          : role.app && !role.app.currentRelease
+          : (role.app && !role.app.currentRelease) || (!role.app && !role.site)
             ? 'warning'
             : 'good';
 
