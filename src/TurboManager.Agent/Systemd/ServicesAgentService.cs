@@ -75,9 +75,12 @@ public sealed class ServicesAgentService(ICommandRunner commands) : ServicesAgen
 
         var result = await commands.RunCheckedAsync("systemctl", arguments, cancellationToken: cancellationToken);
 
+        // An alias (sshd.service, procps.service, dbus-org.freedesktop.*) shows as the unit it points to, so
+        // the same unit can come back twice.
         return SystemctlParser.ParseShowBlocks(result.StdOut)
             .Select(SystemctlParser.ToServiceUnit)
             .Where(unit => unit.LoadState != "not-found")
+            .DistinctBy(unit => unit.Name, StringComparer.Ordinal)
             .ToList();
     }
 }
