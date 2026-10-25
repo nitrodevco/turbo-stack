@@ -7,8 +7,9 @@ export default defineConfig({
     server: {
         port: 5180,
         proxy: {
-            // The panel API (dotnet run in src/TurboManager.Panel, or the Docker dev env).
-            '/api': { target: process.env.TS_PANEL_URL ?? 'http://127.0.0.1:7800', changeOrigin: false },
+            // The panel API (dotnet run in src/TurboManager.Panel, or the Docker dev env). The slash keeps the
+            // /api-docs page in the app; ws carries the terminal's WebSocket.
+            '/api/': { target: process.env.TS_PANEL_URL ?? 'http://127.0.0.1:7800', changeOrigin: false, ws: true },
         },
     },
     build: {
