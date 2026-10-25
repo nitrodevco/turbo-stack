@@ -8,7 +8,7 @@ Install a fresh 26.04 server, set the hotel up there from its [answers file](./h
 
 ## Before
 
-- [ ] Update the panel to the latest release (**Updates**).
+- [ ] Update the panel to the latest release (**Updates & alerts**).
 - [ ] Run every backup plan once more (**Backups → Run now**) and check the snapshots exist on a target **outside** the server.
 - [ ] Note the repository passwords of your backup targets (outside the server).
 - [ ] Take a provider snapshot of the server if your host offers one.

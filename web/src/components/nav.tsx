@@ -1,4 +1,4 @@
-import { Archive, Bell, Braces, Building2, Cloud, Cog, Database, FolderOpen, Gauge, History, KeyRound, LockKeyhole, PackageCheck, Rocket, ScrollText, Shield, SlidersHorizontal, SquareTerminal, Users } from 'lucide-react';
+import { Archive, Braces, Building2, Cloud, Cog, Database, FolderOpen, Gauge, History, KeyRound, PackageCheck, Rocket, ScrollText, Shield, SlidersHorizontal, SquareTerminal, Users } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useLocation } from 'react-router';
 import type { Me } from '../api';
@@ -33,10 +33,9 @@ const SECTIONS: NavSection[] = [
                 to: '/apps',
                 icon: <Rocket />,
                 permission: ['apps.view', 'sites.view'],
-                hint: 'Deploys from GitHub, and the domains that serve them',
-                also: ['/sites', '/repositories'],
+                hint: 'Deploys, the domains that serve them, certificates',
+                also: ['/sites', '/repositories', '/certificates'],
             },
-            { label: 'Certificates', to: '/certificates', icon: <LockKeyhole />, permission: 'sites.view', hint: 'HTTPS certificates' },
             { label: 'Cloudflare', to: '/cloudflare', icon: <Cloud />, permission: 'sites.view', hint: 'DNS and proxying' },
         ],
     },
@@ -54,8 +53,14 @@ const SECTIONS: NavSection[] = [
             { label: 'Logs', to: '/logs', icon: <ScrollText />, permission: 'logs.view', hint: 'The system journal' },
             { label: 'Terminal', to: '/terminal', icon: <SquareTerminal />, permission: 'terminal.app', hint: 'A shell in the browser' },
             { label: 'Files', to: '/files', icon: <FolderOpen />, permission: 'files.manage', hint: 'An app user\'s files' },
-            { label: 'Updates', to: '/updates', icon: <PackageCheck />, permission: 'packages.view', hint: 'The panel and system packages' },
-            { label: 'Alerts', to: '/alerts', icon: <Bell />, permission: 'system.view', hint: 'What the panel watches' },
+            {
+                label: 'Updates & alerts',
+                to: '/updates',
+                icon: <PackageCheck />,
+                permission: ['packages.view', 'system.view'],
+                hint: 'Panel and system updates, what the panel watches',
+                also: ['/alerts'],
+            },
         ],
     },
     {

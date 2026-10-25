@@ -24,7 +24,7 @@ The panel writes the nginx configuration, checks it with `nginx -t` before reloa
 | **Let's Encrypt** | without Cloudflare's proxy; renewed automatically |
 | **Self-signed** | testing only |
 
-A new site goes live over HTTP first and switches to HTTPS as soon as its certificate is ready. Certificates are checked every hour; the Certificates page shows what expires when, and [alerts](./alerts) warn before it happens.
+A new site goes live over HTTP first and switches to HTTPS as soon as its certificate is ready. Certificates are checked every hour; *Apps & sites → Certificates* shows what expires when, and [alerts](./alerts) warn before it happens.
 
 ## Cloudflare
 

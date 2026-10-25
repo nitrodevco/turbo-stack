@@ -1,13 +1,51 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { api, errorMessage, type JobSummary, type RebootStatus, type UpgradablePackages } from '../api';
 import { usePermissions } from '../auth';
 import { JobOutput } from '../components/JobOutput';
 import { PanelUpdateCard } from '../components/PanelUpdateCard';
 import { Badge, Button, Card, ErrorNote, Notice, PageHeader, Spinner, TableWrap } from '../components/ui';
 import { formatDateTime, formatRelative } from '../format';
+import { AlertsTab } from './AlertsTab';
 
+type Tab = 'updates' | 'alerts';
+
+/** Keeping the server current, and hearing when something needs you: the panel's and Ubuntu's updates, and the alerts. */
 export function UpdatesPage() {
+    const can = usePermissions();
+    const queryClient = useQueryClient();
+    const [params, setParams] = useSearchParams();
+    const tabs: { id: Tab; label: string }[] = [
+        ...(can('packages.view') ? [{ id: 'updates' as const, label: 'Updates' }] : []),
+        ...(can('system.view') ? [{ id: 'alerts' as const, label: 'Alerts' }] : []),
+    ];
+    const tab: Tab = tabs.find((t) => t.id === params.get('tab'))?.id ?? tabs[0]?.id ?? 'updates';
+    const refresh = useMutation({
+        mutationFn: () => api.get<UpgradablePackages>('/api/packages?refresh=true'),
+        onSuccess: (data) => queryClient.setQueryData(['packages'], data),
+    });
+
+    return (
+        <div className="space-y-6">
+            <PageHeader<Tab>
+                title="Updates & alerts"
+                description="This panel and the operating system packages from Ubuntu (security updates are also installed automatically every day), and what the panel watches on this server."
+                tabs={tabs.length > 1 ? { items: tabs, value: tab, onChange: (next) => setParams(next === 'updates' ? {} : { tab: next }, { replace: true }) } : undefined}
+                actions={
+                    tab === 'updates' && (
+                        <Button variant="secondary" disabled={refresh.isPending} onClick={() => refresh.mutate()}>
+                            {refresh.isPending ? 'Checking…' : 'Check for updates'}
+                        </Button>
+                    )
+                }
+            />
+            {tab === 'updates' ? <UpdatesTab refreshError={refresh.error} /> : <AlertsTab />}
+        </div>
+    );
+}
+
+function UpdatesTab({ refreshError }: { refreshError: Error | null }) {
     const can = usePermissions();
     const queryClient = useQueryClient();
     const packages = useQuery({ queryKey: ['packages'], queryFn: () => api.get<UpgradablePackages>('/api/packages') });
@@ -16,10 +54,6 @@ export function UpdatesPage() {
     const [jobId, setJobId] = useState<number | null>(null);
     const activeJob = jobId ?? runningJob?.id ?? null;
 
-    const refresh = useMutation({
-        mutationFn: () => api.get<UpgradablePackages>('/api/packages?refresh=true'),
-        onSuccess: (data) => queryClient.setQueryData(['packages'], data),
-    });
     const upgrade = useMutation({
         mutationFn: (body: { mode: string; names?: string[] }) => api.post<{ jobId: number }>('/api/packages/upgrade', body),
         onSuccess: (data) => setJobId(data.jobId),
@@ -30,18 +64,9 @@ export function UpdatesPage() {
 
     return (
         <div className="space-y-6">
-            <PageHeader
-                title="Updates"
-                description="This panel, and the operating system packages from Ubuntu. Security updates are also installed automatically every day."
-                actions={
-                    <Button variant="secondary" disabled={refresh.isPending} onClick={() => refresh.mutate()}>
-                        {refresh.isPending ? 'Checking…' : 'Check for updates'}
-                    </Button>
-                }
-            />
             <PanelUpdateCard />
             <RebootCard required={packages.data?.rebootRequired ?? false} packages={packages.data?.rebootRequiredPackages ?? []} />
-            <ErrorNote message={[packages.error, refresh.error, upgrade.error].filter(Boolean).map(errorMessage)[0] ?? null} />
+            <ErrorNote message={[packages.error, refreshError, upgrade.error].filter(Boolean).map(errorMessage)[0] ?? null} />
             {activeJob && (
                 <Card className="space-y-3 p-5">
                     <h2 className="font-medium">Installing updates</h2>

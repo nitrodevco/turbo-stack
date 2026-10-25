@@ -99,7 +99,7 @@ function SiteEditor({ siteId, detail }: { siteId: number | null; detail: SiteDet
         mutationFn: () => api.delete(`/api/sites/${siteId}`),
         onSuccess: () => {
             void queryClient.invalidateQueries({ queryKey: ['sites'] });
-            void navigate('/apps?show=sites');
+            void navigate('/apps');
         },
     });
 

@@ -3,12 +3,13 @@ import { useState } from 'react';
 import { api, errorMessage, type CertificateView } from '../api';
 import { usePermissions } from '../auth';
 import { JobOutput } from '../components/JobOutput';
-import { Badge, Button, Card, ErrorNote, PageHeader, SelectField, Spinner, TableWrap } from '../components/ui';
+import { Badge, Button, Card, ErrorNote, SelectField, Spinner, TableWrap } from '../components/ui';
 import { formatDateTime } from '../format';
 
 const kindLabels = { LetsEncrypt: "Let's Encrypt", CloudflareOrigin: 'Cloudflare Origin', SelfSigned: 'Self-signed' } as const;
 
-export function CertificatesPage() {
+/** HTTPS certificates, a tab of Apps & sites: the sites use them. */
+export function CertificatesTab() {
     const can = usePermissions();
     const queryClient = useQueryClient();
     const certificates = useQuery({ queryKey: ['certificates'], queryFn: () => api.get<CertificateView[]>('/api/certificates') });
@@ -30,8 +31,8 @@ export function CertificatesPage() {
     });
 
     return (
-        <div className="space-y-6">
-            <PageHeader title="Certificates" description="HTTPS certificates installed on this server. Sites pick a matching certificate automatically; Let's Encrypt ones renew 30 days before they expire." />
+        <div className="space-y-4">
+            <p className="text-sm text-muted">HTTPS certificates installed on this server. Sites pick a matching certificate automatically; Let's Encrypt ones renew 30 days before they expire.</p>
             <ErrorNote message={[certificates.error, request.error, renew.error, remove.error].filter(Boolean).map(errorMessage)[0] ?? null} />
             {jobId && (
                 <Card className="p-5">

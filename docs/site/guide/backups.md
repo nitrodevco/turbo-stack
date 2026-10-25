@@ -32,7 +32,7 @@ A plan says what to back up, to which target, when, and how long to keep it:
 - **Daily at** — the server's local time.
 - **Keep** — daily, weekly and monthly snapshots (for example 7 / 4 / 6).
 
-**Run now** starts a plan immediately; its output streams in the page. Failed runs raise an [alert](./alerts), and so does a plan that hasn't saved a snapshot for two days (adjustable on the Alerts page) — whatever the reason.
+**Run now** starts a plan immediately; its output streams in the page. Failed runs raise an [alert](./alerts), and so does a plan that hasn't saved a snapshot for two days (adjustable under *Updates & alerts → Alerts*) — whatever the reason.
 
 ## Restoring
 

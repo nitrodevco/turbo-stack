@@ -9,14 +9,12 @@ import { RecipePage } from './pages/RecipePage';
 import { HotelPage, HotelsPage } from './pages/HotelPage';
 import { HotelWizardPage } from './pages/HotelWizardPage';
 import { AccountPage } from './pages/AccountPage';
-import { AlertsPage } from './pages/AlertsPage';
 import { TerminalPage } from './pages/TerminalPage';
 import { FilesPage } from './pages/FilesPage';
 import { InvitePage } from './pages/InvitePage';
 import { TeamPage } from './pages/TeamPage';
 import { SudoProvider } from './components/Sudo';
 import { AppsPage } from './pages/AppsPage';
-import { CertificatesPage } from './pages/CertificatesPage';
 import { CloudflarePage } from './pages/CloudflarePage';
 import { DashboardPage } from './pages/DashboardPage';
 import { DatabasesPage } from './pages/DatabasesPage';
@@ -81,16 +79,16 @@ export function App() {
                 <Route path="backups" element={<BackupsPage />} />
                 <Route path="api-docs" element={<ApiPage />} />
                 <Route path="activity" element={<ActivityPage />} />
-                <Route path="sites" element={<Navigate to="/apps?show=sites" replace />} />
+                <Route path="sites" element={<Navigate to="/apps" replace />} />
                 <Route path="sites/new" element={<SiteEditorPage />} />
                 <Route path="sites/:id" element={<SiteEditorPage />} />
-                <Route path="certificates" element={<CertificatesPage />} />
+                <Route path="certificates" element={<Navigate to="/apps?tab=certificates" replace />} />
                 <Route path="settings" element={<SettingsPage />} />
                 <Route path="cloudflare" element={<CloudflarePage />} />
                 <Route path="databases" element={<DatabasesPage />} />
                 <Route path="apps" element={<AppsPage />} />
                 <Route path="team" element={<TeamPage />} />
-                <Route path="alerts" element={<AlertsPage />} />
+                <Route path="alerts" element={<Navigate to="/updates?tab=alerts" replace />} />
                 <Route path="terminal" element={<TerminalPage />} />
                 <Route path="files" element={<FilesPage />} />
                 <Route path="account" element={me.data ? <AccountPage me={me.data} /> : null} />

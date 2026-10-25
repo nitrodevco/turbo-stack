@@ -9,33 +9,68 @@ import { JobOutput } from '../components/JobOutput';
 import { Badge, Button, Card, ErrorNote, Field, Notice, PageHeader, SelectField, Spinner, TableWrap, Tabs } from '../components/ui';
 import { formatDateTime, formatRelative } from '../format';
 import { newSiteLink, useAppsAndSites } from '../siteLinks';
+import { CertificatesTab } from './CertificatesTab';
 
-type Tab = 'apps' | 'repositories' | 'runtimes';
+type Tab = 'apps' | 'certificates' | 'repositories' | 'runtimes';
 
-/** Apps (code built and run from GitHub) and sites (domains nginx serves) on one page: an app lists the sites that serve it. */
+/**
+ * Apps (code built and run from GitHub) and sites (domains nginx serves) on one page: an app lists
+ * the sites that serve it. The certificates the sites use, and the repositories and runtimes apps
+ * are built from, are its other tabs, in the header's one row of tabs.
+ */
 export function AppsPage() {
     const can = usePermissions();
     const [params, setParams] = useSearchParams();
-    const tab = can('apps.view') ? ((params.get('tab') as Tab) ?? 'apps') : 'apps';
+    const tabs: { id: Tab; label: string }[] = [
+        { id: 'apps', label: 'Apps & sites' },
+        ...(can('sites.view') ? [{ id: 'certificates' as const, label: 'Certificates' }] : []),
+        ...(can('apps.view') ? [{ id: 'repositories' as const, label: 'Repositories' }, { id: 'runtimes' as const, label: 'Runtimes' }] : []),
+    ];
+    const asked = params.get('tab');
+    const tab: Tab = tabs.find((t) => t.id === asked)?.id ?? 'apps';
+    const repositories = useQuery({ queryKey: ['repositories'], queryFn: () => api.get<RepositoryView[]>('/api/repositories'), enabled: can('apps.view') });
+    const [creating, setCreating] = useState(false);
 
     return (
         <div className="space-y-6">
-            <PageHeader
+            <PageHeader<Tab>
                 title="Apps & sites"
                 description="Apps are built from GitHub and run here; each deploy only goes live when it builds (and its service is healthy). Sites are the domains nginx serves: an app's files or port, a folder, a proxy or a redirect."
+                tabs={tabs.length > 1 ? { items: tabs, value: tab, onChange: (next) => setParams(next === 'apps' ? {} : { tab: next }, { replace: true }) } : undefined}
+                actions={
+                    tab === 'apps' && (
+                        <>
+                            {can('sites.manage') && (
+                                <Link to="/sites/new">
+                                    <Button variant="secondary">Add site</Button>
+                                </Link>
+                            )}
+                            {can('apps.manage') && (
+                                <>
+                                    <Button
+                                        variant="secondary"
+                                        onClick={() => setCreating(true)}
+                                        disabled={!repositories.data?.length}
+                                        title={repositories.data?.length ? undefined : 'Add a repository first'}
+                                    >
+                                        New app by hand
+                                    </Button>
+                                    <Link to="/apps/new">
+                                        <Button>New from a recipe</Button>
+                                    </Link>
+                                </>
+                            )}
+                        </>
+                    )
+                }
             />
-            {can('apps.view') && (
-                <Tabs<Tab>
-                    tabs={[
-                        { id: 'apps', label: 'Apps & sites' },
-                        { id: 'repositories', label: 'Repositories' },
-                        { id: 'runtimes', label: 'Runtimes' },
-                    ]}
-                    value={tab}
-                    onChange={(next) => setParams({ tab: next }, { replace: true })}
-                />
+            {tab === 'apps' && (
+                <>
+                    {creating && repositories.data && <NewAppCard repositories={repositories.data} onClose={() => setCreating(false)} />}
+                    <AppsAndSitesTab />
+                </>
             )}
-            {tab === 'apps' && <AppsAndSitesTab />}
+            {tab === 'certificates' && <CertificatesTab />}
             {tab === 'repositories' && <RepositoriesTab />}
             {tab === 'runtimes' && <RuntimesTab />}
         </div>
@@ -94,20 +129,14 @@ export function AppChip({ app }: { app: AppSummary }) {
     );
 }
 
-type Show = 'all' | 'apps' | 'sites';
-
 function AppsAndSitesTab() {
     const can = usePermissions();
     const { apps, sites, sitesOf, appsOf } = useAppsAndSites();
-    const repositories = useQuery({ queryKey: ['repositories'], queryFn: () => api.get<RepositoryView[]>('/api/repositories'), enabled: can('apps.view') });
-    const [creating, setCreating] = useState(false);
-    const [params, setParams] = useSearchParams();
-    const show = (params.get('show') as Show) ?? 'all';
     const appList = apps.data ?? [];
     const siteList = sites.data ?? [];
-    // On "All", a site that serves an app is listed under it; the rest stand on their own.
-    const shownApps = show === 'sites' ? [] : appList;
-    const shownSites = show === 'apps' ? [] : show === 'sites' ? siteList : siteList.filter((site) => appsOf(site).length === 0);
+    // A site that serves an app is listed with it; the rest (a folder, a proxy, a redirect) stand on their own.
+    const shownApps = appList;
+    const shownSites = siteList.filter((site) => appsOf(site).length === 0);
     const pending = (can('apps.view') && apps.isPending) || (can('sites.view') && sites.isPending);
     const empty = !pending && appList.length === 0 && siteList.length === 0;
     const error = apps.error ?? sites.error;
@@ -115,54 +144,6 @@ function AppsAndSitesTab() {
     return (
         <div className="space-y-4">
             <ErrorNote message={error ? errorMessage(error) : null} />
-            <div className="flex flex-wrap items-center justify-between gap-3">
-                {can('apps.view') && can('sites.view') ? (
-                    <div role="radiogroup" aria-label="Show" className="flex gap-1 rounded-lg border border-line bg-surface p-1">
-                        {(
-                            [
-                                ['all', 'All'],
-                                ['apps', `Apps (${appList.length})`],
-                                ['sites', `Sites (${siteList.length})`],
-                            ] as const
-                        ).map(([value, label]) => (
-                            <button
-                                key={value}
-                                type="button"
-                                role="radio"
-                                aria-checked={show === value}
-                                onClick={() => setParams(value === 'all' ? {} : { show: value }, { replace: true })}
-                                className={cx('h-7 rounded-md px-3 text-sm', show === value ? 'bg-subtle font-medium text-ink' : 'text-muted hover:text-ink')}
-                            >
-                                {label}
-                            </button>
-                        ))}
-                    </div>
-                ) : (
-                    <span />
-                )}
-                <div className="flex flex-wrap justify-end gap-2">
-                    {can('sites.manage') && (
-                        <Link to="/sites/new">
-                            <Button variant="secondary">Add site</Button>
-                        </Link>
-                    )}
-                    {can('apps.manage') && (
-                        <>
-                            <Button
-                                variant="secondary"
-                                onClick={() => setCreating(true)}
-                                disabled={!repositories.data?.length}
-                                title={repositories.data?.length ? undefined : 'Add a repository first'}
-                            >
-                                New app by hand
-                            </Button>
-                            <Link to="/apps/new">
-                                <Button>New from a recipe</Button>
-                            </Link>
-                        </>
-                    )}
-                </div>
-            </div>
             {empty && (
                 <Notice>
                     {can('apps.view') ? (
@@ -175,7 +156,6 @@ function AppsAndSitesTab() {
                     )}
                 </Notice>
             )}
-            {creating && repositories.data && <NewAppCard repositories={repositories.data} onClose={() => setCreating(false)} />}
             {pending ? (
                 <Spinner />
             ) : (

@@ -1,5 +1,5 @@
 import { Link } from 'react-router';
-import { AlertRow, type AlertEventView } from './AlertsPage';
+import { AlertRow, type AlertEventView } from './AlertsTab';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { api, errorMessage, type MetricPoint, type MetricsHistory, type MetricsSnapshot, type SystemInfo } from '../api';
@@ -31,7 +31,7 @@ export function DashboardPage() {
         <div className="space-y-6">
             <PageHeader title="Dashboard" />
             {alerts.data?.open.map((a) => (
-                <Link key={a.id} to="/alerts" className="block">
+                <Link key={a.id} to="/updates?tab=alerts" className="block">
                     <AlertRow alert={a} />
                 </Link>
             ))}

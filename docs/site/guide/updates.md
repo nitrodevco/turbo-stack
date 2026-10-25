@@ -2,7 +2,7 @@
 
 ## The panel
 
-The **Updates** page shows the panel's version and checks its release channel every six hours (or when you press **Check now**):
+The **Updates & alerts** page shows the panel's version and checks its release channel every six hours (or when you press **Check now**):
 
 - **Stable** — tested releases.
 - **Beta** — earlier access; stable releases reach beta too.

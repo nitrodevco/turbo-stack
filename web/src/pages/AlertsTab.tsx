@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { api, errorMessage } from '../api';
 import { usePermissions } from '../auth';
-import { Badge, Button, Card, ErrorNote, Field, Notice, PageHeader, SelectField, Spinner } from '../components/ui';
+import { Badge, Button, Card, ErrorNote, Field, Notice, SelectField, Spinner } from '../components/ui';
 import { formatRelative } from '../format';
 
 export type AlertEventView = {
@@ -32,13 +32,14 @@ type AlertSettingsView = {
     channels: ChannelView[];
 };
 
-export function AlertsPage() {
+/** What the panel watches and who it tells, a tab of Updates & alerts. */
+export function AlertsTab() {
     const can = usePermissions();
     const alerts = useQuery({ queryKey: ['alerts'], queryFn: () => api.get<{ open: AlertEventView[]; recent: AlertEventView[] }>('/api/alerts'), refetchInterval: 30_000 });
 
     return (
         <div className="space-y-6">
-            <PageHeader title="Alerts" description="The panel checks the server every minute and tells you when something needs you: once when it starts, once when it's fixed." />
+            <p className="text-sm text-muted">The panel checks the server every minute and tells you when something needs you: once when it starts, once when it's fixed.</p>
             <ErrorNote message={alerts.error ? errorMessage(alerts.error) : null} />
             {alerts.isPending ? (
                 <Spinner />

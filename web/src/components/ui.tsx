@@ -99,13 +99,16 @@ export function Badge({ tone = 'neutral', children }: { tone?: BadgeTone; childr
     return <span className={`inline-flex items-center gap-1.5 rounded-md border px-1.5 py-0.5 font-mono text-[11px] font-medium whitespace-nowrap uppercase ${badgeTones[tone]}`}>{children}</span>;
 }
 
+export type HeaderTabs<T extends string> = { items: { id: T; label: string }[]; value: T; onChange: (id: T) => void };
+
 /**
  * The top of every page, in the bar along the top of the window as Turbo Admin has it: the page's
  * icon, its title and a line under it, and its actions to the right; along its bottom edge the
- * page's name, marked as a tab is. It reaches the window's edges past the page's own padding. On a
- * phone it stays at the top as an app bar.
+ * page's tabs (or, with none, its name marked as a tab is), so a page never has a second row of tabs
+ * under its header. It reaches the window's edges past the page's own padding. On a phone it stays
+ * at the top as an app bar.
  */
-export function PageHeader({ title, description, actions }: { title: string; description?: ReactNode; actions?: ReactNode }) {
+export function PageHeader<T extends string>({ title, description, actions, tabs }: { title: string; description?: ReactNode; actions?: ReactNode; tabs?: HeaderTabs<T> }) {
     const entry = useActiveEntry();
 
     return (
@@ -118,12 +121,29 @@ export function PageHeader({ title, description, actions }: { title: string; des
                 </div>
                 {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
             </div>
-            <div className="flex h-10 items-end px-2 max-lg:hidden sm:px-4 lg:px-6">
-                <span className="-mb-px flex shrink-0 items-center gap-1.5 border-b-2 border-accent px-3 py-2 text-sm font-medium whitespace-nowrap text-accent [&>svg]:size-4">
-                    {entry?.icon}
-                    {title}
-                </span>
-            </div>
+            {tabs ? (
+                <div role="tablist" className="no-scrollbar flex h-10 items-end gap-1 overflow-x-auto px-2 sm:px-4 lg:px-6">
+                    {tabs.items.map((tab) => (
+                        <button
+                            key={tab.id}
+                            type="button"
+                            role="tab"
+                            aria-selected={tab.id === tabs.value}
+                            onClick={() => tabs.onChange(tab.id)}
+                            className={`-mb-px shrink-0 border-b-2 px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors ${tab.id === tabs.value ? 'border-accent text-accent' : 'border-transparent text-muted hover:text-ink'}`}
+                        >
+                            {tab.label}
+                        </button>
+                    ))}
+                </div>
+            ) : (
+                <div className="flex h-10 items-end px-2 max-lg:hidden sm:px-4 lg:px-6">
+                    <span className="-mb-px flex shrink-0 items-center gap-1.5 border-b-2 border-accent px-3 py-2 text-sm font-medium whitespace-nowrap text-accent [&>svg]:size-4">
+                        {entry?.icon}
+                        {title}
+                    </span>
+                </div>
+            )}
         </header>
     );
 }

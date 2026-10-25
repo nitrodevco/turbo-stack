@@ -12,7 +12,7 @@ import {
     type IpListView,
 } from '../api';
 import { usePermissions } from '../auth';
-import { Badge, Button, Card, ErrorNote, Field, Input, Modal, Notice, PageHeader, SelectField, Spinner, TableWrap, Tabs } from '../components/ui';
+import { Badge, Button, Card, ErrorNote, Field, Input, Modal, Notice, PageHeader, SelectField, Spinner, TableWrap } from '../components/ui';
 import { firewallApi, useFirewallCommit } from '../firewall';
 
 type Tab = 'rules' | 'lists' | 'exposure' | 'fail2ban';
@@ -23,21 +23,21 @@ export function FirewallPage() {
 
     return (
         <div className="space-y-6">
-            <PageHeader
+            <PageHeader<Tab>
                 title="Firewall"
                 description="Rules the panel manages are tagged in ufw; rules added by hand over SSH are left alone and shown separately."
+                tabs={{
+                    items: [
+                        { id: 'rules', label: 'Rules' },
+                        { id: 'lists', label: 'IP lists' },
+                        { id: 'exposure', label: 'Exposure check' },
+                        { id: 'fail2ban', label: 'Brute-force protection' },
+                    ],
+                    value: tab,
+                    onChange: setTab,
+                }}
             />
             {overview.data && <FirewallStatus overview={overview.data} />}
-            <Tabs<Tab>
-                tabs={[
-                    { id: 'rules', label: 'Rules' },
-                    { id: 'lists', label: 'IP lists' },
-                    { id: 'exposure', label: 'Exposure check' },
-                    { id: 'fail2ban', label: 'Brute-force protection' },
-                ]}
-                value={tab}
-                onChange={setTab}
-            />
             <ErrorNote message={overview.error ? errorMessage(overview.error) : null} />
             {tab === 'rules' && (overview.data ? <RulesTab overview={overview.data} /> : <Spinner />)}
             {tab === 'lists' && <IpListsTab />}

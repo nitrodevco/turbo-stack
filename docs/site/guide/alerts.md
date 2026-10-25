@@ -2,7 +2,7 @@
 
 The panel checks the server every few minutes and tells you when something needs attention:
 
-- disk or memory almost full (thresholds on the Alerts page);
+- disk or memory almost full (thresholds under *Updates & alerts → Alerts*);
 - an app's service failed or keeps crashing;
 - a certificate expires soon or couldn't be renewed;
 - security updates are waiting;
