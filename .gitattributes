@@ -6,4 +6,6 @@
 install/** text eol=lf
 test-env/** text eol=lf
 scripts/** text eol=lf
+# The code embeds scripts and config in C# raw strings and recipes, which keep the file's line endings.
+src/** text eol=lf
 *.cmd text eol=crlf
