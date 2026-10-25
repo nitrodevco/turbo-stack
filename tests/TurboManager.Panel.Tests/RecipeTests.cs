@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Numerics;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using TurboManager.Panel.Recipes;
 
 namespace TurboManager.Panel.Tests;
@@ -201,6 +202,7 @@ public sealed class RecipeApiTests : IAsyncLifetime
         Assert.Contains("root /home/hotel/apps/admin/current/turbo-admin/dist;", site);
         Assert.Contains("proxy_pass http://127.0.0.1:8090;", site);
         Assert.Contains("Content-Security-Policy", site);
+        Assert.Single(Regex.Matches(site, "proxy_read_timeout")); // nginx refuses a duplicate
     }
 
     [Fact]

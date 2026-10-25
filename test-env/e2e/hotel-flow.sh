@@ -38,6 +38,10 @@ job_output() { body_of "$(call GET "/api/jobs/$1")" | jq -r .output; }
 # HTTPS through nginx with the self-signed certificates, resolving the hotel's names to the server.
 https() { curl -sk --max-time 30 --resolve "$1:443:$SERVER_IP" "https://$1$2"; }
 
+# The admin panel's own site, by its CSP: without its server block nginx answers with another site's
+# single-page app, which has a <div id="root"> too.
+admin_served() { curl -sk --max-time 30 -D - -o /dev/null --resolve "admin.hotel.test:443:$SERVER_IP" https://admin.hotel.test/ | grep -qi "frame-ancestors 'none'"; }
+
 echo "A hotel in minutes (wizard API, local turbo-cloud + nitro-next)"
 
 call POST /api/setup/claim "{\"token\":\"$TOKEN\"}" >/dev/null
@@ -85,7 +89,7 @@ UPGRADE="$(curl -sk --http1.1 --max-time 5 -i --resolve "ws.hotel.test:443:$SERV
     -H 'Sec-WebSocket-Version: 13' -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' https://ws.hotel.test/ || true)"
 [[ "$UPGRADE" == *" 101 "* ]] || fail "wss://ws.hotel.test should reach the emulator: $(head -3 <<<"$UPGRADE")"
 [[ "$(https hotel.test /)" == *'<div id="root"'* ]] || fail "the website should be served over HTTPS"
-[[ "$(https admin.hotel.test /)" == *'<div id="root"'* ]] || fail "the admin panel should be served over HTTPS"
+admin_served || fail "the admin panel should be served over HTTPS"
 [[ "$(curl -sk -o /dev/null -w '%{http_code}' --resolve "hotel.test:443:$SERVER_IP" https://hotel.test/gamedata/hashes)" == "200" ]] \
     || fail "the emulator's gamedata should be served on the website"
 pass "website, admin panel, gamedata and the emulator's WebSocket answer over HTTPS"
@@ -134,7 +138,7 @@ pass "admin panel removed: its app and site are gone, the emulator points at the
 
 JOB="$(body_of "$(call POST "/api/stacks/$STACK/roles/admin" '{}')" | jq -r .jobId)"
 [[ "$(job_status "$JOB" 1200)" == "succeeded" ]] || fail "adding the admin panel back failed: $(job_output "$JOB" | tail -40)"
-[[ "$(https admin.hotel.test /)" == *'<div id="root"'* ]] || fail "the admin panel should be served again"
+admin_served || fail "the admin panel should be served again"
 [[ "$(body_of "$(call GET "/api/apps/$EMULATOR/environment")" | jq -r .TURBO__Turbo__Admin__PanelUrl)" == "https://admin.hotel.test" ]]     || fail "the emulator should be wired to the admin panel again"
 pass "admin panel added back: created, certified, deployed and wired"
 

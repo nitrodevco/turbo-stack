@@ -48,8 +48,8 @@ site:
     - path: /api/
       kind: Proxy
       target: "http://127.0.0.1:{{ input.apiPort }}"
+      # Proxy routes already get a proxy_read_timeout; nginx refuses a second one.
       snippet: |
-        proxy_read_timeout 60s;
         client_max_body_size 64k;
 
 notes:
