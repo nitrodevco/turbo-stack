@@ -558,7 +558,15 @@ public sealed class DeployManager(ICommandRunner commands, IOptions<AgentOptions
                     set -euo pipefail
                     tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
                     curl -fsSL https://dot.net/v1/dotnet-install.sh -o "$tmp/dotnet-install.sh"
-                    bash "$tmp/dotnet-install.sh" --channel "$1" --install-dir "$2/dotnet" --no-path
+                    # The channel's exact version, so the script downloads from the feed: with only a channel
+                    # it follows an aka.ms link, and when that points at a broken download it doesn't try the
+                    # feed. The channel is the fallback if the version can't be read.
+                    version="$(curl -fsSL "https://builds.dotnet.microsoft.com/dotnet/Sdk/$1/latest.version" | tail -n1 | tr -d '\r' || true)"
+                    if [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+                        bash "$tmp/dotnet-install.sh" --version "$version" --install-dir "$2/dotnet" --no-path
+                    else
+                        bash "$tmp/dotnet-install.sh" --channel "$1" --install-dir "$2/dotnet" --no-path
+                    fi
                     "$2/dotnet/dotnet" --info | head -n 20
                     """;
                 break;
